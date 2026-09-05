@@ -7,12 +7,35 @@ import pytest
 from stanag4609.errors import DecodeError, TruncatedData
 from stanag4609.transport.mpegts import (
     TS_PACKET_SIZE,
+    AdaptationFieldExtension,
     ProgramClockReference,
     TransportStreamParser,
     encode_program_clock_reference,
     iter_transport_stream,
     parse_transport_packet,
 )
+
+
+def _adaptation_packet(adaptation: bytes) -> bytes:
+    payload = bytes(TS_PACKET_SIZE - 5 - len(adaptation))
+    return (
+        _header(0x101, adaptation_field_control=3)
+        + bytes((len(adaptation),))
+        + adaptation
+        + payload
+    )
+
+
+def _seamless_splice(splice_type: int, timestamp: int) -> bytes:
+    return bytes(
+        (
+            (splice_type << 4) | (((timestamp >> 30) & 0x07) << 1) | 1,
+            (timestamp >> 22) & 0xFF,
+            (((timestamp >> 15) & 0x7F) << 1) | 1,
+            (timestamp >> 7) & 0xFF,
+            ((timestamp & 0x7F) << 1) | 1,
+        )
+    )
 
 
 def _header(
@@ -77,6 +100,51 @@ def test_parse_pcr_and_opcr_from_adaptation_field_exactly() -> None:
     assert packet.pcr.ticks == (0x1ABCDEFFF * 300) + 299
     assert packet.pcr.seconds == pytest.approx(packet.pcr.ticks / 27_000_000)
     assert not packet.discontinuity_indicator
+
+
+def test_parse_complete_adaptation_field_structure() -> None:
+    timestamp = 0x1ABCDEFFF
+    extension = (
+        b"\xff"
+        + (0x8000 | 0x1234).to_bytes(2, "big")
+        + (0xC00000 | 0x23456).to_bytes(3, "big")
+        + _seamless_splice(10, timestamp)
+        + b"\xff"
+    )
+    adaptation = b"\x27\xfe\x03abc" + bytes((len(extension),)) + extension + b"\xff"
+
+    packet = parse_transport_packet(_adaptation_packet(adaptation))
+
+    assert packet.elementary_stream_priority_indicator
+    assert packet.splice_countdown == -2
+    assert packet.transport_private_data == b"abc"
+    assert packet.adaptation_field_extension == AdaptationFieldExtension(
+        legal_time_window_valid=True,
+        legal_time_window_offset=0x1234,
+        piecewise_rate=0x23456,
+        splice_type=10,
+        dts_next_access_unit=timestamp,
+    )
+
+
+@pytest.mark.parametrize(
+    "adaptation, message",
+    [
+        (b"\x02\x03ab", "private data"),
+        (b"\x01\x02\xff", "extension"),
+        (b"\x01\x01\xe0", "reserved"),
+        (b"\x01\x04\x5f\x00\x00\x00", "piecewise-rate reserved"),
+        (b"\x01\x04\x5f\xc0\x00\x00", "must be positive"),
+        (b"\x01\x06\x3f" + _seamless_splice(0, 0), "splicing_point_flag"),
+        (b"\x04", "splice countdown"),
+        (b"\x00\x00", "stuffing"),
+    ],
+)
+def test_adaptation_optional_fields_are_bounded_and_validated(
+    adaptation: bytes, message: str
+) -> None:
+    with pytest.raises(DecodeError, match=message):
+        parse_transport_packet(_adaptation_packet(adaptation))
 
 
 def test_adaptation_flags_and_clock_reference_encoding_are_validated() -> None:

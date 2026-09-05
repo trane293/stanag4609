@@ -431,6 +431,7 @@ from stanag4609.transport.metadata_stream import (
     ST0601ContextProvider,
 )
 from stanag4609.transport.mpegts import (
+    AdaptationFieldExtension,
     ProgramClockReference,
     TransportPacket,
     TransportStreamParser,
@@ -636,6 +637,7 @@ __all__ = [
     "Acceleration",
     "ActivePayloads",
     "ActiveWavelengthList",
+    "AdaptationFieldExtension",
     "AirbaseLocation",
     "AirbaseLocations",
     "AlgorithmLocalSet",

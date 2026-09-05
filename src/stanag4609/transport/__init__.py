@@ -38,6 +38,7 @@ from stanag4609.transport.metadata_stream import (
 )
 from stanag4609.transport.mpegts import (
     TS_PACKET_SIZE,
+    AdaptationFieldExtension,
     ProgramClockReference,
     TransportPacket,
     TransportStreamParser,
@@ -222,6 +223,7 @@ __all__ = [
     "ST1402_RECOMMENDED_PSI_INTERVAL",
     "TS_PACKET_BITS",
     "TS_PACKET_SIZE",
+    "AdaptationFieldExtension",
     "AsynchronousMetadataSTDByte",
     "AsynchronousMetadataSTDModel",
     "AsynchronousMetadataSTDModelResult",

@@ -43,6 +43,17 @@ class ProgramClockReference:
         return Fraction(self.ticks, 27_000_000)
 
 
+@dataclass(frozen=True, slots=True)
+class AdaptationFieldExtension:
+    """Decoded optional fields from an H.222.0 adaptation-field extension."""
+
+    legal_time_window_valid: bool | None = None
+    legal_time_window_offset: int | None = None
+    piecewise_rate: int | None = None
+    splice_type: int | None = None
+    dts_next_access_unit: int | None = None
+
+
 def encode_program_clock_reference(clock: ProgramClockReference) -> bytes:
     """Encode the six-byte PCR/OPCR representation from H.222.0 Table 2-6."""
 
@@ -87,6 +98,77 @@ def _parse_program_clock_reference(
     return ProgramClockReference(base, extension), end
 
 
+def _require_adaptation_bytes(
+    data: bytes, cursor: int, length: int, *, name: str
+) -> tuple[bytes, int]:
+    end = cursor + length
+    if end > len(data):
+        raise DecodeError(f"MPEG-2 TS adaptation field truncates {name}")
+    return data[cursor:end], end
+
+
+def _parse_adaptation_timestamp(value: bytes) -> tuple[int, int]:
+    if len(value) != 5 or any(value[index] & 1 != 1 for index in (0, 2, 4)):
+        raise DecodeError("MPEG-2 TS DTS_next_AU marker bits must all be one")
+    splice_type = value[0] >> 4
+    timestamp = (
+        ((value[0] >> 1) & 0x07) << 30
+        | value[1] << 22
+        | (value[2] >> 1) << 15
+        | value[3] << 7
+        | (value[4] >> 1)
+    )
+    return splice_type, timestamp
+
+
+def _parse_adaptation_field_extension(
+    data: bytes, *, splicing_point: bool
+) -> AdaptationFieldExtension:
+    if not data:
+        raise DecodeError("MPEG-2 TS adaptation field extension omits flags")
+    flags = data[0]
+    if flags & 0x1F != 0x1F:
+        raise DecodeError("MPEG-2 TS adaptation extension reserved bits must all be one")
+    cursor = 1
+    ltw_valid = None
+    ltw_offset = None
+    piecewise_rate = None
+    splice_type = None
+    dts_next_access_unit = None
+    if flags & 0x80:
+        value, cursor = _require_adaptation_bytes(
+            data, cursor, 2, name="legal time window"
+        )
+        encoded = int.from_bytes(value, "big")
+        ltw_valid = bool(encoded & 0x8000)
+        ltw_offset = encoded & 0x7FFF
+    if flags & 0x40:
+        value, cursor = _require_adaptation_bytes(
+            data, cursor, 3, name="piecewise rate"
+        )
+        if value[0] & 0xC0 != 0xC0:
+            raise DecodeError("MPEG-2 TS piecewise-rate reserved bits must all be one")
+        piecewise_rate = int.from_bytes(value, "big") & 0x3FFFFF
+        if piecewise_rate == 0:
+            raise DecodeError("MPEG-2 TS piecewise_rate must be positive")
+    if flags & 0x20:
+        if not splicing_point:
+            raise DecodeError("MPEG-2 TS seamless splice requires splicing_point_flag")
+        value, cursor = _require_adaptation_bytes(
+            data, cursor, 5, name="seamless splice"
+        )
+        splice_type, dts_next_access_unit = _parse_adaptation_timestamp(value)
+    if any(byte != 0xFF for byte in data[cursor:]):
+        raise DecodeError("MPEG-2 TS adaptation extension stuffing must be 0xFF")
+    return AdaptationFieldExtension(
+        ltw_valid,
+        ltw_offset,
+        piecewise_rate,
+        splice_type,
+        dts_next_access_unit,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class TransportPacket:
     """One parsed MPEG-2 TS packet with its exact source bytes."""
@@ -105,6 +187,10 @@ class TransportPacket:
     discontinuity_indicator: bool
     pcr: ProgramClockReference | None
     opcr: ProgramClockReference | None
+    elementary_stream_priority_indicator: bool = False
+    splice_countdown: int | None = None
+    transport_private_data: bytes | None = None
+    adaptation_field_extension: AdaptationFieldExtension | None = None
 
     @property
     def has_adaptation_field(self) -> bool:
@@ -143,6 +229,10 @@ def parse_transport_packet(raw: bytes, *, offset: int = 0) -> TransportPacket:
     discontinuity_indicator = False
     pcr = None
     opcr = None
+    elementary_stream_priority_indicator = False
+    splice_countdown = None
+    transport_private_data = None
+    adaptation_field_extension = None
     payload_start = 4
     if adaptation_field_control in {2, 3}:
         adaptation_length = raw[4]
@@ -158,6 +248,7 @@ def parse_transport_packet(raw: bytes, *, offset: int = 0) -> TransportPacket:
         if adaptation_field:
             flags = adaptation_field[0]
             discontinuity_indicator = bool(flags & 0x80)
+            elementary_stream_priority_indicator = bool(flags & 0x20)
             cursor = 1
             if flags & 0x10:
                 pcr, cursor = _parse_program_clock_reference(
@@ -167,6 +258,36 @@ def parse_transport_packet(raw: bytes, *, offset: int = 0) -> TransportPacket:
                 opcr, cursor = _parse_program_clock_reference(
                     adaptation_field, cursor, name="OPCR"
                 )
+            if flags & 0x04:
+                value, cursor = _require_adaptation_bytes(
+                    adaptation_field, cursor, 1, name="splice countdown"
+                )
+                splice_countdown = int.from_bytes(value, "big", signed=True)
+            if flags & 0x02:
+                length_value, cursor = _require_adaptation_bytes(
+                    adaptation_field, cursor, 1, name="private-data length"
+                )
+                transport_private_data, cursor = _require_adaptation_bytes(
+                    adaptation_field,
+                    cursor,
+                    length_value[0],
+                    name="transport private data",
+                )
+            if flags & 0x01:
+                length_value, cursor = _require_adaptation_bytes(
+                    adaptation_field, cursor, 1, name="extension length"
+                )
+                extension_data, cursor = _require_adaptation_bytes(
+                    adaptation_field,
+                    cursor,
+                    length_value[0],
+                    name="adaptation field extension",
+                )
+                adaptation_field_extension = _parse_adaptation_field_extension(
+                    extension_data, splicing_point=bool(flags & 0x04)
+                )
+            if any(byte != 0xFF for byte in adaptation_field[cursor:]):
+                raise DecodeError("MPEG-2 TS adaptation field stuffing must be 0xFF")
 
     has_payload = adaptation_field_control in {1, 3}
     payload = raw[payload_start:] if has_payload else b""
@@ -185,6 +306,10 @@ def parse_transport_packet(raw: bytes, *, offset: int = 0) -> TransportPacket:
         discontinuity_indicator=discontinuity_indicator,
         pcr=pcr,
         opcr=opcr,
+        elementary_stream_priority_indicator=elementary_stream_priority_indicator,
+        splice_countdown=splice_countdown,
+        transport_private_data=transport_private_data,
+        adaptation_field_extension=adaptation_field_extension,
     )
 
 

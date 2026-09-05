@@ -2342,6 +2342,13 @@ def test_verifier_reports_duplicate_scrambled_and_transport_error_packets() -> N
     error_report = _verify(bytes(damaged))
     assert any(finding.code == "transport.decode" for finding in error_report.errors)
 
+    malformed_adaptation = bytes.fromhex("471FFF20B700") + bytes(182)
+    malformed_report = _verify(transport + malformed_adaptation)
+    assert any(
+        finding.code == "transport.decode" and "stuffing" in finding.message
+        for finding in malformed_report.errors
+    )
+
 
 def test_verifier_bounds_findings_and_validates_incremental_api() -> None:
     with pytest.raises(TypeError, match="booleans"):
