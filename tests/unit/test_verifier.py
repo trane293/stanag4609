@@ -751,6 +751,56 @@ def test_verifier_rejects_avc_profile_outside_adopted_misp_range() -> None:
     assert "Baseline Level 4.1" in issue.message
 
 
+def test_verifier_rejects_any_out_of_profile_sequence_not_only_latest() -> None:
+    out_of_profile = bytes.fromhex(
+        "00000001674200298c680780227e5ffc00040004400000fa40003a9825"
+        "0000000000000000"
+    )
+    conforming_latest = bytes.fromhex(
+        "000000016742c028d9005005bb0110000003001000000303c0f183248000"
+    )
+    report = _verify(
+        _transport(
+            video_payload=out_of_profile
+            + b"\x00\x00\x01\x09"
+            + conforming_latest
+            + b"\x00\x00\x01\x09"
+        )
+    )
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_properties is not None
+    assert video.video_properties.sequences == 2
+    assert video.video_properties.latest is not None
+    assert video.video_properties.latest.misp_profile_level is True
+    assert video.video_properties.profile_level_violations == 1
+    assert video.to_dict()["video_properties"]["profile_level_violations"] == 1
+    finding = next(
+        item for item in report.findings if item.code == "misp.video.profile_level"
+    )
+    assert finding.status is VerificationStatus.ERROR
+    assert "1 of 2 observed sequence property sets" in finding.message
+
+
+def test_verifier_rejects_any_interlaced_sequence_not_only_latest() -> None:
+    interlaced = bytes.fromhex("000001b32d01e03430d42380000001b514821fffff00")
+    progressive_latest = bytes.fromhex("000001b32d01e03430d42380000001b5148a1fffff00")
+    report = _verify(
+        _transport(
+            video_stream_type=0x02,
+            video_payload=interlaced + progressive_latest + b"\x00\x00\x01\xb7",
+        )
+    )
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_properties is not None
+    assert video.video_properties.interlaced_sequences == 1
+    assert video.video_properties.ambiguous_scan_sequences == 0
+    finding = next(item for item in report.findings if item.code == "misp.video.progressive")
+    assert finding.status is VerificationStatus.ERROR
+    assert "1 of 2 observed sequence property sets" in finding.message
+
+
 def test_verifier_accepts_hevc_main10_profile_in_adopted_misp_range() -> None:
     main10_sps = bytes.fromhex(
         "0000000142010102200000030090000003000003003fa005020169365959a493"

@@ -227,6 +227,9 @@ class VideoPropertiesVerificationSummary:
     latest: VideoProperties | None
     property_changes: int
     parsing_errors: int
+    profile_level_violations: int = 0
+    interlaced_sequences: int = 0
+    ambiguous_scan_sequences: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -234,6 +237,9 @@ class VideoPropertiesVerificationSummary:
             "latest": self.latest.to_dict() if self.latest is not None else None,
             "property_changes": self.property_changes,
             "parsing_errors": self.parsing_errors,
+            "profile_level_violations": self.profile_level_violations,
+            "interlaced_sequences": self.interlaced_sequences,
+            "ambiguous_scan_sequences": self.ambiguous_scan_sequences,
         }
 
 
@@ -761,6 +767,9 @@ class _VideoPropertiesStats:
     latest: VideoProperties | None = None
     property_changes: int = 0
     parsing_errors: int = 0
+    profile_level_violations: int = 0
+    interlaced_sequences: int = 0
+    ambiguous_scan_sequences: int = 0
 
     def __post_init__(self) -> None:
         self.parser = self._new_parser()
@@ -777,6 +786,12 @@ class _VideoPropertiesStats:
     def observe(self, records: Sequence[VideoProperties]) -> None:
         for properties in records:
             self.sequences += 1
+            if not properties.misp_profile_level:
+                self.profile_level_violations += 1
+            if properties.progressive is False:
+                self.interlaced_sequences += 1
+            elif properties.progressive is None:
+                self.ambiguous_scan_sequences += 1
             if self.latest is not None and properties != self.latest:
                 self.property_changes += 1
             self.latest = properties
@@ -790,6 +805,9 @@ class _VideoPropertiesStats:
             self.latest,
             self.property_changes,
             self.parsing_errors,
+            self.profile_level_violations,
+            self.interlaced_sequences,
+            self.ambiguous_scan_sequences,
         )
 
 
@@ -2532,41 +2550,52 @@ class FMVVerifier:
                 program_number=key[0],
                 pid=key[1],
             )
-            if properties.progressive is None:
+            if property_stats.interlaced_sequences:
+                self._add(
+                    VerificationStatus.ERROR,
+                    "misp.video.progressive",
+                    f"{property_stats.interlaced_sequences} of "
+                    f"{property_stats.sequences} observed sequence property sets permit "
+                    "interlaced coded pictures",
+                    requirement="MISP-2015.1-02",
+                    program_number=key[0],
+                    pid=key[1],
+                )
+            elif property_stats.ambiguous_scan_sequences:
                 self._add(
                     VerificationStatus.WARNING,
                     "misp.video.progressive_unverifiable",
-                    "video sequence does not declare an unambiguous progressive or "
-                    "interlaced source characteristic",
+                    f"{property_stats.ambiguous_scan_sequences} of "
+                    f"{property_stats.sequences} observed sequence property sets do not "
+                    "declare an unambiguous progressive or interlaced source characteristic",
                     requirement="MISP-2015.1-02",
                     program_number=key[0],
                     pid=key[1],
                 )
             else:
                 self._add(
-                    (
-                        VerificationStatus.PASS
-                        if properties.progressive
-                        else VerificationStatus.ERROR
-                    ),
+                    VerificationStatus.PASS,
                     "misp.video.progressive",
-                    "video sequence is progressive-scan"
-                    if properties.progressive
-                    else "video sequence permits interlaced coded pictures",
+                    f"all {property_stats.sequences} observed sequence property set(s) "
+                    "declare progressive-scan coding",
                     requirement="MISP-2015.1-02",
                     program_number=key[0],
                     pid=key[1],
                 )
             self._add(
                 VerificationStatus.PASS
-                if properties.misp_profile_level
+                if not property_stats.profile_level_violations
                 else VerificationStatus.ERROR,
                 "misp.video.profile_level",
-                f"{properties.profile} Level {properties.level} "
-                + (
-                    "is within the selected MISP codec profile"
-                    if properties.misp_profile_level
-                    else "is outside the selected MISP codec profile"
+                (
+                    f"all {property_stats.sequences} observed sequence property set(s) "
+                    f"are within the selected MISP codec profile; latest is "
+                    f"{properties.profile} Level {properties.level}"
+                    if not property_stats.profile_level_violations
+                    else f"{property_stats.profile_level_violations} of "
+                    f"{property_stats.sequences} observed sequence property sets are "
+                    "outside the selected MISP codec profile; latest is "
+                    f"{properties.profile} Level {properties.level}"
                 ),
                 requirement={
                     0x02: "MISP-2018.2-115",

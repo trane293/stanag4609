@@ -160,7 +160,7 @@ errors, carriage errors, and the other structural checks still fail.
 | ST 0903 | Successful standalone or embedded VMTI decode, optional OWL/entity/exact-label resolution, target observations/unique-ID inventory, cross-frame state transitions, dropped-ID reuse, and missing-status diagnostics |
 | ST 1001 | Permitted audio stream types, optional application-required audio, complete MP2/AAC-LC frame parsing, PTS anchoring, sample rate, channel count, sample/frame totals, cumulative duration, malformed headers, and trailing truncation |
 | ST 0604 | Incremental H.262 user-data and AVC/HEVC unregistered-SEI parsing, Time Status validation, micro/nanosecond inventory, timestamp-to-access-unit association, and missing/duplicate/unassociated diagnostics |
-| MISP video profile | H.262/AVC/HEVC coded dimensions, available display ratio/frame rate, scan signalling, chroma/bit depth, profile/level, property changes, adopted MISP profile-range checks, and explicit producer source-aspect/scan context |
+| MISP video profile | H.262/AVC/HEVC coded dimensions, available display ratio/frame rate, scan signalling, chroma/bit depth, profile/level, property changes, stream-wide adopted MISP profile/scan checks across every observed sequence property set, and explicit producer source-aspect/scan context |
 
 VMTI identities are scoped by program, metadata PID, and metadata service ID.
 Reusing an identifier after `Dropped` or taking an impossible state-machine
