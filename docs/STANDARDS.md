@@ -34,7 +34,7 @@ omitting a requirement or minimum metadata group.
 | MISB ST 1303 | 1303.2, 25 June 2020 | Multi-dimensional array packing | Downloaded from official registry |
 | MISB ST 1402 | 1402.2, 27 October 2016 | MPEG-2 TS carriage | Downloaded from official registry |
 | ITU-T H.262 / ISO/IEC 13818-2 | 02/2000 | MPEG-2 Video sequence syntax | Downloaded from ITU |
-| ITU-T H.264 / ISO/IEC 14496-10 | 02/2014 | AVC sequence syntax | Downloaded from ITU |
+| ITU-T H.264 / ISO/IEC 14496-10 | 04/2017 (MISP-adopted); 02/2014 retained | AVC sequence syntax and exact level signalling | Downloaded from ITU |
 | ITU-T H.265 / ISO/IEC 23008-2 | 02/2018 | HEVC sequence syntax | Downloaded from ITU |
 | ITU-T H.222.0 / ISO/IEC 13818-1 | 10/2014 | MPEG-2 Systems and metadata AU syntax | Downloaded from ITU |
 | MISB ST 0603 / 0604 / 0607 | Current registry versions | Time and transport compliance | Downloaded from official registry |

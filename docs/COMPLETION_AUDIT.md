@@ -37,7 +37,8 @@ unqualified “complete STANAG 4609 implementation” or stable `1.0` claim:
    MPEG-2 TS over RTP is traced through MISP-2019.1-76 and
    ST 0804.4-18, and embedded video time through MISP-2018.1-104/ST 0604.6;
    declared video codecs are checked against the Class 1 approved set, and
-   H.262/AVC/HEVC core sequence and VUI properties, including the separate
+   H.262/AVC/HEVC core sequence and VUI properties, including exact valid
+   AVC/HEVC level identifiers and the separate
    Class 1 eight-bit-per-band boundary, are inspected stream-wide across every
    observed sequence property set, producer-known
    source aspect ratio, source/conversion scan facts, and analog/digital

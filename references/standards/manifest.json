@@ -350,6 +350,18 @@
       "redistribution": "unknown-do-not-redistribute"
     },
     {
+      "id": "ITU-T-H.264-2017",
+      "title": "Advanced Video Coding for Generic Audiovisual Services",
+      "edition": "04/2017",
+      "publication_date": "2017-04",
+      "authoritative_url": "https://www.itu.int/rec/T-REC-H.264-201704-S/en",
+      "download_url": "https://www.itu.int/rec/dologin_pub.asp?id=T-REC-H.264-201704-S%21%21PDF-E&lang=e&type=items",
+      "local_file": "ITU-T-H.264-2017.pdf",
+      "sha256": "a3a055d0820988d95d148f7c1fe90885b741da9f5417246365eefaca5a64b048",
+      "access": "downloaded-and-validated-official-publisher",
+      "redistribution": "unknown-do-not-redistribute"
+    },
+    {
       "id": "ITU-T-H.265-2018",
       "title": "High Efficiency Video Coding",
       "edition": "02/2018",

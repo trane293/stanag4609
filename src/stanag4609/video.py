@@ -37,6 +37,8 @@ _H262_LEVELS = {
     10: "Low",
 }
 _H262_CHROMA_FORMATS = {1: "4:2:0", 2: "4:2:2", 3: "4:4:4"}
+_MISP_AVC_LEVEL_CODES = frozenset({9, 10, 11, 12, 13, 20, 21, 22, 30, 31, 32, 40})
+_MISP_HEVC_LEVEL_CODES = frozenset({30, 60, 63, 90, 93, 120, 123, 150, 153})
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,14 +119,12 @@ class VideoProperties:
         if self.stream_type == 0x1B:
             return (
                 self.profile in {"Constrained Baseline", "Main", "High"}
-                and self.level_code is not None
-                and 10 <= self.level_code <= 40
+                and self.level_code in _MISP_AVC_LEVEL_CODES
             )
         if self.stream_type == 0x24:
             return (
                 self.profile_code == 2
-                and self.level_code is not None
-                and 30 <= self.level_code <= 153
+                and self.level_code in _MISP_HEVC_LEVEL_CODES
             )
         return False
 
@@ -463,8 +463,10 @@ def _avc_profile_name(profile_idc: int, constraint_flags: int) -> str:
     return {77: "Main", 100: "High"}.get(profile_idc, f"Profile {profile_idc}")
 
 
-def _avc_level_name(level_idc: int, constraint_flags: int) -> str:
-    if level_idc == 11 and constraint_flags & 0x10:
+def _avc_level_name(profile_idc: int, level_idc: int, constraint_flags: int) -> str:
+    if level_idc == 9 and profile_idc == 100:
+        return "1b"
+    if level_idc == 11 and profile_idc in {66, 77} and constraint_flags & 0x10:
         return "1b"
     return f"{level_idc // 10}.{level_idc % 10}"
 
@@ -545,7 +547,7 @@ def _parse_avc_sps(ebsp: bytes) -> VideoProperties:
         frame_rate=frame_rate,
         progressive=frame_mbs_only,
         profile=_avc_profile_name(profile_idc, constraint_flags),
-        level=_avc_level_name(level_idc, constraint_flags),
+        level=_avc_level_name(profile_idc, level_idc, constraint_flags),
         chroma_format=_AVC_CHROMA_FORMATS[chroma_format_idc],
         profile_code=profile_idc,
         level_code=level_idc,

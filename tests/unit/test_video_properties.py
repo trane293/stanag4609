@@ -12,6 +12,7 @@ from stanag4609.video import (
     H262VideoPropertiesParser,
     HEVCVideoPropertiesParser,
     VideoProperties,
+    _avc_level_name,
 )
 
 
@@ -58,12 +59,13 @@ def _synthetic_hevc_sps(
     aspect_ratio_idc: int = 1,
     sar: tuple[int, int] = (1, 1),
     timing: tuple[int, int] = (1001, 60000),
+    level_idc: int = 63,
 ) -> bytes:
     bits = "0000" "000" "1"  # VPS id, one temporal layer, temporal nesting
     bits += "00" "0" "00010"  # profile space, tier, Main 10 profile
     bits += f"{1 << 29:032b}"  # Main 10 compatibility
     bits += "1" "0" "0" "1" + "0" * 44  # progressive, frame-only source
-    bits += f"{63:08b}"  # Level 2.1
+    bits += f"{level_idc:08b}"
     bits += _ue_bits(0) + _ue_bits(1)  # SPS id, 4:2:0
     bits += _ue_bits(640) + _ue_bits(360) + "0"  # size, no crop
     bits += _ue_bits(2) + _ue_bits(2) + _ue_bits(log2_poc_minus4)
@@ -290,6 +292,22 @@ def test_avc_properties_expose_real_fmv_profile_violation() -> None:
     assert result[0].misp_profile_level is False
 
 
+def test_avc_properties_reject_reserved_level_code_inside_numeric_range() -> None:
+    sps = bytearray.fromhex("6742c028d9005005bb0110000003001000000303c0f183248000")
+    sps[3] = 14
+    parser = AVCVideoPropertiesParser()
+    result = parser.feed(b"\x00\x00\x01" + sps + b"\x00\x00\x01\x68")
+
+    assert result[0].level == "1.4"
+    assert result[0].misp_profile_level is False
+
+
+def test_avc_level_1b_uses_profile_specific_signalling() -> None:
+    assert _avc_level_name(100, 9, 0) == "1b"
+    assert _avc_level_name(66, 11, 0x10) == "1b"
+    assert _avc_level_name(100, 11, 0x10) == "1.1"
+
+
 def test_avc_properties_parser_is_bounded_and_reports_malformed_sps() -> None:
     parser = AVCVideoPropertiesParser(max_unit_size=8)
     with pytest.raises(DecodeError, match="exceeds"):
@@ -400,6 +418,15 @@ def test_hevc_properties_reject_main_profile_for_adopted_misp() -> None:
     assert len(result) == 1
     assert result[0].profile == "Main"
     assert result[0].level == "2"
+    assert result[0].misp_profile_level is False
+
+
+def test_hevc_properties_reject_reserved_level_code_inside_numeric_range() -> None:
+    parser = HEVCVideoPropertiesParser()
+    sps = _synthetic_hevc_sps(level_idc=64)
+    result = parser.feed(b"\x00\x00\x01" + sps + b"\x00\x00\x01\x44\x01")
+
+    assert result[0].level == "Level IDC 64"
     assert result[0].misp_profile_level is False
 
 

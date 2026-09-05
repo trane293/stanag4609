@@ -32,7 +32,8 @@ important negative-conformance expectations.
    every declared video stream is checked against the three approved Class 1
    codec families while non-profile stream types remain losslessly preservable;
    H.262/AVC/HEVC dimensions, display/timing fields, scan signalling, and codec
-   profile/level and the Class 1 eight-bit-per-band limit are now inspected
+   exact non-reserved profile/level signalling and the Class 1
+   eight-bit-per-band limit are now inspected
    across every observed sequence property set, so an early profile, scan, or
    bit-depth violation cannot be hidden by a later sequence.
    Timestamp messages are now associated with
