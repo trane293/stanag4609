@@ -24,6 +24,9 @@
   ST 0601 Item 99 covers the complete software-verifiable ST 1602.2 profile;
   source/composite geometry truth, omitted timestamp equality, and visual
   compositing quality remain producer-owned.
+  ST 0601 Item 97 covers the complete software-verifiable ST 1002.3 profile
+  when collaborative-image dimensions are supplied; measurement truth, IMAP
+  precision, and plane-fit quality remain producer-owned.
 - Remaining ST 0601 producer-owned truth and measurement-quality semantics,
   additional cross-frame ST 0903 geometric semantics, external provisioning
   of asynchronous metadata STD parameters, dependency-free audio sample

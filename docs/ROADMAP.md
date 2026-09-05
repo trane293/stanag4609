@@ -65,8 +65,9 @@ important negative-conformance expectations.
    requirement accounting for its complete software-verifiable profile;
    Item 99 has cross-branch policy validation and checksum-bound exact ST 1602.2
    requirement accounting for its complete software-verifiable profile;
-   Item 97 includes ST 1002
-   caller-dimension SPRM center defaults, plane subtraction, and reconstruction.
+   Item 97 includes checksum-bound exact ST 1002.3 requirement accounting,
+   caller-dimension SPRM center defaults, plane subtraction, and reconstruction
+   for its complete software-verifiable profile.
    Every active root item is typed, and
    verifier summaries quantify which packets received birth-time,
    IMAP-precision, VMTI frame, and exact/tolerance-aware field ground-truth

@@ -290,6 +290,40 @@
       ]
     },
     {
+      "id": "MISB-ST-1002.3",
+      "source_sha256": "23a6d22f1152c296e5d19c40de3a1b039801923c35b515cbfdba3c408852735d",
+      "trace": "docs/requirements/ST1002.3.md",
+      "active_requirements": [
+        "ST 1002.1-02",
+        "ST 1002.1-03",
+        "ST 1002.1-05",
+        "ST 1002.1-06",
+        "ST 1002.1-07",
+        "ST 1002.1-08",
+        "ST 1002.1-09",
+        "ST 1002.1-13",
+        "ST 1002.1-14",
+        "ST 1002.1-15",
+        "ST 1002.3-16",
+        "ST 1002.3-17",
+        "ST 1002.3-18",
+        "ST 1002.3-19",
+        "ST 1002.3-20",
+        "ST 1002.3-21",
+        "ST 1002.3-22",
+        "ST 1002.3-23",
+        "ST 1002.3-24",
+        "ST 1002.3-25"
+      ],
+      "inactive_requirements": [
+        {"id": "ST 1002.1-01", "status": "retired"},
+        {"id": "ST 1002.1-04", "status": "retired"},
+        {"id": "ST 1002.1-10", "status": "retired"},
+        {"id": "ST 1002.1-11", "status": "retired"},
+        {"id": "ST 1002.1-12", "status": "retired"}
+      ]
+    },
+    {
       "id": "MISB-ST-1206.1",
       "source_sha256": "77aa085b264afd55da1e90d7060e5eca69bc3513ba1e64daffef8a802f851ee6",
       "trace": "docs/requirements/ST1206.1.md",

@@ -25,6 +25,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 - Bind all ten active ST 1602.2 requirements to the checksum-pinned publication
   and close the software-verifiable Composite Imaging profile used by ST 0601
   Item 99.
+- Bind all 20 active and five retired ST 1002.3 requirements to the
+  checksum-pinned publication, enforce the exact version value, and close the
+  software-verifiable Range Motion Imagery profile used by ST 0601 Item 97.
 
 ## 0.1.0 - 2026-09-05
 

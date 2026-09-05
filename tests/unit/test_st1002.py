@@ -243,6 +243,18 @@ def test_standalone_range_image_crc_and_required_items() -> None:
     assert decoded.standalone is True
 
 
+def test_document_version_must_identify_st1002_3() -> None:
+    with pytest.raises(ValueError, match="Document Version must be 3"):
+        encode_range_image_local_set(
+            RangeImageLocalSet(WHEN, 2, _enumerations()),
+            standalone=False,
+        )
+
+    wire = b"\x01\x08" + (0).to_bytes(8, "big") + b"\x0b\x01\x02\x0c\x01\x00"
+    with pytest.raises(DecodeError, match="Document Version must be 3"):
+        decode_range_image_local_set(wire, standalone=False)
+
+
 def test_embedded_range_image_omits_crc_and_nests_st1202() -> None:
     transform = GeneralizedTransformation(
         document_version=3,

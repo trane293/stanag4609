@@ -48,10 +48,10 @@ and send the same timed metadata to independent GIS or analytics consumers.
   and the ST 0601 Item 95 bridge.
 - ST 1303.2 Multi-Dimensional Array Packs with Natural, IMAP, Boolean,
   BER-OID unsigned, and ordered run-length representations.
-- ST 1002.3 range imagery with standalone/embedded CRC handling, SPRMs,
-  dimension-aware center defaults for omitted SPRM coordinates, sectioned ST
-  1303 arrays, dependency-free plane subtraction/reconstruction, and the ST
-  0601 Item 97 bridge.
+- ST 1002.3 range imagery with source-bound complete requirement accounting,
+  standalone/embedded CRC handling, SPRMs, dimension-aware center defaults for
+  omitted SPRM coordinates, sectioned ST 1303 arrays, dependency-free plane
+  subtraction/reconstruction, and the ST 0601 Item 97 bridge.
 - ST 1601.2 geo-registration with source-bound complete requirement accounting,
   typed tie-point arrays, UUID configuration identity, heterogeneous uncertainty
   mappings, and the ST 0601 Item 98 bridge.

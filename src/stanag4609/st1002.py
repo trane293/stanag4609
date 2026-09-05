@@ -40,6 +40,7 @@ from stanag4609.st1303 import (
 RANGE_IMAGE_LOCAL_SET_KEY = bytes.fromhex(
     "06 0E 2B 34 02 0B 01 01 0E 01 03 03 0C 00 00 00"
 )
+_DOCUMENT_VERSION = 3
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 _FLOAT_FORMATS = {4: ">f", 8: ">d"}
 
@@ -161,8 +162,10 @@ class RangeImageLocalSet:
             raise ValueError("timestamp must be timezone-aware")
         if isinstance(self.document_version, bool) or not isinstance(self.document_version, int):
             raise TypeError("ST 1002 Document Version must be an integer")
-        if self.document_version < 1:
-            raise ValueError("ST 1002 Document Version must be positive")
+        if self.document_version != _DOCUMENT_VERSION:
+            raise ValueError(
+                f"ST 1002 Document Version must be {_DOCUMENT_VERSION}"
+            )
         if not isinstance(self.enumerations, RangeImageEnumerations):
             raise TypeError("enumerations must be RangeImageEnumerations")
         for name, value in (
@@ -705,8 +708,10 @@ def decode_range_image_local_set(
     assert timestamp_item is not None and version_item is not None and enumeration_item is not None
     timestamp = _decode_timestamp(timestamp_item.value)
     document_version = _decode_uint(version_item.value, name="Document Version")
-    if document_version < 1:
-        raise DecodeError("ST 1002 Document Version must be positive")
+    if document_version != _DOCUMENT_VERSION:
+        raise DecodeError(
+            f"ST 1002 Document Version must be {_DOCUMENT_VERSION}"
+        )
     enumerations = _decode_enumerations(enumeration_item.value)
     values: dict[int, Any] = {1: timestamp, 11: document_version, 12: enumerations}
     float_items = (
