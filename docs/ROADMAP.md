@@ -36,9 +36,10 @@ important negative-conformance expectations.
    remains. All 86 active and 34 deprecated requirement identifiers now have
    checksum-bound exact inventory and human-readable disposition; the verifier
    also enforces MISP-2015.1-49 single-mechanism Security Metadata carriage.
-   Producer-supplied source aspect ratio and source/conversion scan history are
-   now checked directly for MISP-2015.1-01/-02 instead of being inferred from
-   encoded display properties.
+   Producer-supplied source aspect ratio, source/conversion scan history, and
+   analog/digital provenance are now checked directly for
+   MISP-2015.1-01/-02/-05/-06 instead of being inferred from encoded display
+   properties.
 2. Close the remaining contextual and cross-item ST 0601.19 conformance gaps,
    especially producer-supplied time-of-birth/precision facts. The child
    standards embedded by Items 73, 95, 98, and 99 now have typed bridges;

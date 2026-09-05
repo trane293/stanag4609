@@ -73,14 +73,18 @@ stages. Supply those producer-known facts when they are available:
 stanag4609-verify mission.ts \
   --source-aspect-ratio 16:9 \
   --source-scan progressive \
-  --conversion-scan progressive
+  --conversion-scan progressive \
+  --source-form digital \
+  --conversion-form digital
 ```
 
-`--conversion-scan` is repeatable in pipeline order. The verifier checks the
-source aspect ratio against MISP-2015.1-01's inclusive `[0.25, 4.0]` range and
-requires the source and every supplied conversion stage to be progressive for
-MISP-2015.1-02. Omitted facts remain unclaimed rather than being inferred from
-the encoded display aspect ratio.
+`--conversion-scan` and `--conversion-form` are repeatable in pipeline order.
+The verifier checks the source aspect ratio against MISP-2015.1-01's inclusive
+`[0.25, 4.0]` range and requires the source and every supplied conversion stage
+to be progressive for MISP-2015.1-02. It records legacy analog input reaching
+the verifier in digital form for MISP-2015.1-05, and rejects a caller-declared
+analog stage in a digital-native pipeline for MISP-2015.1-06. Omitted facts
+remain unclaimed rather than being inferred from encoded headers.
 
 The same policy is available without the CLI:
 
@@ -95,6 +99,8 @@ report = verify_fmv_file(
         source_aspect_ratio=Fraction(16, 9),
         source_progressive=True,
         conversion_progressive=(True,),
+        source_digital=True,
+        conversion_digital=(True,),
     ),
 )
 ```

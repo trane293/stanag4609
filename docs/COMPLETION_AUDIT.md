@@ -37,8 +37,8 @@ unqualified “complete STANAG 4609 implementation” or stable `1.0` claim:
    MPEG-2 TS over RTP is traced through MISP-2019.1-76 and
    ST 0804.4-18, and embedded video time through MISP-2018.1-104/ST 0604.6;
    H.262/AVC/HEVC core sequence and VUI properties are inspected, producer-known
-   source aspect ratio and source/conversion scan facts can be checked explicitly,
-   ST 0604
+   source aspect ratio, source/conversion scan facts, and analog/digital
+   provenance can be checked explicitly, ST 0604
    timestamps are associated with recognized compressed access units, and RTCP
    Sender Report codec/clock mapping is implemented. Native elementary-stream
    RTP, a complete RTCP session engine, RTSP, remaining image coding, and file

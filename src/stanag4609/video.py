@@ -46,12 +46,16 @@ class MISPImageContext:
     ``source_aspect_ratio`` is the image aspect ratio acquired at the imager,
     which MISP distinguishes from an encoded display aspect ratio. Scan facts
     cover the source and any conversion or transcode stages before the stream
-    reaches the verifier.
+    reaches the verifier. ``source_digital`` and ``conversion_digital`` carry
+    the corresponding producer-known signal-form history; the verifier's input
+    is necessarily the final digital stage.
     """
 
     source_aspect_ratio: Fraction | int | float | None = None
     source_progressive: bool | None = None
     conversion_progressive: tuple[bool, ...] = ()
+    source_digital: bool | None = None
+    conversion_digital: tuple[bool, ...] = ()
 
     def __post_init__(self) -> None:
         ratio = self.source_aspect_ratio
@@ -73,6 +77,15 @@ class MISPImageContext:
         for index, progressive in enumerate(self.conversion_progressive):
             if not isinstance(progressive, bool):
                 raise TypeError(f"conversion_progressive[{index}] must be a boolean")
+        if self.source_digital is not None and not isinstance(self.source_digital, bool):
+            raise TypeError("source_digital must be a boolean or None")
+        if not isinstance(self.conversion_digital, tuple):
+            raise TypeError("conversion_digital must be a tuple of booleans")
+        for index, digital in enumerate(self.conversion_digital):
+            if not isinstance(digital, bool):
+                raise TypeError(f"conversion_digital[{index}] must be a boolean")
+        if self.conversion_digital and self.source_digital is None:
+            raise ValueError("conversion_digital requires source_digital provenance")
 
 
 @dataclass(frozen=True, slots=True)

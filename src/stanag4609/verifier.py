@@ -2335,6 +2335,33 @@ class FMVVerifier:
                 detail,
                 requirement="MISP-2015.1-02",
             )
+        if context.source_digital is False:
+            self._add(
+                VerificationStatus.PASS,
+                "misp.image.legacy_digitization",
+                "producer-supplied analog source reaches the verifier as digital FMV",
+                requirement="MISP-2015.1-05",
+            )
+        elif context.source_digital is True:
+            analog_stages = tuple(
+                index
+                for index, digital in enumerate(context.conversion_digital, start=1)
+                if not digital
+            )
+            conforms = not analog_stages
+            detail = (
+                "producer-supplied digital source and conversion history remain digital"
+                if conforms
+                else "producer-supplied conversion stage "
+                + ", ".join(str(index) for index in analog_stages)
+                + " converts digital source imagery to analog form"
+            )
+            self._add(
+                VerificationStatus.PASS if conforms else VerificationStatus.ERROR,
+                "misp.image.digital_continuity",
+                detail,
+                requirement="MISP-2015.1-06",
+            )
 
     def _add_summary_checks(self) -> None:
         if not self._has_error("transport.structure", "transport.decode"):
@@ -2979,6 +3006,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="scan mode of each conversion/transcode stage, in order; repeatable",
     )
     parser.add_argument(
+        "--source-form",
+        choices=("analog", "digital"),
+        help="producer-known source signal form for MISP-2015.1-05/-06",
+    )
+    parser.add_argument(
+        "--conversion-form",
+        action="append",
+        choices=("analog", "digital"),
+        default=[],
+        help="signal form of each conversion stage, in order; repeatable",
+    )
+    parser.add_argument(
         "--security-classification",
         choices=tuple(
             classification.name.lower().replace("_", "-")
@@ -3045,10 +3084,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 conversion_progressive=tuple(
                     scan == "progressive" for scan in args.conversion_scan
                 ),
+                source_digital=(
+                    None if args.source_form is None else args.source_form == "digital"
+                ),
+                conversion_digital=tuple(
+                    form == "digital" for form in args.conversion_form
+                ),
             )
             if args.source_aspect_ratio is not None
             or args.source_scan is not None
             or args.conversion_scan
+            or args.source_form is not None
+            or args.conversion_form
             else None
         )
         security_context = MISMMSecurityContext(

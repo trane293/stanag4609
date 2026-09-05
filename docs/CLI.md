@@ -17,7 +17,8 @@ stanag4609-verify mission.ts --security-classification secret \
   --object-country-coding-method genc-three-letter \
   --minimum-security-metadata-version 12
 stanag4609-verify mission.ts --source-aspect-ratio 16:9 \
-  --source-scan progressive --conversion-scan progressive
+  --source-scan progressive --conversion-scan progressive \
+  --source-form digital --conversion-form digital
 ```
 
 The verifier reports successful, missing, malformed, warning, and not-applicable
@@ -27,9 +28,9 @@ self-contained and printable. See
 Classification, country-code vocabularies, classifying-country, exact SCI/SHI
 and caveat values, repeatable release/object-country requirements, and a
 minimum Security Metadata version let a deployment enforce its own
-authoritative ST 0102 marking policy. Producer-known source aspect ratio and
-scan-stage options close the MISP image checks that encoded display headers
-cannot prove by themselves.
+authoritative ST 0102 marking policy. Producer-known source aspect ratio,
+scan-stage, and analog/digital conversion-history options close the MISP image
+checks that encoded headers cannot prove by themselves.
 
 ## Play video and metadata
 

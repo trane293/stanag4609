@@ -624,6 +624,8 @@ def test_verifier_validates_caller_supplied_misp_image_source_context() -> None:
             source_aspect_ratio=Fraction(16, 9),
             source_progressive=True,
             conversion_progressive=(True, True),
+            source_digital=False,
+            conversion_digital=(True,),
         ),
     )
     verifier.feed(_transport())
@@ -635,6 +637,8 @@ def test_verifier_validates_caller_supplied_misp_image_source_context() -> None:
     assert findings["misp.image.source_aspect_ratio"].requirement == "MISP-2015.1-01"
     assert findings["misp.image.source_progressive"].status is VerificationStatus.PASS
     assert findings["misp.image.conversion_progressive"].status is VerificationStatus.PASS
+    assert findings["misp.image.legacy_digitization"].status is VerificationStatus.PASS
+    assert findings["misp.image.legacy_digitization"].requirement == "MISP-2015.1-05"
 
 
 def test_verifier_rejects_nonconforming_misp_image_source_context() -> None:
@@ -645,6 +649,8 @@ def test_verifier_rejects_nonconforming_misp_image_source_context() -> None:
             source_aspect_ratio=Fraction(9, 2),
             source_progressive=False,
             conversion_progressive=(True, False),
+            source_digital=True,
+            conversion_digital=(True, False),
         ),
     )
     verifier.feed(_transport())
@@ -657,6 +663,8 @@ def test_verifier_rejects_nonconforming_misp_image_source_context() -> None:
     ].message
     assert findings["misp.image.source_progressive"].requirement == "MISP-2015.1-02"
     assert "conversion stage 2" in findings["misp.image.conversion_progressive"].message
+    assert findings["misp.image.digital_continuity"].requirement == "MISP-2015.1-06"
+    assert "conversion stage 2" in findings["misp.image.digital_continuity"].message
 
 
 def test_verifier_cli_accepts_producer_image_context(
@@ -678,6 +686,10 @@ def test_verifier_cli_accepts_producer_image_context(
             "progressive",
             "--conversion-scan",
             "progressive",
+            "--source-form",
+            "digital",
+            "--conversion-form",
+            "digital",
         ]
     )
 
@@ -688,6 +700,7 @@ def test_verifier_cli_accepts_producer_image_context(
     assert findings["misp.image.source_aspect_ratio"]["status"] == "pass"
     assert findings["misp.image.source_progressive"]["status"] == "pass"
     assert findings["misp.image.conversion_progressive"]["status"] == "pass"
+    assert findings["misp.image.digital_continuity"]["status"] == "pass"
 
 
 def test_verifier_cli_rejects_invalid_source_aspect_ratio(
@@ -713,6 +726,12 @@ def test_misp_image_context_requires_boolean_scan_facts() -> None:
         MISPImageContext(source_progressive=1)  # type: ignore[arg-type]
     with pytest.raises(TypeError, match=r"conversion_progressive\[1\]"):
         MISPImageContext(conversion_progressive=(True, 0))  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="source_digital"):
+        MISPImageContext(source_digital=1)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match=r"conversion_digital\[1\]"):
+        MISPImageContext(conversion_digital=(True, 0))  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="source_digital"):
+        MISPImageContext(conversion_digital=(True,))
 
 
 def test_verifier_rejects_avc_profile_outside_adopted_misp_range() -> None:
