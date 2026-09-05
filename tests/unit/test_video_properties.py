@@ -170,10 +170,15 @@ def test_h262_properties_decode_main_profile_progressive_sequence() -> None:
             level_code=8,
             bit_depth_luma=8,
             bit_depth_chroma=8,
+            frame_rate_extension_n=0,
+            frame_rate_extension_d=0,
         )
     ]
     assert properties[0].level_picture_size_conforms is True
     assert properties[0].level_sample_rate_conforms is True
+    assert properties[0].frame_rate_extension_n == 0
+    assert properties[0].frame_rate_extension_d == 0
+    assert properties[0].h262_frame_rate_extension_conforms is True
 
 
 def test_h262_main_level_enforces_sampling_density() -> None:
@@ -234,6 +239,10 @@ def test_h262_properties_apply_size_and_frame_rate_extensions() -> None:
     assert result[0].height == 8194
     assert result[0].display_aspect_ratio == Fraction(4097, 8194)
     assert result[0].frame_rate == Fraction(25, 2)
+    assert result[0].frame_rate_extension_n == 1
+    assert result[0].frame_rate_extension_d == 3
+    assert result[0].h262_frame_rate_extension_conforms is False
+    assert result[0].to_dict()["h262_frame_rate_extension_conforms"] is False
 
 
 def test_h262_properties_report_interlaced_and_non_misp_profile() -> None:

@@ -140,6 +140,8 @@ class VideoProperties:
     bit_depth_chroma: int | None = None
     coded_width: int | None = None
     coded_height: int | None = None
+    frame_rate_extension_n: int | None = None
+    frame_rate_extension_d: int | None = None
 
     @property
     def misp_profile_level(self) -> bool:
@@ -249,6 +251,16 @@ class VideoProperties:
             return width * height * self.frame_rate <= maximum_luma_sample_rate
         return None
 
+    @property
+    def h262_frame_rate_extension_conforms(self) -> bool | None:
+        """Whether H.262 uses the zero extensions required by defined profiles."""
+
+        if self.stream_type != 0x02:
+            return None
+        if self.frame_rate_extension_n is None or self.frame_rate_extension_d is None:
+            return None
+        return self.frame_rate_extension_n == 0 and self.frame_rate_extension_d == 0
+
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-compatible representation."""
 
@@ -285,9 +297,14 @@ class VideoProperties:
             "bit_depth_chroma": self.bit_depth_chroma,
             "coded_width": self.coded_width,
             "coded_height": self.coded_height,
+            "frame_rate_extension_n": self.frame_rate_extension_n,
+            "frame_rate_extension_d": self.frame_rate_extension_d,
             "misp_profile_level": self.misp_profile_level,
             "level_picture_size_conforms": self.level_picture_size_conforms,
             "level_sample_rate_conforms": self.level_sample_rate_conforms,
+            "h262_frame_rate_extension_conforms": (
+                self.h262_frame_rate_extension_conforms
+            ),
         }
 
 
@@ -349,8 +366,10 @@ def _parse_h262_sequence_extension(
     height = header.height | (_read_bits(data, 17, 2) << 12)
     if _read_bits(data, 31, 1) != 1:
         raise DecodeError("H.262 sequence extension marker_bit must be one")
+    frame_rate_extension_n = _read_bits(data, 41, 2)
+    frame_rate_extension_d = _read_bits(data, 43, 5)
     frame_rate = _H262_FRAME_RATES[header.frame_rate_code]
-    frame_rate *= Fraction(_read_bits(data, 41, 2) + 1, _read_bits(data, 43, 5) + 1)
+    frame_rate *= Fraction(frame_rate_extension_n + 1, frame_rate_extension_d + 1)
     display_aspect_ratio = _H262_DISPLAY_ASPECT_RATIOS.get(
         header.aspect_ratio_information,
         Fraction(width, height),
@@ -370,6 +389,8 @@ def _parse_h262_sequence_extension(
         level_code=level_code,
         bit_depth_luma=8,
         bit_depth_chroma=8,
+        frame_rate_extension_n=frame_rate_extension_n,
+        frame_rate_extension_d=frame_rate_extension_d,
     )
 
 

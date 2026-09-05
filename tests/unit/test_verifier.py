@@ -877,6 +877,42 @@ def test_verifier_enforces_h262_level_resources_across_every_sequence() -> None:
     assert "H.262" in findings["video.level.picture_size"].requirement
 
 
+def test_verifier_rejects_h262_frame_rate_extensions_across_every_sequence() -> None:
+    extended = bytes.fromhex(
+        "000001b32d01e03430d42380000001b5148a1fffff23000001b7"
+    )
+    conforming_latest = bytes.fromhex(
+        "000001b32d01e03430d42380000001b5148a1fffff00000001b7"
+    )
+    report = _verify(
+        _transport(
+            video_stream_type=0x02,
+            video_payload=extended + conforming_latest,
+        )
+    )
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_properties is not None
+    assert video.video_properties.sequences == 2
+    assert video.video_properties.h262_frame_rate_extension_violations == 1
+    assert video.video_properties.latest is not None
+    assert video.video_properties.latest.h262_frame_rate_extension_conforms is True
+    assert (
+        video.to_dict()["video_properties"][
+            "h262_frame_rate_extension_violations"
+        ]
+        == 1
+    )
+    finding = next(
+        item
+        for item in report.findings
+        if item.code == "video.h262.frame_rate_extension"
+    )
+    assert finding.status is VerificationStatus.ERROR
+    assert "1 of 2 observed sequence property sets" in finding.message
+    assert "Table E.3" in finding.requirement
+
+
 def test_verifier_reports_hevc_profile_and_class1_depth_separately() -> None:
     main10_sps = bytes.fromhex(
         "0000000142010102200000030090000003000003003fa005020169365959a493"

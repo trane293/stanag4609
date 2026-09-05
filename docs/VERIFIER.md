@@ -160,7 +160,7 @@ errors, carriage errors, and the other structural checks still fail.
 | ST 0903 | Successful standalone or embedded VMTI decode, optional OWL/entity/exact-label resolution, target observations/unique-ID inventory, cross-frame state transitions, dropped-ID reuse, and missing-status diagnostics |
 | ST 1001 | Permitted audio stream types, optional application-required audio, complete MP2/AAC-LC frame parsing, PTS anchoring, sample rate, channel count, sample/frame totals, cumulative duration, malformed headers, and trailing truncation |
 | ST 0604 | Incremental H.262 user-data and AVC/HEVC unregistered-SEI parsing, Time Status validation, micro/nanosecond inventory, timestamp-to-access-unit association, and missing/duplicate/unassociated diagnostics |
-| MISP video profile | Approved Class 1 codec declaration (H.262/AVC/HEVC), coded and displayed dimensions, available display ratio/frame rate, scan signalling, chroma/bit depth, profile/level, property changes, stream-wide adopted MISP profile/scan checks across every observed sequence property set, codec level picture-size and sample-throughput limits, the Class 1 eight-bit-per-band limit, and explicit producer source-aspect/scan context |
+| MISP video profile | Approved Class 1 codec declaration (H.262/AVC/HEVC), coded and displayed dimensions, available display ratio/frame rate, scan signalling, chroma/bit depth, profile/level, property changes, stream-wide adopted MISP profile/scan checks across every observed sequence property set, H.262 frame-rate-extension signalling, codec level picture-size and sample-throughput limits, the Class 1 eight-bit-per-band limit, and explicit producer source-aspect/scan context |
 
 VMTI identities are scoped by program, metadata PID, and metadata service ID.
 Reusing an identifier after `Dropped` or taking an impossible state-machine
@@ -180,6 +180,11 @@ observed sequence property set. `video.level.sample_rate` applies the H.262
 padded-luminance-sample-rate limit, AVC `MaxMBPS`, or HEVC `MaxLumaSr` whenever
 sequence timing is present. An absent or ambiguous timing signal is reported as
 unverifiable rather than inferred from transport timestamps.
+
+`video.h262.frame_rate_extension` checks that every H.262 sequence extension
+sets both `frame_rate_extension_n` and `frame_rate_extension_d` to zero, as
+required for all defined profiles by H.262 Table E.3. The decoded raw values and
+their resulting effective frame rate remain available for diagnostics.
 
 Control Command history is scoped by the same program/PID/service identity.
 The verifier reports non-increasing new command IDs, changed command text or

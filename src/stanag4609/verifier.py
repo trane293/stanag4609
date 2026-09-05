@@ -236,6 +236,7 @@ class VideoPropertiesVerificationSummary:
     level_picture_size_unverifiable: int = 0
     level_sample_rate_violations: int = 0
     level_sample_rate_unverifiable: int = 0
+    h262_frame_rate_extension_violations: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -252,6 +253,9 @@ class VideoPropertiesVerificationSummary:
             "level_picture_size_unverifiable": self.level_picture_size_unverifiable,
             "level_sample_rate_violations": self.level_sample_rate_violations,
             "level_sample_rate_unverifiable": self.level_sample_rate_unverifiable,
+            "h262_frame_rate_extension_violations": (
+                self.h262_frame_rate_extension_violations
+            ),
         }
 
 
@@ -788,6 +792,7 @@ class _VideoPropertiesStats:
     level_picture_size_unverifiable: int = 0
     level_sample_rate_violations: int = 0
     level_sample_rate_unverifiable: int = 0
+    h262_frame_rate_extension_violations: int = 0
 
     def __post_init__(self) -> None:
         self.parser = self._new_parser()
@@ -836,6 +841,8 @@ class _VideoPropertiesStats:
                 self.level_sample_rate_violations += 1
             elif sample_rate is None:
                 self.level_sample_rate_unverifiable += 1
+            if properties.h262_frame_rate_extension_conforms is False:
+                self.h262_frame_rate_extension_violations += 1
             if self.latest is not None and properties != self.latest:
                 self.property_changes += 1
             self.latest = properties
@@ -858,6 +865,7 @@ class _VideoPropertiesStats:
             self.level_picture_size_unverifiable,
             self.level_sample_rate_violations,
             self.level_sample_rate_unverifiable,
+            self.h262_frame_rate_extension_violations,
         )
 
 
@@ -2675,6 +2683,29 @@ class FMVVerifier:
                 program_number=key[0],
                 pid=key[1],
             )
+            if properties.stream_type == 0x02:
+                extension_violations = (
+                    property_stats.h262_frame_rate_extension_violations
+                )
+                self._add(
+                    VerificationStatus.PASS
+                    if not extension_violations
+                    else VerificationStatus.ERROR,
+                    "video.h262.frame_rate_extension",
+                    (
+                        f"all {property_stats.sequences} observed sequence property "
+                        "set(s) use zero H.262 frame-rate extensions"
+                        if not extension_violations
+                        else f"{extension_violations} of {property_stats.sequences} "
+                        "observed sequence property sets use a non-zero H.262 "
+                        "frame-rate extension"
+                    ),
+                    requirement=(
+                        "ITU-T H.262 (02/2000) Table E.3 / MISP-2018.2-115"
+                    ),
+                    program_number=key[0],
+                    pid=key[1],
+                )
             if properties.stream_type in {0x02, 0x1B, 0x24}:
                 level_requirement = {
                     0x02: (
