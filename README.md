@@ -11,7 +11,8 @@ and send the same timed metadata to independent GIS or analytics consumers.
 > **Status: alpha.** The implemented protocol slices are strict, typed,
 > lossless, and tested, but this release does not yet claim complete STANAG
 > 4609, ST 0601.19, ST 0902.8, ST 0903.6, or ST 1001.1 conformance. See
-> [conformance](docs/CONFORMANCE.md) and [known limitations](docs/LIMITATIONS.md).
+> [conformance](https://stanag4609.readthedocs.io/en/latest/CONFORMANCE/) and
+> [known limitations](https://stanag4609.readthedocs.io/en/latest/LIMITATIONS/).
 
 ## Why this library
 
@@ -166,26 +167,28 @@ python -m pip install -e '.[docs]'
 mkdocs serve
 ```
 
-Start at [`docs/index.md`](docs/index.md). The
-[`Python API reference`](docs/api/index.md) is generated from the typed public
-docstrings during every strict documentation build. The
-[`documentation roadmap`](docs/DOCUMENTATION.md) records the tutorial and
-quality gates that must be met before the first stable release.
+Start at the [documentation home](https://stanag4609.readthedocs.io/). The
+[`Python API reference`](https://stanag4609.readthedocs.io/en/latest/api/) is
+generated from the typed public docstrings during every strict documentation
+build. The
+[`documentation roadmap`](https://stanag4609.readthedocs.io/en/latest/DOCUMENTATION/)
+records the tutorial and quality gates that must be met before the first stable
+release.
 The site is configured for versioned hosting on Read the Docs; PyPI will show
 this README and link to the full documentation rather than hosting the complete
 site itself. Maintainer setup and the release gates are in the
-[`release process`](docs/RELEASING.md).
+[`release process`](https://stanag4609.readthedocs.io/en/latest/RELEASING/).
 
 End-to-end tutorials:
 
-- [inspect and debug a real FMV recording](docs/tutorials/inspect_fmv.md);
-- [create FMV from ordinary video and metadata CSV](docs/tutorials/create_fmv.md);
-- [run parallel AI stages and emit ST 0903 VMTI](docs/tutorials/ai_to_vmti.md);
-- [build a video, map, telemetry, and activity dashboard](docs/tutorials/web_dashboard.md);
-- [transform live KLV and fan out independent consumers](docs/tutorials/live_fanout.md).
+- [inspect and debug a real FMV recording](https://stanag4609.readthedocs.io/en/latest/tutorials/inspect_fmv/);
+- [create FMV from ordinary video and metadata CSV](https://stanag4609.readthedocs.io/en/latest/tutorials/create_fmv/);
+- [run parallel AI stages and emit ST 0903 VMTI](https://stanag4609.readthedocs.io/en/latest/tutorials/ai_to_vmti/);
+- [build a video, map, telemetry, and activity dashboard](https://stanag4609.readthedocs.io/en/latest/tutorials/web_dashboard/);
+- [transform live KLV and fan out independent consumers](https://stanag4609.readthedocs.io/en/latest/tutorials/live_fanout/).
 
 The exact post-alpha continuation backlog is maintained in
-[`docs/ROADMAP.md`](docs/ROADMAP.md).
+the [roadmap](https://stanag4609.readthedocs.io/en/latest/ROADMAP/).
 
 ## Verify and debug an FMV file
 
@@ -207,7 +210,7 @@ ZLIs, malformed values, versions, and timestamp span. An ST 0902 checklist marks
 every selected minimum-item group current, missing, or overdue. Reports can be emitted as
 terminal text, stable JSON, or a self-contained printable HTML file. Use the incremental
 `FMVVerifier` API for upload services and live capture pipelines. The
-[verifier guide](docs/VERIFIER.md) defines current coverage, policies, exit
+[verifier guide](https://stanag4609.readthedocs.io/en/latest/VERIFIER/) defines current coverage, policies, exit
 statuses, and known non-checked areas.
 
 The verifier also keeps bounded state per program, metadata PID, and metadata
@@ -401,7 +404,7 @@ enforces KLV structure, checksums, required tags, and singleton rules, but keeps
 an undecodable field's exact wire bytes and reports a `FieldDecodingIssue` so a
 player can remain useful without pretending the stream is conformant.
 
-See [the live pipeline guide](docs/LIVE_PIPELINE.md) for an in-transit VMTI
+See [the live pipeline guide](https://stanag4609.readthedocs.io/en/latest/LIVE_PIPELINE/) for an in-transit VMTI
 example, scheduled program-table output, and exact remux constraints. Omitting
 `at` preserves the input stream's PAT/PMT repetition behavior; supplying one
 switches to the drift-free eight-Hz output scheduler.
@@ -410,7 +413,7 @@ When transformation changes packet positions, wrap output in
 `TransportRateShaper`. It assigns exact constant-rate 188-byte slots, inserts
 bounded PID `0x1FFF` padding for idle slots, and optionally rewrites every
 retained PCR from a caller-anchored 27 MHz output clock at the H.222.0-defined
-PCR-base byte position. See [transport-rate shaping](docs/TRANSPORT_RATE.md).
+PCR-base byte position. See [transport-rate shaping](https://stanag4609.readthedocs.io/en/latest/TRANSPORT_RATE/).
 
 Properly versioned live PMTs may add or remove streams and change a KLVA PID's
 synchronous/asynchronous carriage. Retained PID continuity is preserved; an
@@ -427,7 +430,7 @@ for datagram in iter_udp_datagrams(remuxed_chunks):
 ```
 
 The default is seven 188-byte packets per payload, with a smaller integral
-final datagram. See [UDP transport datagrams](docs/UDP_TRANSPORT.md).
+final datagram. See [UDP transport datagrams](https://stanag4609.readthedocs.io/en/latest/UDP_TRANSPORT/).
 
 For ST 0804 MPEG-2 TS over RTP/UDP, add RFC 2250 headers while retaining the
 same bounded seven-packet payloads:
@@ -443,7 +446,7 @@ for chunk in remuxed_chunks:
 
 The application supplies the PCR-synchronized 90 kHz transmission clock. RTCP
 Sender Reports can align separately transported video and metadata streams.
-See [RTP transport](docs/RTP_TRANSPORT.md) for receiver, reordering, and clock
+See [RTP transport](https://stanag4609.readthedocs.io/en/latest/RTP_TRANSPORT/) for receiver, reordering, and clock
 synchronization behavior.
 
 Validate live PAT/PMT acquisition cadence against ST 1402-02 independently of
@@ -488,7 +491,7 @@ For generated streams, `ProgramTableScheduler(muxer).poll(at=monotonic())`
 emits an immediate PAT/PMT pair and then maintains the recommended exact 125 ms
 schedule. Late polls expose skipped repetitions and mandatory-interval failure
 without creating a misleading burst of stale tables. See
-[PAT/PMT cadence](docs/PSI_CADENCE.md).
+[PAT/PMT cadence](https://stanag4609.readthedocs.io/en/latest/PSI_CADENCE/).
 
 Audit the encoded PCR time base independently for every program:
 
@@ -505,7 +508,7 @@ for event in demuxer.feed(transport_chunk):
 The exact 100 ms boundary passes; larger gaps and unannounced clock regressions
 are diagnostics. Rollover, declared discontinuities, shared clock PIDs, and
 PMT-driven PCR PID changes are handled explicitly. See
-[PCR cadence](docs/PCR_CADENCE.md).
+[PCR cadence](https://stanag4609.readthedocs.io/en/latest/PCR_CADENCE/).
 
 For newly constructed streams, `muxer.mux_pcr(ProgramClockReference(...))`
 emits an adaptation-only clock packet on the PMT-declared PCR PID without
@@ -533,7 +536,7 @@ for event in demuxer.feed(transport_chunk):
 
 The ST 1402 §7.3 limit is 0.7 seconds. The validator handles 33-bit rollover,
 presentation-order regressions, per-stream state, and declared
-discontinuities. See [PTS cadence](docs/PTS_CADENCE.md).
+discontinuities. See [PTS cadence](https://stanag4609.readthedocs.io/en/latest/PTS_CADENCE/).
 
 Audit the one-second synchronous-metadata decoder-delay limit without assuming
 a constant bitrate between PCR samples:
@@ -623,7 +626,7 @@ Each metadata packet becomes one streaming `FeatureCollection` containing the
 available sensor, frame-center, target, and image-footprint geometry. Use
 `iter_geojson_feature_collections()` to publish these records directly to a
 message bus or web backend while the FMV transport continues independently.
-See [GeoJSON metadata streams](docs/GEOJSON.md).
+See [GeoJSON metadata streams](https://stanag4609.readthedocs.io/en/latest/GEOJSON/).
 
 Audio stays independent of video and metadata throughout the live pipeline:
 
@@ -659,7 +662,8 @@ This reconstructs MPEG-1/2 Layer II and MPEG-2 AAC-LC ADTS frames across
 arbitrary chunks, honors the H.222.0 first-access-unit PTS rule at split PES
 boundaries, unwraps 33-bit timestamps, and advances time with exact rational
 sample durations. See
-[`examples/audio_frames.py`](examples/audio_frames.py) for a complete TS walk.
+[`examples/audio_frames.py`](https://github.com/trane293/stanag4609/blob/main/examples/audio_frames.py)
+for a complete TS walk.
 
 Decode completed frames to native FFmpeg-backed PyAV audio frames without a
 subprocess or probe delay:
@@ -674,7 +678,7 @@ for timed in frame_parser.feed(event):
 ```
 
 Install with `pip install 'stanag4609[audio-pyav]'`. Keep one codec context per
-audio PID and flush it at end of stream. See [audio decoding](docs/AUDIO.md).
+audio PID and flush it at end of stream. See [audio decoding](https://stanag4609.readthedocs.io/en/latest/AUDIO/).
 
 ## Bring your own AI
 
@@ -718,7 +722,7 @@ the core `HTTPJSONAdapter` or be native async callables. Parallel outputs are
 deterministic, later stages can read earlier named results, and common AI
 bounding boxes convert directly to ST 0903 VMTI. Ultralytics YOLO, ONNX Runtime,
 NVIDIA Triton, VMTI injection, and nested graph examples are in
-[AI sidecars](docs/AI_SIDECARS.md).
+[AI sidecars](https://stanag4609.readthedocs.io/en/latest/AI_SIDECARS/).
 
 The first packaged runtime adapter is optional, so the core stays dependency
 free:
@@ -745,7 +749,7 @@ pytest -m integration tests/integration/test_public_fmv.py
 
 Large media and the conformance ZIP are not committed. Fixture provenance,
 hashes, and expected results are recorded in `references/fixtures.json`; see
-[public fixture details](docs/PUBLIC_FIXTURES.md).
+[public fixture details](https://stanag4609.readthedocs.io/en/latest/PUBLIC_FIXTURES/).
 
 ## Reference player
 
@@ -776,7 +780,7 @@ the display does not lose coordinates merely because a packet omits an
 unchanged item. Before the first timestamped metadata sample, the map, fields,
 and overlays remain empty rather than showing future telemetry; per-sample
 decode/state diagnostics appear in a visible warning panel. See
-[reference player details](docs/PLAYER.md).
+[reference player details](https://stanag4609.readthedocs.io/en/latest/PLAYER/).
 
 `--stream-metadata` keeps the seekable prepared MP4 but sends telemetry to the
 browser incrementally over Server-Sent Events. The feed replays the effective
@@ -806,7 +810,7 @@ TS bytes -> framing -> PAT/PMT -> PES demux -> timed video/audio/KLV events
 The dependency-free core owns transport and metadata truth. Optional adapters
 will own compressed video/audio decoding, model runtimes, browser delivery, and
 third-party GIS formats. See the accepted
-[live architecture decision](docs/adr/0002-live-transform-pipeline.md).
+[live architecture decision](https://stanag4609.readthedocs.io/en/latest/adr/0002-live-transform-pipeline/).
 
 ## Development and verification
 
@@ -822,7 +826,7 @@ pytest --cov=stanag4609 --cov-branch --cov-report=term-missing
 python -m build
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for branch/PR conventions, required PR
+See [CONTRIBUTING.md](https://github.com/trane293/stanag4609/blob/main/CONTRIBUTING.md) for branch/PR conventions, required PR
 evidence, compatibility review, and rollback expectations. The standards
 manifest records the exact MISB and ITU editions used; normative documents are
 not redistributed in Git.
@@ -833,8 +837,8 @@ The next work includes completing the remaining ST 0601/ST 0902/ST 0903
 requirements, adding an independent real VMTI fixture, whole-multiplex live
 rewrite policies, measured low-latency browser delivery, and wider interoperability
 and performance evidence. See the maintained
-[remaining-work guide](docs/ROADMAP.md) for priorities and continuation steps.
+[remaining-work guide](https://stanag4609.readthedocs.io/en/latest/ROADMAP/) for priorities and continuation steps.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/trane293/stanag4609/blob/main/LICENSE)

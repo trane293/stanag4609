@@ -5,6 +5,8 @@ Versioning, with PEP 440 pre-release identifiers while the API is still alpha.
 
 ## Unreleased
 
+## 0.1.0a6 - 2026-09-05
+
 - Add checksum-bound exact inventory and CI enforcement for all 65 active and
   78 deprecated ST 0903.6 requirement identifiers, and remove deprecated
   identifiers from the current conformance trace.

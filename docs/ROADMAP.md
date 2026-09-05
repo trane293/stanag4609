@@ -1,6 +1,6 @@
 # Remaining work and continuation guide
 
-This page records the work that remains after the `0.1.0a5` release candidate.
+This page records the work that remains after the `0.1.0a6` release candidate.
 It separates verified capability from future scope so another developer or agent
 can resume without reconstructing project history.
 
