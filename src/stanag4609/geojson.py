@@ -18,6 +18,7 @@ from stanag4609.st0601 import (
     ST0601Semantic,
     UASLocalSet,
     resolve_preferred_uas_field,
+    resolve_target_elevation,
 )
 from stanag4609.st0601_state import ReportOnChangeSnapshot, ReportOnChangeState
 from stanag4609.st0903 import (
@@ -210,6 +211,7 @@ def snapshot_geojson_features(
     frame_height = resolve_preferred_uas_field(
         snapshot.fields, ST0601Semantic.FRAME_CENTER_HEIGHT
     )
+    target_elevation = resolve_target_elevation(snapshot.fields)
     altitudes: dict[str, tuple[DecodedField | None, str | None]] = {
         "sensor": (
             None if sensor_height is None else sensor_height.field,
@@ -222,8 +224,16 @@ def snapshot_geojson_features(
             None if frame_height is None else ("hae" if frame_height.tag == 78 else "msl"),
         ),
         "target": (
-            snapshot.get(42),
-            None if frame_height is None else ("hae" if frame_height.tag == 78 else "msl"),
+            None if target_elevation is None else target_elevation.field,
+            (
+                None
+                if target_elevation is None
+                else (
+                    "unknown"
+                    if target_elevation.datum is None
+                    else target_elevation.datum.value
+                )
+            ),
         ),
     }
     for role, latitude_tag, longitude_tag in (

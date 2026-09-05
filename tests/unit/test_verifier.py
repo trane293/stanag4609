@@ -994,6 +994,39 @@ def test_verifier_reports_distributed_sensor_altitude_exclusive_or() -> None:
     assert issue.pid == 0x102
 
 
+def test_verifier_reports_target_elevation_without_receiver_current_datum() -> None:
+    ambiguous = encode_uas_local_set(
+        {
+            2: 1_700_000_000_000_000,
+            40: 49.0,
+            41: -123.0,
+            42: 500.0,
+            65: 19,
+        }
+    )
+    report = verify_fmv_stream(
+        BytesIO(_transport(ambiguous)), validate_mismms=False
+    )
+
+    issue = next(
+        finding
+        for finding in report.warnings
+        if finding.code == "st0601.target_elevation.datum_unknown"
+    )
+    assert issue.requirement == "MISB ST 0601.19 §8.42.1"
+    assert issue.tags == (25, 42, 78)
+    assert "root" in issue.message
+
+    resolved = update_uas_local_set(ambiguous, {25: 300.0})
+    resolved_report = verify_fmv_stream(
+        BytesIO(_transport(resolved)), validate_mismms=False
+    )
+    assert not any(
+        finding.code == "st0601.target_elevation.datum_unknown"
+        for finding in resolved_report.warnings
+    )
+
+
 def test_verifier_accepts_mismms_completed_by_terminal_segment_union() -> None:
     values = _complete_uas_values(without={13})
     values[100] = _segment(7, {13: 49.0})

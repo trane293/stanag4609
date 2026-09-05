@@ -20,6 +20,7 @@ from stanag4609.st0601 import (
     FieldDecodingMode,
     PayloadList,
     PayloadRecord,
+    ResolvedTargetElevation,
     ResolvedUASField,
     SpecialValue,
     ST0601Semantic,
@@ -34,6 +35,7 @@ from stanag4609.st0601 import (
     effective_uas_fields,
     misp_timestamp_to_utc,
     resolve_preferred_uas_field,
+    resolve_target_elevation,
 )
 
 _MANDATORY_PACKET_TAGS = frozenset({1, 2, 65})
@@ -99,6 +101,11 @@ class ReportOnChangeSnapshot:
         """Resolve a current logical value to its preferred representation."""
 
         return resolve_preferred_uas_field(self.fields, semantic)
+
+    def target_elevation(self) -> ResolvedTargetElevation | None:
+        """Resolve current Item 42 against receiver-current Items 25 and 78."""
+
+        return resolve_target_elevation(self.fields)
 
 
 class ReportOnChangeState:

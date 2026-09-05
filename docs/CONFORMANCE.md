@@ -23,6 +23,7 @@ test. It does not imply conformance outside that narrow row.
 | Version present (ST 0601.8-12) | `st0601` | `test_st0601.py` | Verified |
 | Supported singleton fields unique (ST 0601.13-24) | `st0601` | every active singleton in the root registry | Verified registry-wide |
 | Preferred full-range, HAE, and extended representations (ST 0601.8-16/-17, ST 0601.9-20/-21) | `st0601`, `st0601_state`, `geojson`, `player` | scalar priority chains, sparse-state, GeoJSON datum, and player tests | Verified for scalar replacement groups and full image-corner projection |
+| ST 0601 Item 42 target-elevation datum | `resolve_target_elevation`, `ReportOnChangeSnapshot`, `geojson`, `player`, `verifier` | MSL-only, HAE-only, both-present HAE precedence, sparse carry/expiry, unknown-datum, output, and finding tests | Verified for ST 0601.19 §8.42.1 receiver-visible semantics |
 | Numeric special-value identity (ST 0601.13-27/-28) | `st0601` | every registered Out-of-Range and Off-Earth field | Verified registry-wide |
 | ST 0902.8 Annex C dynamic packet | `st0601` | `test_st0601.py` | Byte-exact round trip |
 | ST 0601.19 active root item registry | `st0601` | exact registry-shape invariant plus official scalar/text/timestamp and pack vectors | Every active Item 1-142 is typed; deprecated Item 66 is absent; nested-only Item 143 has a dedicated codec |

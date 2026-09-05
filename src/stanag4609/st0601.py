@@ -435,6 +435,13 @@ class ST0601Semantic(Enum):
     FRAME_CENTER_HEIGHT = "frame_center_height"
 
 
+class VerticalDatum(Enum):
+    """Vertical reference used to interpret an ST 0601 elevation value."""
+
+    MSL = "msl"
+    HAE = "hae"
+
+
 @dataclass(frozen=True, slots=True)
 class RepresentationPreference:
     """Normative preferred-to-legacy tag order for one logical value."""
@@ -653,6 +660,28 @@ class ResolvedUASField:
     @property
     def value(self) -> Any:
         return self.field.value
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedTargetElevation:
+    """Item 42 with its receiver-visible MSL or HAE interpretation."""
+
+    field: DecodedField
+    datum: VerticalDatum | None
+    frame_height: ResolvedUASField | None
+
+    @property
+    def value(self) -> Any:
+        return self.field.value
+
+    @property
+    def basis_tags(self) -> tuple[int, ...]:
+        if self.frame_height is None:
+            return ()
+        return (
+            self.frame_height.tag,
+            *(field.definition.tag for field in self.frame_height.ignored),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1104,6 +1133,11 @@ class UASLocalSet:
 
         return resolve_preferred_uas_field(self.fields, semantic)
 
+    def target_elevation(self) -> ResolvedTargetElevation | None:
+        """Resolve Item 42's datum from current Items 25 and 78."""
+
+        return resolve_target_elevation(self.fields)
+
 
 def _coerce_st0601_semantic(semantic: ST0601Semantic | str) -> ST0601Semantic:
     if isinstance(semantic, ST0601Semantic):
@@ -1148,6 +1182,35 @@ def resolve_preferred_uas_field(
         if matches_by_tag[tag] and tag != selected.definition.tag
     )
     return ResolvedUASField(preference, selected, ignored)
+
+
+def resolve_target_elevation(
+    fields: Iterable[DecodedField],
+) -> ResolvedTargetElevation | None:
+    """Interpret Item 42 using ST 0601.19 Section 8.42.1.
+
+    Item 42 is MSL when only Item 25 is receiver-current, HAE when Item 78 is
+    current, and HAE when both are current. Without either frame-height item,
+    the numeric elevation is retained but its datum is intentionally unknown.
+    Call this with a :class:`ReportOnChangeSnapshot` field set for sparse
+    streams so ``present`` has the standard's receiver-current meaning.
+    """
+
+    materialized = tuple(fields)
+    target_fields = tuple(
+        field for field in materialized if field.definition.tag == 42
+    )
+    if not target_fields:
+        return None
+    if len(target_fields) > 1:
+        raise ValueError(f"tag 42 occurs {len(target_fields)} times")
+    frame_height = resolve_preferred_uas_field(
+        materialized, ST0601Semantic.FRAME_CENTER_HEIGHT
+    )
+    datum = None
+    if frame_height is not None:
+        datum = VerticalDatum.HAE if frame_height.tag == 78 else VerticalDatum.MSL
+    return ResolvedTargetElevation(target_fields[0], datum, frame_height)
 
 
 def effective_uas_fields(fields: Iterable[DecodedField]) -> tuple[DecodedField, ...]:

@@ -183,6 +183,23 @@ def test_geojson_prefers_extended_hae_and_labels_vertical_datum() -> None:
     assert features["target"]["properties"]["vertical_datum"] == "hae"
 
 
+def test_geojson_marks_target_elevation_with_no_frame_height_datum_as_unknown() -> None:
+    data = _transport({40: 39.8, 41: -74.8, 42: 600})
+
+    target = _features_by_role(next(iter_geojson_feature_collections((data,))))[
+        "target"
+    ]
+
+    assert target["geometry"]["coordinates"] == pytest.approx(
+        [-74.8, 39.8, 600], abs=0.4
+    )
+    assert target["properties"] == {
+        "role": "target",
+        "altitude_tag": 42,
+        "vertical_datum": "unknown",
+    }
+
+
 def test_geojson_reconstructs_sparse_offsets_and_wraps_antimeridian() -> None:
     data = _transport(
         {

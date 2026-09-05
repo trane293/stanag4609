@@ -206,6 +206,8 @@ def test_timeline_is_media_relative_and_json_ready_across_arbitrary_chunks() -> 
     )
     assert sample.fields["Frame Center Longitude"]["value"] == pytest.approx(-122)
     assert sample.fields["Target Location Elevation"]["units"] == "metres"
+    assert sample.fields["Target Location Elevation"]["vertical_datum"] == "msl"
+    assert sample.fields["Target Location Elevation"]["datum_basis_tags"] == [25]
     assert sample.fields["Icing Detected"] == {
         "value": 2,
         "display": "Icing Detected (2)",

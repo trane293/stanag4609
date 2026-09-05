@@ -21,6 +21,7 @@ from stanag4609.st0601 import (
     WeaponLoad,
     effective_uas_fields,
     misp_timestamp_to_utc,
+    resolve_target_elevation,
 )
 from stanag4609.st0601_state import ReportOnChangeState
 from stanag4609.st0903 import (
@@ -252,6 +253,7 @@ def _fields(
     fields: dict[str, Any] = {}
     effective = effective_uas_fields(decoded_fields)
     by_tag = {field.definition.tag: field for field in effective}
+    target_elevation = resolve_target_elevation(effective)
     for field in effective:
         if field.definition.tag not in _PANEL_TAGS:
             continue
@@ -287,6 +289,13 @@ def _fields(
             entry["microseconds_since_epoch"] = int.from_bytes(field.raw, "big")
         if field.definition.units is not None:
             entry["units"] = field.definition.units
+        if field.definition.tag == 42 and target_elevation is not None:
+            entry["vertical_datum"] = (
+                "unknown"
+                if target_elevation.datum is None
+                else target_elevation.datum.value
+            )
+            entry["datum_basis_tags"] = list(target_elevation.basis_tags)
         fields[field.definition.name] = entry
     timestamp = by_tag.get(2)
     leap_seconds = by_tag.get(136)

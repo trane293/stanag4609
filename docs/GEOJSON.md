@@ -41,6 +41,8 @@ When a point contains altitude, its properties include the selected
 or `msl`. Target Item 42 follows the datum established by the current preferred
 frame-center height, as required by ST 0601.19 Section 8.42. This avoids
 silently treating ellipsoid and mean-sea-level heights as interchangeable.
+When Item 42 is present without a receiver-current Item 25 or 78, its numeric
+value remains in the coordinate but `vertical_datum` is explicitly `unknown`.
 
 For an application-owned sink, use the streaming iterator directly:
 
@@ -55,7 +57,11 @@ Applications operating on decoded objects can use the same resolver without
 GeoJSON:
 
 ```python
-from stanag4609 import resolve_vtarget_location
+from stanag4609 import resolve_target_elevation, resolve_vtarget_location
+
+target_elevation = resolve_target_elevation(snapshot.fields)
+if target_elevation is not None:
+    print(target_elevation.value, target_elevation.datum)
 
 location = resolve_vtarget_location(
     target,

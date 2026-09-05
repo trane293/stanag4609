@@ -17,6 +17,7 @@ from stanag4609.st0601 import (
     RawFieldValue,
     SpecialValue,
     ST0601Semantic,
+    VerticalDatum,
     decode_uas_local_set,
     encode_uas_local_set,
     update_uas_local_set,
@@ -64,6 +65,33 @@ def test_report_on_change_snapshot_exposes_preferred_effective_representation() 
     assert resolved is not None
     assert resolved.tag == 104
     assert {field.definition.tag for field in snapshot.effective_fields}.isdisjoint({15, 75})
+
+
+def test_target_elevation_datum_uses_receiver_current_report_on_change_state() -> None:
+    state = ReportOnChangeState()
+    first = state.observe(_packet(START, **{"25": 300.0}))
+    assert first.target_elevation() is None
+
+    target = state.observe(
+        _packet(START + timedelta(seconds=1), **{"42": 500.0})
+    ).target_elevation()
+    assert target is not None
+    assert target.datum is VerticalDatum.MSL
+    assert target.basis_tags == (25,)
+
+    switched = state.observe(
+        _packet(START + timedelta(seconds=2), **{"78": 400.0})
+    ).target_elevation()
+    assert switched is not None
+    assert switched.datum is VerticalDatum.HAE
+    assert switched.basis_tags == (78, 25)
+
+    expired = state.observe(
+        _packet(START + timedelta(seconds=33), **{"42": 600.0})
+    ).target_elevation()
+    assert expired is not None
+    assert expired.datum is None
+    assert expired.basis_tags == ()
 
 
 def test_report_on_change_zli_clears_single_use_value_immediately() -> None:

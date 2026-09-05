@@ -105,6 +105,7 @@ from stanag4609.st0601 import (
     PositioningMethodSource,
     RawFieldValue,
     RepresentationPreference,
+    ResolvedTargetElevation,
     ResolvedUASField,
     SegmentLocalSet,
     SensorControlMode,
@@ -114,6 +115,7 @@ from stanag4609.st0601 import (
     ST0601Semantic,
     ST0601ValidationContext,
     UASLocalSet,
+    VerticalDatum,
     ViewDomain,
     ViewDomainPair,
     WavelengthRecord,
@@ -164,6 +166,7 @@ from stanag4609.st0601 import (
     encode_weapons_stores,
     misp_timestamp_to_utc,
     resolve_preferred_uas_field,
+    resolve_target_elevation,
     update_uas_local_set,
     utc_to_misp_timestamp,
 )
@@ -802,6 +805,7 @@ __all__ = [
     "ReportOnChangeSnapshot",
     "ReportOnChangeState",
     "RepresentationPreference",
+    "ResolvedTargetElevation",
     "ResolvedUASField",
     "ResolvedVMTITargetLocation",
     "SARMotionImageryLocalSet",
@@ -870,6 +874,7 @@ __all__ = [
     "Velocity",
     "VerificationFinding",
     "VerificationStatus",
+    "VerticalDatum",
     "VideoAccessUnitPTSIssue",
     "VideoAccessUnitPTSValidator",
     "VideoProperties",
@@ -1033,6 +1038,7 @@ __all__ = [
     "parse_universal_label",
     "pcr_from_ticks",
     "resolve_preferred_uas_field",
+    "resolve_target_elevation",
     "resolve_vtarget_location",
     "reverse_range_plane",
     "rewrite_packet_pcr",
@@ -1058,4 +1064,4 @@ __all__ = [
     "verify_fmv_stream",
 ]
 
-__version__ = "0.1.0a5"
+__version__ = "0.1.0a6.dev0"

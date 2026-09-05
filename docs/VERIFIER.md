@@ -110,7 +110,7 @@ errors, carriage errors, and the other structural checks still fail.
 | PSI and programs | CRC-valid current PAT/PMT presence, program/stream inventory, and DVB SDT CRC-32 diagnostics |
 | ST 1402 | KLV declarations, PCR/PTS cadence, PCR-bracketed PAT/PMT blackout proof, conservative synchronous decoder-delay proof, and exact bounded-window synchronous or configured-asynchronous metadata TBn/Bn occupancy |
 | KLV carriage | PES rules, synchronous AU cells, asynchronous boundaries, fragmentation, sequence, BER framing and registered keys |
-| ST 0601 | Running checksum, Local Set structure, lossless typed-field diagnostics, bounded per-service field coverage inventory, Item 115/116 command lifecycle, and distributed wavelength/payload/weapon/waypoint state |
+| ST 0601 | Running checksum, Local Set structure, lossless typed-field diagnostics, bounded per-service field coverage inventory, Item 42 receiver-current vertical datum, Item 115/116 command lifecycle, and distributed wavelength/payload/weapon/waypoint state |
 | ST 0902 | Required minimum fields, alternatives, ZLI, invalid values, interval, end-of-recording absence, selected security context, and ST 1607 Amend-root/terminal-Segment effective-state completeness |
 | ST 0903 | Successful standalone or embedded VMTI decode, optional OWL/entity/exact-label resolution, target observations/unique-ID inventory, cross-frame state transitions, dropped-ID reuse, and missing-status diagnostics |
 | ST 1001 | Permitted audio stream types, optional application-required audio, complete MP2/AAC-LC frame parsing, PTS anchoring, sample rate, channel count, sample/frame totals, cumulative duration, malformed headers, and trailing truncation |

@@ -22,6 +22,7 @@ from stanag4609.st0601 import (
     ST0601ValidationContext,
     UASLocalSet,
     misp_timestamp_to_utc,
+    resolve_target_elevation,
 )
 from stanag4609.st0601_state import (
     ControlCommandIssue,
@@ -1816,6 +1817,28 @@ class FMVVerifier:
                     offset=event.source.pes.offset,
                 )
             tree_snapshot = self._observe_st1607_tree(decoded, event, key=key)
+            if tree_snapshot is not None:
+                views = [
+                    (path, tree_snapshot.effective_fields(path))
+                    for path in tree_snapshot.branches
+                ]
+                views.append(((), tree_snapshot.root.fields))
+                for path, fields in views:
+                    target_elevation = resolve_target_elevation(fields)
+                    if target_elevation is None or target_elevation.datum is not None:
+                        continue
+                    scope = "root" if not path else f"metadata substream {path}"
+                    self._add(
+                        VerificationStatus.WARNING,
+                        "st0601.target_elevation.datum_unknown",
+                        f"{scope} Item 42 has no receiver-current Item 25 or 78 "
+                        "to identify its MSL/HAE vertical datum",
+                        requirement="MISB ST 0601.19 §8.42.1",
+                        program_number=event.program_number,
+                        pid=event.pid,
+                        tags=(25, 42, 78),
+                        offset=event.source.pes.offset,
+                    )
             if self._validate_mismms:
                 validator = self._mismms.setdefault(
                     key,

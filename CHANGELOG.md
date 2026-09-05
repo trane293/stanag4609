@@ -5,6 +5,11 @@ Versioning, with PEP 440 pre-release identifiers while the API is still alpha.
 
 ## Unreleased
 
+- Resolve ST 0601 Item 42's MSL/HAE datum from receiver-current frame-center
+  Items 25 and 78 across sparse Report-on-Change packets; expose the typed
+  result through the core API, GeoJSON, and player, and report ambiguous datum
+  state through the FMV verifier.
+
 ## 0.1.0a5 - 2026-09-05
 
 - Enforce ST 1204.3's UUID version/variant and version-1 null-MAC rules for

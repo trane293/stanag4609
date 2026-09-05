@@ -5,7 +5,7 @@ than the feature list: a capability is marked proven only when the repository
 contains a concrete implementation boundary and executable evidence matching
 the breadth of the claim.
 
-Last audited: 5 September 2026, alpha release candidate `0.1.0a5`.
+Last audited: 5 September 2026, development version `0.1.0a6.dev0`.
 
 ## Current evidence
 
@@ -20,9 +20,9 @@ Last audited: 5 September 2026, alpha release candidate `0.1.0a5`.
 | Preserve common audio channels | Per-PID demux and timing, Layer II/AAC frame reconstruction, byte-preserving transform tests, all-codec PyAV CI, real AAC FMV-to-PCM acceptance | Proven for the three ST 1001 codecs; mixing, output-device selection, and resampling are application policy |
 | Verify and explain malformed FMV | Incremental `FMVVerifier`, terminal/JSON/HTML CLI reports, embedded ST 0604 timestamp coverage, real deployed-stream defects, 20 hash-pinned fault-specific cases from an independent vendor corpus, stable report-schema tests | Proven for the checks listed in the [verifier guide](VERIFIER.md); the sole unasserted corpus member is within the applicable published timing bound, and this is not a certification authority |
 | Play supplied, public, and live FMV with synchronized metadata | `stanag4609-player`, recorded timeline/range mode, bounded fragmented-MP4/MSE live gateway, media-origin PTS alignment, numbered SSE, plus real-Chromium recorded/live playback, seek, synchronization, canvas, and telemetry tests | Proven for recorded fixtures and incremental browser delivery; production multi-viewer/WebRTC deployment remains application architecture |
-| Show actual requested telemetry | Real Day/Night FMV player acceptance requires MISP timestamp, sensor latitude/longitude/altitude, platform attitude, sensor attitude, frame center, target coordinates, and sensor/frame/target map features on every sample | Proven against two checksum-pinned independent recordings |
+| Show actual requested telemetry | Real Day/Night FMV player acceptance requires MISP timestamp, sensor latitude/longitude/altitude, platform attitude, sensor attitude, frame center, target coordinates, and sensor/frame/target map features on every sample; Item 42 exposes its receiver-current MSL/HAE/unknown datum | Proven against two checksum-pinned independent recordings plus normative datum-state tests |
 | Show VMTI AI detections | Typed ST 0903 VMTI codec, real YOLO-derived demo artifact, synthetic standards-vector overlay/geolocation tests; negative inspection of the public ImpleoTV corpus and OpenSensorHub sample | Implemented; neither inspected source contains VMTI, so an independently sourced recorded VMTI FMV fixture is still missing |
-| Publish installable packages and documentation | Production PyPI `0.1.0a4`, owner-gated release workflow, wheel/sdist install checks, strict MkDocs/Read the Docs configuration | Proven for the alpha release process |
+| Publish installable packages and documentation | Production PyPI `0.1.0a5`, owner-gated release workflow, wheel/sdist install checks, strict MkDocs/Read the Docs configuration | Proven for the alpha release process |
 
 ## Why the overall objective remains open
 

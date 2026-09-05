@@ -27,12 +27,14 @@ from stanag4609.st0601 import (
     SpecialValue,
     ST0601Semantic,
     ST0601ValidationContext,
+    VerticalDatum,
     WeaponFired,
     WeaponLoad,
     decode_uas_local_set,
     encode_field_value,
     encode_uas_local_set,
     misp_timestamp_to_utc,
+    resolve_target_elevation,
     update_uas_local_set,
     utc_to_misp_timestamp,
 )
@@ -213,6 +215,42 @@ def test_preferred_scalar_representations_follow_st0601_requirements(
     assert tuple(field.definition.tag for field in resolved.ignored) == (legacy_tag,)
     assert preferred_tag in {field.definition.tag for field in uas.effective_fields}
     assert legacy_tag not in {field.definition.tag for field in uas.effective_fields}
+
+
+@pytest.mark.parametrize(
+    ("frame_heights", "datum", "basis_tags"),
+    [
+        ({25: 300.0}, VerticalDatum.MSL, (25,)),
+        ({78: 400.0}, VerticalDatum.HAE, (78,)),
+        ({25: 300.0, 78: 400.0}, VerticalDatum.HAE, (78, 25)),
+        ({}, None, ()),
+    ],
+)
+def test_target_elevation_datum_follows_st0601_item_42_presence_rules(
+    frame_heights: dict[int, object],
+    datum: VerticalDatum | None,
+    basis_tags: tuple[int, ...],
+) -> None:
+    uas = decode_uas_local_set(
+        encode_uas_local_set(
+            {
+                2: datetime(2025, 1, 1, tzinfo=timezone.utc),
+                40: 45.0,
+                41: -75.0,
+                42: 500.0,
+                65: 19,
+                **frame_heights,
+            }
+        )
+    )
+
+    resolved = resolve_target_elevation(uas.fields)
+
+    assert resolved is not None
+    assert resolved.value == pytest.approx(500.0, abs=0.4)
+    assert resolved.datum is datum
+    assert resolved.basis_tags == basis_tags
+    assert uas.target_elevation() == resolved
 
 
 @pytest.mark.parametrize(
