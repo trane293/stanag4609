@@ -239,6 +239,8 @@ class VideoPropertiesVerificationSummary:
     h262_frame_rate_extension_violations: int = 0
     h262_bit_rate_violations: int = 0
     h262_vbv_buffer_violations: int = 0
+    h262_chroma_format_violations: int = 0
+    h262_constrained_parameters_violations: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -260,6 +262,10 @@ class VideoPropertiesVerificationSummary:
             ),
             "h262_bit_rate_violations": self.h262_bit_rate_violations,
             "h262_vbv_buffer_violations": self.h262_vbv_buffer_violations,
+            "h262_chroma_format_violations": self.h262_chroma_format_violations,
+            "h262_constrained_parameters_violations": (
+                self.h262_constrained_parameters_violations
+            ),
         }
 
 
@@ -799,6 +805,8 @@ class _VideoPropertiesStats:
     h262_frame_rate_extension_violations: int = 0
     h262_bit_rate_violations: int = 0
     h262_vbv_buffer_violations: int = 0
+    h262_chroma_format_violations: int = 0
+    h262_constrained_parameters_violations: int = 0
 
     def __post_init__(self) -> None:
         self.parser = self._new_parser()
@@ -853,6 +861,10 @@ class _VideoPropertiesStats:
                 self.h262_bit_rate_violations += 1
             if properties.h262_level_vbv_buffer_conforms is False:
                 self.h262_vbv_buffer_violations += 1
+            if properties.h262_main_profile_chroma_conforms is False:
+                self.h262_chroma_format_violations += 1
+            if properties.h262_constrained_parameters_conforms is False:
+                self.h262_constrained_parameters_violations += 1
             if self.latest is not None and properties != self.latest:
                 self.property_changes += 1
             self.latest = properties
@@ -878,6 +890,8 @@ class _VideoPropertiesStats:
             self.h262_frame_rate_extension_violations,
             self.h262_bit_rate_violations,
             self.h262_vbv_buffer_violations,
+            self.h262_chroma_format_violations,
+            self.h262_constrained_parameters_violations,
         )
 
 
@@ -2754,6 +2768,48 @@ class FMVVerifier:
                     ),
                     requirement=(
                         "ITU-T H.262 (02/2000) Table 8-14 / MISP-2018.2-115"
+                    ),
+                    program_number=key[0],
+                    pid=key[1],
+                )
+                chroma_violations = property_stats.h262_chroma_format_violations
+                self._add(
+                    VerificationStatus.PASS
+                    if not chroma_violations
+                    else VerificationStatus.ERROR,
+                    "video.h262.chroma_format",
+                    (
+                        f"all {property_stats.sequences} observed sequence property "
+                        "set(s) use 4:2:0 chroma for H.262 Main Profile"
+                        if not chroma_violations
+                        else f"{chroma_violations} of {property_stats.sequences} "
+                        "observed sequence property sets use chroma outside the "
+                        "H.262 Main Profile constraint"
+                    ),
+                    requirement=(
+                        "ITU-T H.262 (02/2000) Table 8-5 / MISP-2018.2-115"
+                    ),
+                    program_number=key[0],
+                    pid=key[1],
+                )
+                constrained_violations = (
+                    property_stats.h262_constrained_parameters_violations
+                )
+                self._add(
+                    VerificationStatus.PASS
+                    if not constrained_violations
+                    else VerificationStatus.ERROR,
+                    "video.h262.constrained_parameters",
+                    (
+                        f"all {property_stats.sequences} observed sequence property "
+                        "set(s) clear the legacy constrained-parameters flag"
+                        if not constrained_violations
+                        else f"{constrained_violations} of {property_stats.sequences} "
+                        "observed sequence property sets assert the legacy MPEG-1 "
+                        "constrained-parameters flag"
+                    ),
+                    requirement=(
+                        "ITU-T H.262 (02/2000) Table E.2 / MISP-2018.2-115"
                     ),
                     program_number=key[0],
                     pid=key[1],

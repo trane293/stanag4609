@@ -113,6 +113,7 @@ def _sequence_header(
     frame_rate: int = 4,
     bit_rate_value: int = 25_000,
     vbv_buffer_size_value: int = 112,
+    constrained_parameters_flag: int = 0,
 ) -> bytes:
     prefix = _bits(((width, 12), (height, 12), (aspect, 4), (frame_rate, 4)))
     # bit_rate_value, marker_bit, vbv_buffer_size_value, constrained flag
@@ -121,7 +122,7 @@ def _sequence_header(
             (bit_rate_value, 18),
             (1, 1),
             (vbv_buffer_size_value, 10),
-            (0, 1),
+            (constrained_parameters_flag, 1),
             (0, 1),
             (0, 1),
         )
@@ -191,6 +192,7 @@ def test_h262_properties_decode_main_profile_progressive_sequence() -> None:
             frame_rate_extension_d=0,
             bit_rate=10_000_000,
             vbv_buffer_size=1_835_008,
+            constrained_parameters_flag=False,
         )
     ]
     assert properties[0].level_picture_size_conforms is True
@@ -200,6 +202,24 @@ def test_h262_properties_decode_main_profile_progressive_sequence() -> None:
     assert properties[0].h262_frame_rate_extension_conforms is True
     assert properties[0].h262_level_bit_rate_conforms is True
     assert properties[0].h262_level_vbv_buffer_conforms is True
+    assert properties[0].h262_main_profile_chroma_conforms is True
+    assert properties[0].h262_constrained_parameters_conforms is True
+
+
+def test_h262_reports_main_profile_chroma_and_legacy_constrained_flag() -> None:
+    parser = H262VideoPropertiesParser()
+    result = parser.feed(
+        _sequence_header(constrained_parameters_flag=1)
+        + _sequence_extension(chroma=2)
+        + b"\x00\x00\x01\xb7"
+    ) + parser.finish()
+
+    assert result[0].profile == "Main"
+    assert result[0].chroma_format == "4:2:2"
+    assert result[0].constrained_parameters_flag is True
+    assert result[0].h262_main_profile_chroma_conforms is False
+    assert result[0].h262_constrained_parameters_conforms is False
+    assert result[0].to_dict()["h262_main_profile_chroma_conforms"] is False
 
 
 def test_h262_main_level_enforces_declared_bit_rate_and_vbv_buffer() -> None:

@@ -944,6 +944,37 @@ def test_verifier_enforces_h262_bit_rate_and_vbv_across_every_sequence() -> None
     assert "Table 8-14" in findings["video.h262.vbv_buffer_size"].requirement
 
 
+def test_verifier_enforces_h262_main_chroma_and_constrained_flag_streamwide() -> None:
+    invalid = bytes.fromhex(
+        "000001b32d01e034186a2384000001b5148c00010000000001b7"
+    )
+    conforming_latest = bytes.fromhex(
+        "000001b32d01e034186a2380000001b5148a00010000000001b7"
+    )
+    report = _verify(
+        _transport(
+            video_stream_type=0x02,
+            video_payload=invalid + conforming_latest,
+        )
+    )
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_properties is not None
+    assert video.video_properties.h262_chroma_format_violations == 1
+    assert video.video_properties.h262_constrained_parameters_violations == 1
+    assert video.video_properties.latest is not None
+    assert video.video_properties.latest.h262_main_profile_chroma_conforms is True
+    assert video.video_properties.latest.h262_constrained_parameters_conforms is True
+    findings = {item.code: item for item in report.findings}
+    assert findings["video.h262.chroma_format"].status is VerificationStatus.ERROR
+    assert (
+        findings["video.h262.constrained_parameters"].status
+        is VerificationStatus.ERROR
+    )
+    assert "Table 8-5" in findings["video.h262.chroma_format"].requirement
+    assert "Table E.2" in findings["video.h262.constrained_parameters"].requirement
+
+
 def test_verifier_reports_hevc_profile_and_class1_depth_separately() -> None:
     main10_sps = bytes.fromhex(
         "0000000142010102200000030090000003000003003fa005020169365959a493"

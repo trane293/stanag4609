@@ -146,6 +146,7 @@ class VideoProperties:
     frame_rate_extension_d: int | None = None
     bit_rate: int | None = None
     vbv_buffer_size: int | None = None
+    constrained_parameters_flag: bool | None = None
 
     @property
     def misp_profile_level(self) -> bool:
@@ -295,6 +296,22 @@ class VideoProperties:
             return None
         return self.vbv_buffer_size <= maximum
 
+    @property
+    def h262_main_profile_chroma_conforms(self) -> bool | None:
+        """Whether H.262 Main Profile uses its required 4:2:0 chroma format."""
+
+        if self.stream_type != 0x02 or self.profile != "Main":
+            return None
+        return self.chroma_format == "4:2:0"
+
+    @property
+    def h262_constrained_parameters_conforms(self) -> bool | None:
+        """Whether an H.262 sequence clears the legacy MPEG-1 constrained flag."""
+
+        if self.stream_type != 0x02 or self.constrained_parameters_flag is None:
+            return None
+        return not self.constrained_parameters_flag
+
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-compatible representation."""
 
@@ -335,6 +352,7 @@ class VideoProperties:
             "frame_rate_extension_d": self.frame_rate_extension_d,
             "bit_rate": self.bit_rate,
             "vbv_buffer_size": self.vbv_buffer_size,
+            "constrained_parameters_flag": self.constrained_parameters_flag,
             "misp_profile_level": self.misp_profile_level,
             "level_picture_size_conforms": self.level_picture_size_conforms,
             "level_sample_rate_conforms": self.level_sample_rate_conforms,
@@ -343,6 +361,12 @@ class VideoProperties:
             ),
             "h262_level_bit_rate_conforms": self.h262_level_bit_rate_conforms,
             "h262_level_vbv_buffer_conforms": self.h262_level_vbv_buffer_conforms,
+            "h262_main_profile_chroma_conforms": (
+                self.h262_main_profile_chroma_conforms
+            ),
+            "h262_constrained_parameters_conforms": (
+                self.h262_constrained_parameters_conforms
+            ),
         }
 
 
@@ -354,6 +378,7 @@ class _H262SequenceHeader:
     frame_rate_code: int
     bit_rate_value: int
     vbv_buffer_size_value: int
+    constrained_parameters_flag: bool
 
 
 def _read_bits(data: bytes, offset: int, width: int) -> int:
@@ -374,6 +399,7 @@ def _parse_h262_sequence_header(data: bytes) -> _H262SequenceHeader:
     frame_rate = _read_bits(data, 28, 4)
     bit_rate_value = _read_bits(data, 32, 18)
     vbv_buffer_size_value = _read_bits(data, 51, 10)
+    constrained_parameters_flag = bool(_read_bits(data, 61, 1))
     if width == 0 or height == 0:
         raise DecodeError("H.262 sequence dimensions must be non-zero")
     if aspect not in {1, 2, 3, 4}:
@@ -389,6 +415,7 @@ def _parse_h262_sequence_header(data: bytes) -> _H262SequenceHeader:
         frame_rate,
         bit_rate_value,
         vbv_buffer_size_value,
+        constrained_parameters_flag,
     )
 
 
@@ -450,6 +477,7 @@ def _parse_h262_sequence_extension(
         frame_rate_extension_d=frame_rate_extension_d,
         bit_rate=bit_rate,
         vbv_buffer_size=vbv_buffer_size,
+        constrained_parameters_flag=header.constrained_parameters_flag,
     )
 
 

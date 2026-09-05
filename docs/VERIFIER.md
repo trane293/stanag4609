@@ -160,7 +160,7 @@ errors, carriage errors, and the other structural checks still fail.
 | ST 0903 | Successful standalone or embedded VMTI decode, optional OWL/entity/exact-label resolution, target observations/unique-ID inventory, cross-frame state transitions, dropped-ID reuse, and missing-status diagnostics |
 | ST 1001 | Permitted audio stream types, optional application-required audio, complete MP2/AAC-LC frame parsing, PTS anchoring, sample rate, channel count, sample/frame totals, cumulative duration, malformed headers, and trailing truncation |
 | ST 0604 | Incremental H.262 user-data and AVC/HEVC unregistered-SEI parsing, Time Status validation, micro/nanosecond inventory, timestamp-to-access-unit association, and missing/duplicate/unassociated diagnostics |
-| MISP video profile | Approved Class 1 codec declaration (H.262/AVC/HEVC), coded and displayed dimensions, available display ratio/frame rate, scan signalling, chroma/bit depth, profile/level, property changes, stream-wide adopted MISP profile/scan checks across every observed sequence property set, H.262 frame-rate-extension/bit-rate/VBV signalling, codec level picture-size and sample-throughput limits, the Class 1 eight-bit-per-band limit, and explicit producer source-aspect/scan context |
+| MISP video profile | Approved Class 1 codec declaration (H.262/AVC/HEVC), coded and displayed dimensions, available display ratio/frame rate, scan signalling, chroma/bit depth, profile/level, property changes, stream-wide adopted MISP profile/scan checks across every observed sequence property set, H.262 Main-profile chroma and constrained/frame-rate-extension/bit-rate/VBV signalling, codec level picture-size and sample-throughput limits, the Class 1 eight-bit-per-band limit, and explicit producer source-aspect/scan context |
 
 VMTI identities are scoped by program, metadata PID, and metadata service ID.
 Reusing an identifier after `Dropped` or taking an impossible state-machine
@@ -191,6 +191,11 @@ values split across the sequence header and sequence extension, convert their
 400-bit/s and 16,384-bit units, and compare every sequence against H.262 Tables
 8-13 and 8-14. A forbidden zero declared bit rate is a video-header decoding
 error rather than a level-limit result.
+
+`video.h262.chroma_format` enforces the H.262 Table 8-5 requirement that Main
+Profile use 4:2:0. `video.h262.constrained_parameters` verifies that an H.262
+sequence clears the legacy MPEG-1 `constrained_parameters_flag`, as specified
+by Table E.2.
 
 Control Command history is scoped by the same program/PID/service identity.
 The verifier reports non-increasing new command IDs, changed command text or
