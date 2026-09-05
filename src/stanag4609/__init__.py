@@ -566,6 +566,7 @@ from stanag4609.video import (
     AVCVideoPropertiesParser,
     H262VideoPropertiesParser,
     HEVCVideoPropertiesParser,
+    MISPImageContext,
     VideoProperties,
 )
 
@@ -714,6 +715,7 @@ __all__ = [
     "MISMMSValidationIssue",
     "MISMMSValidator",
     "MISMMSecurityContext",
+    "MISPImageContext",
     "MPEGAudioChannelMode",
     "MPEGLayerIIHeader",
     "MetadataAction",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from fractions import Fraction
+from math import isfinite
 
 from stanag4609.errors import DecodeError, TruncatedData
 
@@ -36,6 +37,42 @@ _H262_LEVELS = {
     10: "Low",
 }
 _H262_CHROMA_FORMATS = {1: "4:2:0", 2: "4:2:2", 3: "4:4:4"}
+
+
+@dataclass(frozen=True, slots=True)
+class MISPImageContext:
+    """Producer-known image facts that cannot be recovered from encoded video.
+
+    ``source_aspect_ratio`` is the image aspect ratio acquired at the imager,
+    which MISP distinguishes from an encoded display aspect ratio. Scan facts
+    cover the source and any conversion or transcode stages before the stream
+    reaches the verifier.
+    """
+
+    source_aspect_ratio: Fraction | int | float | None = None
+    source_progressive: bool | None = None
+    conversion_progressive: tuple[bool, ...] = ()
+
+    def __post_init__(self) -> None:
+        ratio = self.source_aspect_ratio
+        if ratio is not None:
+            if isinstance(ratio, bool) or not isinstance(ratio, (Fraction, int, float)):
+                raise TypeError("source_aspect_ratio must be a finite positive number or None")
+            if isinstance(ratio, float) and not isfinite(ratio):
+                raise ValueError("source_aspect_ratio must be finite")
+            normalized = Fraction(ratio)
+            if normalized <= 0:
+                raise ValueError("source_aspect_ratio must be positive")
+            object.__setattr__(self, "source_aspect_ratio", normalized)
+        if self.source_progressive is not None and not isinstance(
+            self.source_progressive, bool
+        ):
+            raise TypeError("source_progressive must be a boolean or None")
+        if not isinstance(self.conversion_progressive, tuple):
+            raise TypeError("conversion_progressive must be a tuple of booleans")
+        for index, progressive in enumerate(self.conversion_progressive):
+            if not isinstance(progressive, bool):
+                raise TypeError(f"conversion_progressive[{index}] must be a boolean")
 
 
 @dataclass(frozen=True, slots=True)

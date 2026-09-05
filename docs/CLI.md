@@ -13,6 +13,8 @@ stanag4609-verify mission.ts --format html > verification.html
 stanag4609-verify legacy-mission.ts --profile structural
 stanag4609-verify mission.ts --security-classification secret \
   --classifying-country USA --require-release-country CAN
+stanag4609-verify mission.ts --source-aspect-ratio 16:9 \
+  --source-scan progressive --conversion-scan progressive
 ```
 
 The verifier reports successful, missing, malformed, warning, and not-applicable
@@ -21,7 +23,9 @@ self-contained and printable. See
 [verify and debug FMV](VERIFIER.md) for policies and exit status behavior.
 Classification, classifying-country, exact SCI/SHI and caveat values, and
 repeatable release/object-country requirements let a deployment enforce its
-own authoritative ST 0102 marking policy.
+own authoritative ST 0102 marking policy. Producer-known source aspect ratio
+and scan-stage options close the MISP image checks that encoded display headers
+cannot prove by themselves.
 
 ## Play video and metadata
 

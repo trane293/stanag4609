@@ -89,3 +89,7 @@
   structural verifier profile; that does not make the source pair a normative
   conformance vector.
 - The package is alpha and makes no unqualified standards-conformance claim.
+- MISP source aspect ratio and scan history are not inferable from an encoded
+  display header. `MISPImageContext` and the corresponding verifier CLI options
+  validate these facts when the producer supplies them; omission remains an
+  explicit evidence boundary rather than an assumed pass.

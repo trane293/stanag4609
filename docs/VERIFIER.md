@@ -65,6 +65,40 @@ when the receiving workflow needs an audio channel:
 stanag4609-verify mission.ts --require-audio
 ```
 
+The encoded bitstream exposes display properties, but it cannot prove the
+aspect ratio acquired at the imager or the scan mode of upstream conversion
+stages. Supply those producer-known facts when they are available:
+
+```console
+stanag4609-verify mission.ts \
+  --source-aspect-ratio 16:9 \
+  --source-scan progressive \
+  --conversion-scan progressive
+```
+
+`--conversion-scan` is repeatable in pipeline order. The verifier checks the
+source aspect ratio against MISP-2015.1-01's inclusive `[0.25, 4.0]` range and
+requires the source and every supplied conversion stage to be progressive for
+MISP-2015.1-02. Omitted facts remain unclaimed rather than being inferred from
+the encoded display aspect ratio.
+
+The same policy is available without the CLI:
+
+```python
+from fractions import Fraction
+
+from stanag4609 import MISPImageContext, verify_fmv_file
+
+report = verify_fmv_file(
+    "mission.ts",
+    image_context=MISPImageContext(
+        source_aspect_ratio=Fraction(16, 9),
+        source_progressive=True,
+        conversion_progressive=(True,),
+    ),
+)
+```
+
 When the deployment has an authoritative marking policy, enforce it explicitly
 instead of accepting any structurally valid ST 0102 value:
 
@@ -115,7 +149,7 @@ errors, carriage errors, and the other structural checks still fail.
 | ST 0903 | Successful standalone or embedded VMTI decode, optional OWL/entity/exact-label resolution, target observations/unique-ID inventory, cross-frame state transitions, dropped-ID reuse, and missing-status diagnostics |
 | ST 1001 | Permitted audio stream types, optional application-required audio, complete MP2/AAC-LC frame parsing, PTS anchoring, sample rate, channel count, sample/frame totals, cumulative duration, malformed headers, and trailing truncation |
 | ST 0604 | Incremental H.262 user-data and AVC/HEVC unregistered-SEI parsing, Time Status validation, micro/nanosecond inventory, timestamp-to-access-unit association, and missing/duplicate/unassociated diagnostics |
-| MISP video profile | H.262/AVC/HEVC coded dimensions, available display ratio/frame rate, scan signalling, chroma/bit depth, profile/level, property changes, and adopted MISP profile-range checks |
+| MISP video profile | H.262/AVC/HEVC coded dimensions, available display ratio/frame rate, scan signalling, chroma/bit depth, profile/level, property changes, adopted MISP profile-range checks, and explicit producer source-aspect/scan context |
 
 VMTI identities are scoped by program, metadata PID, and metadata service ID.
 Reusing an identifier after `Dropped` or taking an impossible state-machine

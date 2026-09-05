@@ -99,6 +99,7 @@ from stanag4609.video import (
     AVCVideoPropertiesParser,
     H262VideoPropertiesParser,
     HEVCVideoPropertiesParser,
+    MISPImageContext,
     VideoProperties,
 )
 
@@ -1008,6 +1009,7 @@ class FMVVerifier:
         security_context: MISMMSecurityContext | None = None,
         ontology_resolver: OntologyResolver | None = None,
         st0601_context_provider: ST0601ContextProvider | None = None,
+        image_context: MISPImageContext | None = None,
         asynchronous_std_descriptors: Mapping[
             tuple[int, int], MetadataSTDDescriptor
         ] | None = None,
@@ -1037,6 +1039,8 @@ class FMVVerifier:
             st0601_context_provider
         ):
             raise TypeError("st0601_context_provider must be callable or None")
+        if image_context is not None and not isinstance(image_context, MISPImageContext):
+            raise TypeError("image_context must be a MISPImageContext or None")
         if not require_security and security_context.has_policy:
             raise ValueError("security_context cannot require fields when require_security=False")
         if not validate_mismms and security_context.has_policy:
@@ -1049,6 +1053,7 @@ class FMVVerifier:
         self._security_context = security_context
         self._ontology_resolver = ontology_resolver
         self._st0601_context_provider = st0601_context_provider
+        self._image_context = image_context
         self._max_findings = max_findings
         self._max_st0601_tags_per_stream = max_st0601_tags_per_stream
         self._packet_parser = TransportStreamParser()
@@ -2272,6 +2277,61 @@ class FMVVerifier:
             offset=offset,
         )
 
+    def _add_misp_image_context_checks(self) -> None:
+        context = self._image_context
+        if context is None:
+            return
+        if context.source_aspect_ratio is not None:
+            ratio = context.source_aspect_ratio
+            conforms = Fraction(1, 4) <= ratio <= Fraction(4, 1)
+            self._add(
+                VerificationStatus.PASS if conforms else VerificationStatus.ERROR,
+                "misp.image.source_aspect_ratio",
+                f"producer-supplied source aspect ratio {float(ratio):g} "
+                + (
+                    "is within the inclusive [0.25, 4.0] range"
+                    if conforms
+                    else "is outside the inclusive [0.25, 4.0] range"
+                ),
+                requirement="MISP-2015.1-01",
+            )
+        if context.source_progressive is not None:
+            self._add(
+                (
+                    VerificationStatus.PASS
+                    if context.source_progressive
+                    else VerificationStatus.ERROR
+                ),
+                "misp.image.source_progressive",
+                "producer-supplied imager source is progressive-scan"
+                if context.source_progressive
+                else "producer-supplied imager source is interlaced-scan",
+                requirement="MISP-2015.1-02",
+            )
+        if context.conversion_progressive:
+            interlaced = tuple(
+                index
+                for index, progressive in enumerate(
+                    context.conversion_progressive, start=1
+                )
+                if not progressive
+            )
+            conforms = not interlaced
+            detail = (
+                f"all {len(context.conversion_progressive)} producer-supplied conversion "
+                "stage(s) are progressive-scan"
+                if conforms
+                else "producer-supplied conversion stage "
+                + ", ".join(str(index) for index in interlaced)
+                + " is interlaced-scan"
+            )
+            self._add(
+                VerificationStatus.PASS if conforms else VerificationStatus.ERROR,
+                "misp.image.conversion_progressive",
+                detail,
+                requirement="MISP-2015.1-02",
+            )
+
     def _add_summary_checks(self) -> None:
         if not self._has_error("transport.structure", "transport.decode"):
             self._add(
@@ -2329,6 +2389,7 @@ class FMVVerifier:
             missing="no current CRC-valid PMT was decoded",
             requirement="ISO/IEC 13818-1 PMT",
         )
+        self._add_misp_image_context_checks()
         video_streams = tuple(item for item in self._streams.values() if item.kind == "video")
         self._presence_check(
             bool(video_streams) and any(item.pes_packets for item in video_streams),
@@ -2772,6 +2833,7 @@ def verify_fmv_stream(
     security_context: MISMMSecurityContext | None = None,
     ontology_resolver: OntologyResolver | None = None,
     st0601_context_provider: ST0601ContextProvider | None = None,
+    image_context: MISPImageContext | None = None,
     asynchronous_std_descriptors: Mapping[
         tuple[int, int], MetadataSTDDescriptor
     ] | None = None,
@@ -2792,6 +2854,7 @@ def verify_fmv_stream(
         security_context=security_context,
         ontology_resolver=ontology_resolver,
         st0601_context_provider=st0601_context_provider,
+        image_context=image_context,
         asynchronous_std_descriptors=asynchronous_std_descriptors,
         max_findings=max_findings,
         max_st0601_tags_per_stream=max_st0601_tags_per_stream,
@@ -2812,6 +2875,7 @@ def verify_fmv_file(
     security_context: MISMMSecurityContext | None = None,
     ontology_resolver: OntologyResolver | None = None,
     st0601_context_provider: ST0601ContextProvider | None = None,
+    image_context: MISPImageContext | None = None,
     asynchronous_std_descriptors: Mapping[
         tuple[int, int], MetadataSTDDescriptor
     ] | None = None,
@@ -2833,10 +2897,29 @@ def verify_fmv_file(
             security_context=security_context,
             ontology_resolver=ontology_resolver,
             st0601_context_provider=st0601_context_provider,
+            image_context=image_context,
             asynchronous_std_descriptors=asynchronous_std_descriptors,
             max_findings=max_findings,
             max_st0601_tags_per_stream=max_st0601_tags_per_stream,
         )
+
+
+def _parse_aspect_ratio(value: str) -> Fraction:
+    try:
+        if value.count(":") == 1:
+            numerator, denominator = value.split(":")
+            ratio = Fraction(int(numerator), int(denominator))
+        elif ":" not in value:
+            ratio = Fraction(value)
+        else:
+            raise ValueError
+    except (ValueError, ZeroDivisionError) as error:
+        raise argparse.ArgumentTypeError(
+            "aspect ratio must be NUMBER or WIDTH:HEIGHT"
+        ) from error
+    if ratio <= 0:
+        raise argparse.ArgumentTypeError("aspect ratio must be positive")
+    return ratio
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -2872,6 +2955,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--require-audio",
         action="store_true",
         help="apply an application policy requiring ST 1001 audio",
+    )
+    parser.add_argument(
+        "--source-aspect-ratio",
+        type=_parse_aspect_ratio,
+        metavar="WIDTH:HEIGHT",
+        help="producer-known imager aspect ratio for MISP-2015.1-01",
+    )
+    parser.add_argument(
+        "--source-scan",
+        choices=("progressive", "interlaced"),
+        help="producer-known imager scan mode for MISP-2015.1-02",
+    )
+    parser.add_argument(
+        "--conversion-scan",
+        action="append",
+        choices=("progressive", "interlaced"),
+        default=[],
+        help="scan mode of each conversion/transcode stage, in order; repeatable",
     )
     parser.add_argument(
         "--security-classification",
@@ -2912,6 +3013,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--max-st0601-tags-per-stream", type=int, default=4_096)
     args = parser.parse_args(argv)
     try:
+        image_context = (
+            MISPImageContext(
+                source_aspect_ratio=args.source_aspect_ratio,
+                source_progressive=(
+                    None if args.source_scan is None else args.source_scan == "progressive"
+                ),
+                conversion_progressive=tuple(
+                    scan == "progressive" for scan in args.conversion_scan
+                ),
+            )
+            if args.source_aspect_ratio is not None
+            or args.source_scan is not None
+            or args.conversion_scan
+            else None
+        )
         security_context = MISMMSecurityContext(
             expected_classification=(
                 None
@@ -2934,6 +3050,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             require_audio=args.require_audio,
             validate_mismms=args.profile == "mismms",
             security_context=security_context,
+            image_context=image_context,
             max_findings=args.max_findings,
             max_st0601_tags_per_stream=args.max_st0601_tags_per_stream,
         )

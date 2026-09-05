@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from fractions import Fraction
 from io import BytesIO
+from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -12,6 +13,7 @@ from stanag4609 import (
     FMVVerifier,
     MISMMSecurityContext,
     MISMMSPopulationStatus,
+    MISPImageContext,
     ST0601ValidationContext,
     VerificationStatus,
     VideoTimestampVerificationSummary,
@@ -612,6 +614,105 @@ def test_verifier_reports_embedded_st0604_timestamp_coverage() -> None:
         and finding.status is VerificationStatus.PASS
         for finding in report.findings
     )
+
+
+def test_verifier_validates_caller_supplied_misp_image_source_context() -> None:
+    verifier = FMVVerifier(
+        require_security=False,
+        require_miis=False,
+        image_context=MISPImageContext(
+            source_aspect_ratio=Fraction(16, 9),
+            source_progressive=True,
+            conversion_progressive=(True, True),
+        ),
+    )
+    verifier.feed(_transport())
+
+    report = verifier.finish(source="memory.ts")
+
+    findings = {finding.code: finding for finding in report.findings}
+    assert findings["misp.image.source_aspect_ratio"].status is VerificationStatus.PASS
+    assert findings["misp.image.source_aspect_ratio"].requirement == "MISP-2015.1-01"
+    assert findings["misp.image.source_progressive"].status is VerificationStatus.PASS
+    assert findings["misp.image.conversion_progressive"].status is VerificationStatus.PASS
+
+
+def test_verifier_rejects_nonconforming_misp_image_source_context() -> None:
+    verifier = FMVVerifier(
+        require_security=False,
+        require_miis=False,
+        image_context=MISPImageContext(
+            source_aspect_ratio=Fraction(9, 2),
+            source_progressive=False,
+            conversion_progressive=(True, False),
+        ),
+    )
+    verifier.feed(_transport())
+
+    report = verifier.finish(source="memory.ts")
+
+    findings = {finding.code: finding for finding in report.errors}
+    assert "4.5 is outside the inclusive [0.25, 4.0] range" in findings[
+        "misp.image.source_aspect_ratio"
+    ].message
+    assert findings["misp.image.source_progressive"].requirement == "MISP-2015.1-02"
+    assert "conversion stage 2" in findings["misp.image.conversion_progressive"].message
+
+
+def test_verifier_cli_accepts_producer_image_context(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "image-context.ts"
+    source.write_bytes(_transport())
+
+    exit_code = main(
+        [
+            str(source),
+            "--format",
+            "json",
+            "--no-require-security",
+            "--no-require-miis",
+            "--source-aspect-ratio",
+            "16:9",
+            "--source-scan",
+            "progressive",
+            "--conversion-scan",
+            "progressive",
+        ]
+    )
+
+    assert exit_code == 0
+    findings = {
+        finding["code"]: finding for finding in json.loads(capsys.readouterr().out)["findings"]
+    }
+    assert findings["misp.image.source_aspect_ratio"]["status"] == "pass"
+    assert findings["misp.image.source_progressive"]["status"] == "pass"
+    assert findings["misp.image.conversion_progressive"]["status"] == "pass"
+
+
+def test_verifier_cli_rejects_invalid_source_aspect_ratio(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "invalid-image-context.ts"
+    source.write_bytes(_transport())
+
+    with pytest.raises(SystemExit, match="2"):
+        main([str(source), "--source-aspect-ratio", "16x9"])
+
+    assert "aspect ratio must be NUMBER or WIDTH:HEIGHT" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", [True, 0, -1, float("inf"), "16:9"])
+def test_misp_image_context_rejects_invalid_source_aspect_ratio(value: object) -> None:
+    with pytest.raises((TypeError, ValueError)):
+        MISPImageContext(source_aspect_ratio=value)  # type: ignore[arg-type]
+
+
+def test_misp_image_context_requires_boolean_scan_facts() -> None:
+    with pytest.raises(TypeError, match="source_progressive"):
+        MISPImageContext(source_progressive=1)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match=r"conversion_progressive\[1\]"):
+        MISPImageContext(conversion_progressive=(True, 0))  # type: ignore[arg-type]
 
 
 def test_verifier_rejects_avc_profile_outside_adopted_misp_range() -> None:
