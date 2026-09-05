@@ -30,8 +30,9 @@ important negative-conformance expectations.
 1. Complete MISP-2019.1 software-verifiable image-profile checks. Embedded
    ST 0604 timestamps are now parsed and count-audited for H.262/AVC/HEVC;
    H.262/AVC/HEVC dimensions, display/timing fields, scan signalling, and codec
-   profile/level are now inspected across every observed sequence property set,
-   so an early profile or scan violation cannot be hidden by a later sequence.
+   profile/level and the Class 1 eight-bit-per-band limit are now inspected
+   across every observed sequence property set, so an early profile, scan, or
+   bit-depth violation cannot be hidden by a later sequence.
    Timestamp messages are now associated with
    recognized compressed access units using H.262 picture, AVC prefix-SEI, and
    HEVC prefix/suffix-SEI placement; broader whole-bitstream codec certification

@@ -615,6 +615,11 @@ def test_verifier_reports_embedded_st0604_timestamp_coverage() -> None:
         and finding.status is VerificationStatus.PASS
         for finding in report.findings
     )
+    assert any(
+        finding.code == "misp.video.pixel_value_range"
+        and finding.status is VerificationStatus.PASS
+        for finding in report.findings
+    )
 
 
 def test_verifier_validates_caller_supplied_misp_image_source_context() -> None:
@@ -801,7 +806,7 @@ def test_verifier_rejects_any_interlaced_sequence_not_only_latest() -> None:
     assert "1 of 2 observed sequence property sets" in finding.message
 
 
-def test_verifier_accepts_hevc_main10_profile_in_adopted_misp_range() -> None:
+def test_verifier_reports_hevc_profile_and_class1_depth_separately() -> None:
     main10_sps = bytes.fromhex(
         "0000000142010102200000030090000003000003003fa005020169365959a493"
         "2bc05a02000007d20000ea6010"
@@ -824,6 +829,15 @@ def test_verifier_accepts_hevc_main10_profile_in_adopted_misp_range() -> None:
     )
     assert finding.status is VerificationStatus.PASS
     assert finding.requirement == "MISP-2018.2-113"
+    assert video.video_properties.pixel_depth_violations == 1
+    depth_finding = next(
+        item
+        for item in report.findings
+        if item.code == "misp.video.pixel_value_range"
+    )
+    assert depth_finding.status is VerificationStatus.ERROR
+    assert depth_finding.requirement == "MISP-2019.1 §3.6.2"
+    assert "10-bit" in depth_finding.message
 
 
 def test_verifier_fails_when_recognized_video_frames_lack_st0604_timestamps() -> None:

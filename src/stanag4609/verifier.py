@@ -230,6 +230,8 @@ class VideoPropertiesVerificationSummary:
     profile_level_violations: int = 0
     interlaced_sequences: int = 0
     ambiguous_scan_sequences: int = 0
+    pixel_depth_violations: int = 0
+    maximum_bit_depth: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -240,6 +242,8 @@ class VideoPropertiesVerificationSummary:
             "profile_level_violations": self.profile_level_violations,
             "interlaced_sequences": self.interlaced_sequences,
             "ambiguous_scan_sequences": self.ambiguous_scan_sequences,
+            "pixel_depth_violations": self.pixel_depth_violations,
+            "maximum_bit_depth": self.maximum_bit_depth,
         }
 
 
@@ -770,6 +774,8 @@ class _VideoPropertiesStats:
     profile_level_violations: int = 0
     interlaced_sequences: int = 0
     ambiguous_scan_sequences: int = 0
+    pixel_depth_violations: int = 0
+    maximum_bit_depth: int | None = None
 
     def __post_init__(self) -> None:
         self.parser = self._new_parser()
@@ -792,6 +798,22 @@ class _VideoPropertiesStats:
                 self.interlaced_sequences += 1
             elif properties.progressive is None:
                 self.ambiguous_scan_sequences += 1
+            if any(
+                depth is not None and depth > 8
+                for depth in (properties.bit_depth_luma, properties.bit_depth_chroma)
+            ):
+                self.pixel_depth_violations += 1
+            known_depths = tuple(
+                depth
+                for depth in (properties.bit_depth_luma, properties.bit_depth_chroma)
+                if depth is not None
+            )
+            if known_depths:
+                sequence_maximum = max(known_depths)
+                self.maximum_bit_depth = max(
+                    sequence_maximum,
+                    self.maximum_bit_depth or sequence_maximum,
+                )
             if self.latest is not None and properties != self.latest:
                 self.property_changes += 1
             self.latest = properties
@@ -808,6 +830,8 @@ class _VideoPropertiesStats:
             self.profile_level_violations,
             self.interlaced_sequences,
             self.ambiguous_scan_sequences,
+            self.pixel_depth_violations,
+            self.maximum_bit_depth,
         )
 
 
@@ -2605,6 +2629,35 @@ class FMVVerifier:
                 program_number=key[0],
                 pid=key[1],
             )
+            maximum_bit_depth = property_stats.maximum_bit_depth
+            if maximum_bit_depth is None:
+                self._add(
+                    VerificationStatus.WARNING,
+                    "misp.video.pixel_value_range_unverifiable",
+                    "coded luma/chroma bit depth is not available from the observed "
+                    "sequence property sets",
+                    requirement="MISP-2019.1 §3.6.2",
+                    program_number=key[0],
+                    pid=key[1],
+                )
+            else:
+                conforms = not property_stats.pixel_depth_violations
+                self._add(
+                    VerificationStatus.PASS if conforms else VerificationStatus.ERROR,
+                    "misp.video.pixel_value_range",
+                    (
+                        f"all {property_stats.sequences} observed sequence property set(s) "
+                        f"use at most 8 bits per band (maximum {maximum_bit_depth}-bit)"
+                        if conforms
+                        else f"{property_stats.pixel_depth_violations} of "
+                        f"{property_stats.sequences} observed sequence property sets "
+                        "exceed the Class 1 maximum of 8 bits per band "
+                        f"(maximum {maximum_bit_depth}-bit)"
+                    ),
+                    requirement="MISP-2019.1 §3.6.2",
+                    program_number=key[0],
+                    pid=key[1],
+                )
         klv_streams = tuple(item for item in self._streams.values() if item.kind == "klv")
         self._presence_check(
             bool(klv_streams) and any(item.pes_packets for item in klv_streams),
