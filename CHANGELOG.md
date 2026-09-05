@@ -16,6 +16,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 - Bind the complete ST 1206.1 active/deprecated requirement population to its
   checksum-pinned source and add validated effective-PRF and target-RCS
   exploitation helpers for ST 0601 Item 95 SAR metadata.
+- Bind all 25 active ST 0806.4 requirements to the checksum-pinned publication
+  and add opt-in producer time-of-birth validation for independent or embedded
+  RVT Local Sets used by ST 0601 Item 73.
 
 ## 0.1.0 - 2026-09-05
 

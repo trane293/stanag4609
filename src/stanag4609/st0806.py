@@ -23,6 +23,25 @@ USER_DEFINED_LOCAL_SET_KEY = bytes.fromhex("06 0E 2B 34 02 0B 01 01 0E 01 03 01 
 _UNIX_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
+def _timestamp_microseconds(value: int | datetime, *, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, datetime)):
+        raise TypeError(f"{name} requires integer microseconds or an aware datetime")
+    if isinstance(value, datetime):
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(f"{name} datetime must be timezone-aware")
+        delta = value.astimezone(timezone.utc) - _UNIX_EPOCH
+        microseconds = (
+            delta.days * 86_400_000_000
+            + delta.seconds * 1_000_000
+            + delta.microseconds
+        )
+    else:
+        microseconds = value
+    if not 0 <= microseconds <= 2**64 - 1:
+        raise ValueError(f"{name} must fit the ST 0806 uint64 timestamp domain")
+    return microseconds
+
+
 class RVTErrorValue(Enum):
     """Explicit ST 0806 geolocation error indicator."""
 
@@ -36,6 +55,20 @@ class RVTUserDataType(Enum):
     SIGNED_INTEGER = 1
     UNSIGNED_INTEGER = 2
     EXPERIMENTAL = 3
+
+
+@dataclass(frozen=True, slots=True)
+class RVTValidationContext:
+    """Producer facts needed to validate contextual ST 0806 semantics."""
+
+    metadata_birth_timestamp: int | datetime | None = None
+
+    def __post_init__(self) -> None:
+        if self.metadata_birth_timestamp is not None:
+            _timestamp_microseconds(
+                self.metadata_birth_timestamp,
+                name="metadata_birth_timestamp",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -416,12 +449,10 @@ def _encode_known(tag: int, value: Any, definition: _Definition) -> bytes:
         assert definition.length is not None
         return _encode_integer(value, definition.length, definition)
     if definition.kind == "timestamp":
-        if isinstance(value, datetime):
-            if value.utcoffset() is None:
-                raise ValueError("ST 0806 Precision Time Stamp must be timezone-aware")
-            delta = value.astimezone(timezone.utc) - _UNIX_EPOCH
-            value = delta.days * 86_400_000_000 + delta.seconds * 1_000_000 + delta.microseconds
-        return _encode_integer(value, 8, definition)
+        return _timestamp_microseconds(
+            value,
+            name="ST 0806 Precision Time Stamp",
+        ).to_bytes(8, "big")
     if definition.kind in {"text", "mgrs_grid"}:
         return _validate_text(value, definition)
     if definition.kind == "latitude":
@@ -555,15 +586,44 @@ def _parse_single_packet(data: bytes) -> KLVPacket:
     return packets[0]
 
 
+def _validate_metadata_birth_timestamp(
+    timestamp: bytes | None,
+    context: RVTValidationContext | None,
+    *,
+    error_type: type[Exception],
+) -> None:
+    if context is None or context.metadata_birth_timestamp is None:
+        return
+    if timestamp is None:
+        raise error_type(
+            "ST 0806 metadata time-of-birth validation requires a Precision Time Stamp"
+        )
+    expected = _timestamp_microseconds(
+        context.metadata_birth_timestamp,
+        name="metadata_birth_timestamp",
+    )
+    observed = int.from_bytes(timestamp, "big")
+    if observed != expected:
+        raise error_type(
+            "ST 0806 Precision Time Stamp does not match producer-supplied metadata "
+            "time of birth"
+        )
+
+
 def decode_rvt_local_set(
     data: bytes | KLVPacket,
     *,
     standalone: bool = True,
     verify_checksum: bool = True,
+    context: RVTValidationContext | None = None,
 ) -> RVTLocalSet:
     """Decode a standalone Universal RVT packet or an embedded LS value."""
     if not isinstance(standalone, bool):
         raise TypeError("standalone must be a boolean")
+    if not isinstance(verify_checksum, bool):
+        raise TypeError("verify_checksum must be a boolean")
+    if context is not None and not isinstance(context, RVTValidationContext):
+        raise TypeError("context must be an RVTValidationContext or None")
     if standalone:
         packet = data if isinstance(data, KLVPacket) else _parse_single_packet(data)
         if packet.key != RVT_LOCAL_SET_KEY:
@@ -602,6 +662,11 @@ def decode_rvt_local_set(
         for item in local_set.items
         if item.tag in _RVT_DEFINITIONS
     )
+    _validate_metadata_birth_timestamp(
+        None if not timestamps else timestamps[0].value,
+        context,
+        error_type=DecodeError,
+    )
     return RVTLocalSet(packet, local_set, fields, standalone)
 
 
@@ -613,17 +678,34 @@ def _instances(tag: int, value: Any) -> tuple[Any, ...]:
     return (value,)
 
 
-def encode_rvt_local_set(values: Mapping[int, Any], *, standalone: bool = True) -> bytes:
+def encode_rvt_local_set(
+    values: Mapping[int, Any],
+    *,
+    standalone: bool = True,
+    context: RVTValidationContext | None = None,
+) -> bytes:
     """Encode an ST 0806 RVT Local Set, owning the standalone CRC item."""
     _validate_mapping(values, name="RVT")
     if not isinstance(standalone, bool):
         raise TypeError("standalone must be a boolean")
+    if context is not None and not isinstance(context, RVTValidationContext):
+        raise TypeError("context must be an RVTValidationContext or None")
     if 1 in values:
         if standalone:
             raise ValueError("do not provide RVT tag 1; CRC is computed automatically")
         raise ValueError("embedded ST 0806 RVT forbids checksum item 1")
     if standalone and 2 not in values:
         raise ValueError("standalone ST 0806 RVT requires tag 2 Precision Time Stamp")
+    encoded_timestamp = (
+        None
+        if 2 not in values
+        else _encode_known(2, values[2], _RVT_DEFINITIONS[2])
+    )
+    _validate_metadata_birth_timestamp(
+        encoded_timestamp,
+        context,
+        error_type=ValueError,
+    )
     ordered_tags = (
         [2, *sorted(tag for tag in values if tag != 2)] if 2 in values else sorted(values)
     )
@@ -643,11 +725,11 @@ def encode_rvt_local_set(values: Mapping[int, Any], *, standalone: bool = True) 
             encoded_items.append(_item(tag, raw))
     local_value = b"".join(encoded_items)
     if not standalone:
-        decode_rvt_local_set(local_value, standalone=False)
+        decode_rvt_local_set(local_value, standalone=False, context=context)
         return local_value
     crc_header = b"\x01\x04"
     value_length = len(local_value) + len(crc_header) + 4
     prefix = RVT_LOCAL_SET_KEY + encode_ber_length(value_length) + local_value + crc_header
     result = prefix + mpeg2_crc32(prefix).to_bytes(4, "big")
-    decode_rvt_local_set(result)
+    decode_rvt_local_set(result, context=context)
     return result

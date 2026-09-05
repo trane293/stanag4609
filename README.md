@@ -36,8 +36,9 @@ and send the same timed metadata to independent GIS or analytics consumers.
   validation, canonical encoding, and lossless field updates.
 - ST 1010.3 uncertainty matrices and ST 0601 Item 102, including Mode 2
   IEEE/IMAP values, sparse correlations, and ordered Refined Source Lists.
-- ST 0806.4 independent and embedded RVT Local Sets, including CRC-32, POI,
-  AOI, typed user data, and the ST 0601 Item 73 bridge.
+- ST 0806.4 independent and embedded RVT Local Sets with source-bound complete
+  requirement accounting, CRC-32, time-of-birth validation, POI, AOI, typed
+  user data, and the ST 0601 Item 73 bridge.
 - ST 1202.3 generalized projective transformations with IEEE binary16/32/64
   coefficients, forward/inverse coordinate mapping, formula-defined image
   transforms, standard-ordered multi-transform execution, and ST 1010

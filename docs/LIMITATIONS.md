@@ -15,6 +15,9 @@
   scope" in the requirement trace. Implemented receiver state includes
   Report-on-Change, distributed wavelength, payload, weapon-store, waypoint,
   and control-command data, plus Segment/Amend trees.
+  ST 0601 Item 73 covers the complete software-verifiable ST 0806.4 profile;
+  real MGRS positions, POI/AOI meaning, and user-defined content remain
+  producer-owned even when their wire representations are valid.
 - Remaining ST 0601 producer-owned truth and measurement-quality semantics,
   additional cross-frame ST 0903 geometric semantics, external provisioning
   of asynchronous metadata STD parameters, dependency-free audio sample

@@ -21,6 +21,7 @@ from stanag4609.st0806 import (
     RVTPointOfInterest,
     RVTUserDataType,
     RVTUserDefinedData,
+    RVTValidationContext,
     decode_area_of_interest,
     decode_point_of_interest,
     decode_rvt_local_set,
@@ -285,6 +286,50 @@ def test_standalone_rvt_packet_owns_timestamp_and_crc32() -> None:
     with pytest.raises(ValueError, match="occurs 2 times"):
         decoded.get(12)
     assert bytes(decoded.packet) == packet
+
+
+def test_rvt_time_of_birth_context_validates_encode_and_decode() -> None:
+    birth = datetime(2024, 1, 2, 3, 4, 5, 6, tzinfo=timezone.utc)
+    context = RVTValidationContext(metadata_birth_timestamp=birth)
+    packet = encode_rvt_local_set({2: birth, 8: 4}, context=context)
+    assert decode_rvt_local_set(packet, context=context).value(2) == birth
+
+    mismatched = RVTValidationContext(
+        metadata_birth_timestamp=datetime(2024, 1, 2, 3, 4, 5, 7, tzinfo=timezone.utc)
+    )
+    with pytest.raises(ValueError, match="time of birth"):
+        encode_rvt_local_set({2: birth, 8: 4}, context=mismatched)
+    with pytest.raises(DecodeError, match="time of birth"):
+        decode_rvt_local_set(packet, context=mismatched)
+
+
+def test_rvt_time_of_birth_context_requires_a_timestamp_when_requested() -> None:
+    context = RVTValidationContext(metadata_birth_timestamp=0)
+    with pytest.raises(ValueError, match="requires a Precision Time Stamp"):
+        encode_rvt_local_set({3: 120}, standalone=False, context=context)
+    with pytest.raises(DecodeError, match="requires a Precision Time Stamp"):
+        decode_rvt_local_set(bytes.fromhex("03020078"), standalone=False, context=context)
+
+
+def test_rvt_validation_context_and_checksum_flag_are_strictly_typed() -> None:
+    with pytest.raises(TypeError, match="integer microseconds"):
+        RVTValidationContext(metadata_birth_timestamp=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="timezone-aware"):
+        RVTValidationContext(metadata_birth_timestamp=datetime(2024, 1, 1))
+    with pytest.raises(ValueError, match="uint64"):
+        RVTValidationContext(metadata_birth_timestamp=-1)
+    with pytest.raises(TypeError, match="RVTValidationContext"):
+        encode_rvt_local_set({2: 0}, context=object())  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="RVTValidationContext"):
+        decode_rvt_local_set(
+            encode_rvt_local_set({2: 0}),
+            context=object(),  # type: ignore[arg-type]
+        )
+    with pytest.raises(TypeError, match="verify_checksum"):
+        decode_rvt_local_set(
+            encode_rvt_local_set({2: 0}),
+            verify_checksum=1,  # type: ignore[arg-type]
+        )
 
 
 def test_standalone_rvt_structure_and_crc_are_strict() -> None:
