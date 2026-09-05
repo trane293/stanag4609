@@ -1,6 +1,6 @@
 # Remaining work and continuation guide
 
-This page records the work that remains after the `0.1.0a6` release candidate.
+This page records the work that remains after the `0.1.0` initial release.
 It separates verified capability from future scope so another developer or agent
 can resume without reconstructing project history.
 
@@ -124,4 +124,4 @@ important negative-conformance expectations.
 
 Do not mark the overall library “fully STANAG 4609 conformant” until every
 applicable normative requirement has an auditable trace and independent fixture
-coverage. Alpha releases are useful integration milestones, not certification.
+coverage. Pre-1.0 releases are useful integration milestones, not certification.

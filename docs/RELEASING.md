@@ -43,9 +43,11 @@ Future releases must retain the protected environment gate.
 
 ## Release gates
 
-Choose a PEP 440 version that reflects the project's maturity. Continue using
-alpha versions while the conformance matrix remains incomplete; do not publish
-a development version or relabel the current API as stable.
+Choose a PEP 440 version that reflects the project's maturity. Publish normal
+`0.x` releases so default package-index resolution remains useful; communicate
+API maturity through the pre-1.0 version, package classifier, README status,
+and explicit conformance boundaries. Do not publish development versions or
+relabel the current API as stable.
 
 1. Update the version in `pyproject.toml` and `src/stanag4609/__init__.py`.
 2. Move the relevant `CHANGELOG.md` entries under the dated version heading.
