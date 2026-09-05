@@ -620,6 +620,16 @@ def test_verifier_reports_embedded_st0604_timestamp_coverage() -> None:
         and finding.status is VerificationStatus.PASS
         for finding in report.findings
     )
+    assert any(
+        finding.code == "video.level.picture_size"
+        and finding.status is VerificationStatus.PASS
+        for finding in report.findings
+    )
+    assert any(
+        finding.code == "video.level.sample_rate"
+        and finding.status is VerificationStatus.PASS
+        for finding in report.findings
+    )
 
 
 def test_verifier_validates_caller_supplied_misp_image_source_context() -> None:
@@ -785,6 +795,37 @@ def test_verifier_rejects_any_out_of_profile_sequence_not_only_latest() -> None:
     )
     assert finding.status is VerificationStatus.ERROR
     assert "1 of 2 observed sequence property sets" in finding.message
+
+
+def test_verifier_rejects_any_sequence_exceeding_its_declared_level() -> None:
+    low_level = bytearray.fromhex(
+        "000000016742c028d9005005bb0110000003001000000303c0f183248000"
+    )
+    low_level[7] = 10
+    conforming_latest = bytes.fromhex(
+        "000000016742c028d9005005bb0110000003001000000303c0f183248000"
+    )
+    report = _verify(
+        _transport(
+            video_payload=bytes(low_level)
+            + b"\x00\x00\x01\x09"
+            + conforming_latest
+            + b"\x00\x00\x01\x09"
+        )
+    )
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_properties is not None
+    assert video.video_properties.level_picture_size_violations == 1
+    assert video.video_properties.level_sample_rate_violations == 1
+    assert video.video_properties.latest is not None
+    assert video.video_properties.latest.level_picture_size_conforms is True
+    findings = {item.code: item for item in report.findings}
+    assert findings["video.level.picture_size"].status is VerificationStatus.ERROR
+    assert "1 of 2 observed sequence property sets" in findings[
+        "video.level.picture_size"
+    ].message
+    assert findings["video.level.sample_rate"].status is VerificationStatus.ERROR
 
 
 def test_verifier_rejects_any_interlaced_sequence_not_only_latest() -> None:

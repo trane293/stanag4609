@@ -232,6 +232,10 @@ class VideoPropertiesVerificationSummary:
     ambiguous_scan_sequences: int = 0
     pixel_depth_violations: int = 0
     maximum_bit_depth: int | None = None
+    level_picture_size_violations: int = 0
+    level_picture_size_unverifiable: int = 0
+    level_sample_rate_violations: int = 0
+    level_sample_rate_unverifiable: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -244,6 +248,10 @@ class VideoPropertiesVerificationSummary:
             "ambiguous_scan_sequences": self.ambiguous_scan_sequences,
             "pixel_depth_violations": self.pixel_depth_violations,
             "maximum_bit_depth": self.maximum_bit_depth,
+            "level_picture_size_violations": self.level_picture_size_violations,
+            "level_picture_size_unverifiable": self.level_picture_size_unverifiable,
+            "level_sample_rate_violations": self.level_sample_rate_violations,
+            "level_sample_rate_unverifiable": self.level_sample_rate_unverifiable,
         }
 
 
@@ -776,6 +784,10 @@ class _VideoPropertiesStats:
     ambiguous_scan_sequences: int = 0
     pixel_depth_violations: int = 0
     maximum_bit_depth: int | None = None
+    level_picture_size_violations: int = 0
+    level_picture_size_unverifiable: int = 0
+    level_sample_rate_violations: int = 0
+    level_sample_rate_unverifiable: int = 0
 
     def __post_init__(self) -> None:
         self.parser = self._new_parser()
@@ -814,6 +826,16 @@ class _VideoPropertiesStats:
                     sequence_maximum,
                     self.maximum_bit_depth or sequence_maximum,
                 )
+            picture_size = properties.level_picture_size_conforms
+            if picture_size is False:
+                self.level_picture_size_violations += 1
+            elif picture_size is None:
+                self.level_picture_size_unverifiable += 1
+            sample_rate = properties.level_sample_rate_conforms
+            if sample_rate is False:
+                self.level_sample_rate_violations += 1
+            elif sample_rate is None:
+                self.level_sample_rate_unverifiable += 1
             if self.latest is not None and properties != self.latest:
                 self.property_changes += 1
             self.latest = properties
@@ -832,6 +854,10 @@ class _VideoPropertiesStats:
             self.ambiguous_scan_sequences,
             self.pixel_depth_violations,
             self.maximum_bit_depth,
+            self.level_picture_size_violations,
+            self.level_picture_size_unverifiable,
+            self.level_sample_rate_violations,
+            self.level_sample_rate_unverifiable,
         )
 
 
@@ -2649,6 +2675,72 @@ class FMVVerifier:
                 program_number=key[0],
                 pid=key[1],
             )
+            if properties.stream_type in {0x1B, 0x24}:
+                level_requirement = (
+                    "ITU-T H.264 (04/2017) Annex A / MISP-2018.2-114"
+                    if properties.stream_type == 0x1B
+                    else "ITU-T H.265 (02/2018) Annex A / MISP-2018.2-113"
+                )
+                picture_violations = property_stats.level_picture_size_violations
+                picture_unverifiable = property_stats.level_picture_size_unverifiable
+                if picture_violations:
+                    picture_status = VerificationStatus.ERROR
+                    picture_message = (
+                        f"{picture_violations} of {property_stats.sequences} observed "
+                        "sequence property sets exceed the coded-picture dimensions "
+                        "permitted by their signalled level"
+                    )
+                elif picture_unverifiable:
+                    picture_status = VerificationStatus.WARNING
+                    picture_message = (
+                        f"coded-picture level limits could not be evaluated for "
+                        f"{picture_unverifiable} of {property_stats.sequences} observed "
+                        "sequence property sets"
+                    )
+                else:
+                    picture_status = VerificationStatus.PASS
+                    picture_message = (
+                        f"all {property_stats.sequences} observed sequence property set(s) "
+                        "fit the coded-picture dimensions permitted by their signalled level"
+                    )
+                self._add(
+                    picture_status,
+                    "video.level.picture_size",
+                    picture_message,
+                    requirement=level_requirement,
+                    program_number=key[0],
+                    pid=key[1],
+                )
+                rate_violations = property_stats.level_sample_rate_violations
+                rate_unverifiable = property_stats.level_sample_rate_unverifiable
+                if rate_violations:
+                    rate_status = VerificationStatus.ERROR
+                    rate_message = (
+                        f"{rate_violations} of {property_stats.sequences} observed sequence "
+                        "property sets exceed the coded-sample rate permitted by their "
+                        "signalled level"
+                    )
+                elif rate_unverifiable:
+                    rate_status = VerificationStatus.WARNING
+                    rate_message = (
+                        f"coded-sample-rate level limits could not be evaluated for "
+                        f"{rate_unverifiable} of {property_stats.sequences} observed "
+                        "sequence property sets because timing or a valid level was absent"
+                    )
+                else:
+                    rate_status = VerificationStatus.PASS
+                    rate_message = (
+                        f"all {property_stats.sequences} observed sequence property set(s) "
+                        "fit the coded-sample rate permitted by their signalled level"
+                    )
+                self._add(
+                    rate_status,
+                    "video.level.sample_rate",
+                    rate_message,
+                    requirement=level_requirement,
+                    program_number=key[0],
+                    pid=key[1],
+                )
             maximum_bit_depth = property_stats.maximum_bit_depth
             if maximum_bit_depth is None:
                 self._add(

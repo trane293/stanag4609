@@ -39,6 +39,31 @@ _H262_LEVELS = {
 _H262_CHROMA_FORMATS = {1: "4:2:0", 2: "4:2:2", 3: "4:4:4"}
 _MISP_AVC_LEVEL_CODES = frozenset({9, 10, 11, 12, 13, 20, 21, 22, 30, 31, 32, 40})
 _MISP_HEVC_LEVEL_CODES = frozenset({30, 60, 63, 90, 93, 120, 123, 150, 153})
+_AVC_LEVEL_LIMITS = {
+    9: (1_485, 99),
+    10: (1_485, 99),
+    11: (3_000, 396),
+    12: (6_000, 396),
+    13: (11_880, 396),
+    20: (11_880, 396),
+    21: (19_800, 792),
+    22: (20_250, 1_620),
+    30: (40_500, 1_620),
+    31: (108_000, 3_600),
+    32: (216_000, 5_120),
+    40: (245_760, 8_192),
+}
+_HEVC_LEVEL_LIMITS = {
+    30: (36_864, 552_960),
+    60: (122_880, 3_686_400),
+    63: (245_760, 7_372_800),
+    90: (552_960, 16_588_800),
+    93: (983_040, 33_177_600),
+    120: (2_228_224, 66_846_720),
+    123: (2_228_224, 133_693_440),
+    150: (8_912_896, 267_386_880),
+    153: (8_912_896, 534_773_760),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +134,8 @@ class VideoProperties:
     frame_rate_is_fixed: bool | None = None
     bit_depth_luma: int | None = None
     bit_depth_chroma: int | None = None
+    coded_width: int | None = None
+    coded_height: int | None = None
 
     @property
     def misp_profile_level(self) -> bool:
@@ -127,6 +154,71 @@ class VideoProperties:
                 and self.level_code in _MISP_HEVC_LEVEL_CODES
             )
         return False
+
+    @property
+    def level_picture_size_conforms(self) -> bool | None:
+        """Whether coded picture dimensions fit the signalled AVC/HEVC level."""
+
+        width = self.coded_width or self.width
+        height = self.coded_height or self.height
+        if self.level_code is None:
+            return None
+        if self.stream_type == 0x1B:
+            limits = (
+                (1_485, 99)
+                if self.level == "1b"
+                else _AVC_LEVEL_LIMITS.get(self.level_code)
+            )
+            if limits is None:
+                return None
+            _, maximum_frame_size = limits
+            width_in_mbs = (width + 15) // 16
+            height_in_mbs = (height + 15) // 16
+            return (
+                width_in_mbs * height_in_mbs <= maximum_frame_size
+                and width_in_mbs * width_in_mbs <= maximum_frame_size * 8
+                and height_in_mbs * height_in_mbs <= maximum_frame_size * 8
+            )
+        if self.stream_type == 0x24:
+            limits = _HEVC_LEVEL_LIMITS.get(self.level_code)
+            if limits is None:
+                return None
+            maximum_luma_picture_size, _ = limits
+            return (
+                width * height <= maximum_luma_picture_size
+                and width * width <= maximum_luma_picture_size * 8
+                and height * height <= maximum_luma_picture_size * 8
+            )
+        return None
+
+    @property
+    def level_sample_rate_conforms(self) -> bool | None:
+        """Whether coded size and advertised rate fit the AVC/HEVC level."""
+
+        if self.frame_rate is None:
+            return None
+        width = self.coded_width or self.width
+        height = self.coded_height or self.height
+        if self.level_code is None:
+            return None
+        if self.stream_type == 0x1B:
+            limits = (
+                (1_485, 99)
+                if self.level == "1b"
+                else _AVC_LEVEL_LIMITS.get(self.level_code)
+            )
+            if limits is None:
+                return None
+            maximum_macroblocks_per_second, _ = limits
+            macroblocks = ((width + 15) // 16) * ((height + 15) // 16)
+            return macroblocks * self.frame_rate <= maximum_macroblocks_per_second
+        if self.stream_type == 0x24:
+            limits = _HEVC_LEVEL_LIMITS.get(self.level_code)
+            if limits is None:
+                return None
+            _, maximum_luma_sample_rate = limits
+            return width * height * self.frame_rate <= maximum_luma_sample_rate
+        return None
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-compatible representation."""
@@ -162,7 +254,11 @@ class VideoProperties:
             "frame_rate_is_fixed": self.frame_rate_is_fixed,
             "bit_depth_luma": self.bit_depth_luma,
             "bit_depth_chroma": self.bit_depth_chroma,
+            "coded_width": self.coded_width,
+            "coded_height": self.coded_height,
             "misp_profile_level": self.misp_profile_level,
+            "level_picture_size_conforms": self.level_picture_size_conforms,
+            "level_sample_rate_conforms": self.level_sample_rate_conforms,
         }
 
 
@@ -526,8 +622,10 @@ def _parse_avc_sps(ebsp: bytes) -> VideoProperties:
     chroma_array_type = 0 if separate_colour_plane else chroma_format_idc
     sub_width = {0: 1, 1: 2, 2: 2, 3: 1}[chroma_array_type]
     sub_height = {0: 1, 1: 2, 2: 1, 3: 1}[chroma_array_type]
-    width = (width_in_mbs_minus1 + 1) * 16 - sub_width * (crop_left + crop_right)
-    height = (2 - int(frame_mbs_only)) * (height_in_map_units_minus1 + 1) * 16
+    coded_width = (width_in_mbs_minus1 + 1) * 16
+    coded_height = (2 - int(frame_mbs_only)) * (height_in_map_units_minus1 + 1) * 16
+    width = coded_width - sub_width * (crop_left + crop_right)
+    height = coded_height
     height -= sub_height * (2 - int(frame_mbs_only)) * (crop_top + crop_bottom)
     if width <= 0 or height <= 0:
         raise DecodeError("AVC SPS cropping produces non-positive dimensions")
@@ -554,6 +652,8 @@ def _parse_avc_sps(ebsp: bytes) -> VideoProperties:
         frame_rate_is_fixed=frame_rate_is_fixed,
         bit_depth_luma=bit_depth_luma,
         bit_depth_chroma=bit_depth_chroma,
+        coded_width=coded_width,
+        coded_height=coded_height,
     )
 
 
@@ -790,8 +890,8 @@ def _parse_hevc_sps(ebsp: bytes) -> VideoProperties:
     separate_colour_plane = False
     if chroma_format_idc == 3:
         separate_colour_plane = bool(reader.read(1))
-    width = reader.unsigned_exp_golomb()
-    height = reader.unsigned_exp_golomb()
+    coded_width = reader.unsigned_exp_golomb()
+    coded_height = reader.unsigned_exp_golomb()
     crop_left = crop_right = crop_top = crop_bottom = 0
     if reader.read(1):
         crop_left = reader.unsigned_exp_golomb()
@@ -801,8 +901,8 @@ def _parse_hevc_sps(ebsp: bytes) -> VideoProperties:
     chroma_array_type = 0 if separate_colour_plane else chroma_format_idc
     sub_width = {0: 1, 1: 2, 2: 2, 3: 1}[chroma_array_type]
     sub_height = {0: 1, 1: 2, 2: 1, 3: 1}[chroma_array_type]
-    width -= sub_width * (crop_left + crop_right)
-    height -= sub_height * (crop_top + crop_bottom)
+    width = coded_width - sub_width * (crop_left + crop_right)
+    height = coded_height - sub_height * (crop_top + crop_bottom)
     if width <= 0 or height <= 0:
         raise DecodeError("HEVC SPS conformance window produces non-positive dimensions")
     bit_depth_luma = reader.unsigned_exp_golomb() + 8
@@ -869,6 +969,8 @@ def _parse_hevc_sps(ebsp: bytes) -> VideoProperties:
         level_code=level_idc,
         bit_depth_luma=bit_depth_luma,
         bit_depth_chroma=bit_depth_chroma,
+        coded_width=coded_width,
+        coded_height=coded_height,
     )
 
 

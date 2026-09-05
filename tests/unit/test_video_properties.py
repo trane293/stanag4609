@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from fractions import Fraction
 
 import pytest
@@ -274,6 +275,8 @@ def test_avc_properties_decode_constrained_baseline_vector_across_chunks() -> No
     assert properties.level == "4.0"
     assert properties.chroma_format == "4:2:0"
     assert properties.misp_profile_level is True
+    assert properties.level_picture_size_conforms is True
+    assert properties.level_sample_rate_conforms is True
 
 
 def test_avc_properties_expose_real_fmv_profile_violation() -> None:
@@ -300,12 +303,83 @@ def test_avc_properties_reject_reserved_level_code_inside_numeric_range() -> Non
 
     assert result[0].level == "1.4"
     assert result[0].misp_profile_level is False
+    assert result[0].level_picture_size_conforms is None
+
+
+def test_avc_properties_enforce_signalled_level_size_and_sample_rate() -> None:
+    sps = bytearray.fromhex("6742c028d9005005bb0110000003001000000303c0f183248000")
+    sps[3] = 10
+    parser = AVCVideoPropertiesParser()
+    properties = parser.feed(b"\x00\x00\x01" + sps + b"\x00\x00\x01\x68")[0]
+
+    assert properties.coded_width == 1280
+    assert properties.coded_height == 720
+    assert properties.level_picture_size_conforms is False
+    assert properties.level_sample_rate_conforms is False
+
+
+def test_level_dimension_limits_apply_independently_of_total_picture_size() -> None:
+    avc_parser = AVCVideoPropertiesParser()
+    avc = avc_parser.feed(
+        bytes.fromhex(
+            "0000016742c028d9005005bb0110000003001000000303c0f18324800000000168"
+        )
+    )[0]
+    narrow_avc = replace(
+        avc,
+        width=912,
+        height=16,
+        coded_width=912,
+        coded_height=16,
+        level="1.2",
+        level_code=12,
+    )
+    assert narrow_avc.level_picture_size_conforms is False
+
+    hevc_parser = HEVCVideoPropertiesParser()
+    hevc = hevc_parser.feed(
+        b"\x00\x00\x01"
+        + _synthetic_hevc_sps(level_idc=30)
+        + b"\x00\x00\x01\x44\x01"
+    )[0]
+    narrow_hevc = replace(
+        hevc,
+        width=544,
+        height=16,
+        coded_width=544,
+        coded_height=16,
+    )
+    assert narrow_hevc.level_picture_size_conforms is False
 
 
 def test_avc_level_1b_uses_profile_specific_signalling() -> None:
     assert _avc_level_name(100, 9, 0) == "1b"
     assert _avc_level_name(66, 11, 0x10) == "1b"
     assert _avc_level_name(100, 11, 0x10) == "1.1"
+
+
+def test_avc_level_1b_uses_its_stricter_level_limits() -> None:
+    parser = AVCVideoPropertiesParser()
+    source = bytes.fromhex(
+        "0000016742c028d9005005bb0110000003001000000303c0f18324800000000168"
+    )
+    base = parser.feed(source)[0]
+    level_1b = replace(
+        base,
+        width=320,
+        height=180,
+        coded_width=320,
+        coded_height=192,
+        frame_rate=Fraction(10, 1),
+        level="1b",
+        level_code=11,
+    )
+
+    assert level_1b.level_picture_size_conforms is False
+    assert level_1b.level_sample_rate_conforms is False
+    level_1_1 = replace(level_1b, level="1.1")
+    assert level_1_1.level_picture_size_conforms is True
+    assert level_1_1.level_sample_rate_conforms is True
 
 
 def test_avc_properties_parser_is_bounded_and_reports_malformed_sps() -> None:
@@ -351,6 +425,8 @@ def test_hevc_properties_decode_main10_vector_across_chunks() -> None:
     assert properties.profile_code == 2
     assert properties.level_code == 63
     assert properties.misp_profile_level is True
+    assert properties.level_picture_size_conforms is True
+    assert properties.level_sample_rate_conforms is True
 
 
 def test_hevc_properties_decode_vui_aspect_ratio_and_timing() -> None:
@@ -428,6 +504,20 @@ def test_hevc_properties_reject_reserved_level_code_inside_numeric_range() -> No
 
     assert result[0].level == "Level IDC 64"
     assert result[0].misp_profile_level is False
+    assert result[0].level_picture_size_conforms is None
+
+
+def test_hevc_properties_enforce_signalled_level_size_and_sample_rate() -> None:
+    parser = HEVCVideoPropertiesParser()
+    sps = _synthetic_hevc_sps(level_idc=30)
+    properties = parser.feed(
+        b"\x00\x00\x01" + sps + b"\x00\x00\x01\x44\x01"
+    )[0]
+
+    assert properties.coded_width == 640
+    assert properties.coded_height == 360
+    assert properties.level_picture_size_conforms is False
+    assert properties.level_sample_rate_conforms is False
 
 
 def test_hevc_properties_parser_validates_header_bounds_and_lifecycle() -> None:

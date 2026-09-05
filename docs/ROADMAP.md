@@ -35,7 +35,9 @@ important negative-conformance expectations.
    exact non-reserved profile/level signalling and the Class 1
    eight-bit-per-band limit are now inspected
    across every observed sequence property set, so an early profile, scan, or
-   bit-depth violation cannot be hidden by a later sequence.
+   bit-depth violation cannot be hidden by a later sequence. AVC and HEVC also
+   enforce Annex A coded-picture dimensions and available sequence-signalled
+   sample throughput; H.262 level-resource limits remain to be added.
    Timestamp messages are now associated with
    recognized compressed access units using H.262 picture, AVC prefix-SEI, and
    HEVC prefix/suffix-SEI placement; broader whole-bitstream codec certification
