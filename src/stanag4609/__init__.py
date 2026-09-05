@@ -431,10 +431,13 @@ from stanag4609.transport.metadata_stream import (
     ST0601ContextProvider,
 )
 from stanag4609.transport.mpegts import (
+    AdaptationField,
     AdaptationFieldExtension,
     ProgramClockReference,
     TransportPacket,
     TransportStreamParser,
+    encode_adaptation_field,
+    encode_adaptation_field_extension,
     encode_program_clock_reference,
     iter_transport_stream,
 )
@@ -637,6 +640,7 @@ __all__ = [
     "Acceleration",
     "ActivePayloads",
     "ActiveWavelengthList",
+    "AdaptationField",
     "AdaptationFieldExtension",
     "AirbaseLocation",
     "AirbaseLocations",
@@ -964,6 +968,8 @@ __all__ = [
     "encode_acceleration",
     "encode_active_payloads",
     "encode_active_wavelength_list",
+    "encode_adaptation_field",
+    "encode_adaptation_field_extension",
     "encode_airbase_locations",
     "encode_algorithm_local_set",
     "encode_amend_local_set",

@@ -212,6 +212,30 @@ see [transport-rate shaping and PCR restamping](TRANSPORT_RATE.md). The
 transformer does not automatically choose a bitrate or clock epoch because
 those are properties of the deployment's physical output.
 
+## Inspect and modify adaptation fields
+
+Transport packets expose a complete typed adaptation-field view. Use
+`dataclasses.replace()` to make an explicit immutable change, then encode the
+adaptation bytes canonically:
+
+```python
+from dataclasses import replace
+
+from stanag4609 import encode_adaptation_field, parse_transport_packet
+
+packet = parse_transport_packet(packet_bytes)
+if packet.adaptation is not None:
+    changed = replace(packet.adaptation, random_access_indicator=True)
+    adaptation_bytes = encode_adaptation_field(changed)
+```
+
+`adaptation_bytes` excludes the one-byte `adaptation_field_length` that belongs
+in the transport-packet header. This low-level writer is intended for custom
+packetizers and remuxers. Pass `stuffing_length` and
+`extension_stuffing_length` when a fixed packet layout requires explicit
+`0xFF` fill. Existing raw transport packets remain byte-preserved unless an
+application deliberately rebuilds them.
+
 ## Reconnect without cross-session splicing
 
 A socket reconnect, source restart, or failover is not an ordinary chunk

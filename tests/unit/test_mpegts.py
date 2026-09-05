@@ -7,9 +7,12 @@ import pytest
 from stanag4609.errors import DecodeError, TruncatedData
 from stanag4609.transport.mpegts import (
     TS_PACKET_SIZE,
+    AdaptationField,
     AdaptationFieldExtension,
     ProgramClockReference,
     TransportStreamParser,
+    encode_adaptation_field,
+    encode_adaptation_field_extension,
     encode_program_clock_reference,
     iter_transport_stream,
     parse_transport_packet,
@@ -125,6 +128,74 @@ def test_parse_complete_adaptation_field_structure() -> None:
         splice_type=10,
         dts_next_access_unit=timestamp,
     )
+
+
+def test_encode_complete_adaptation_field_exactly_and_round_trip() -> None:
+    extension = AdaptationFieldExtension(
+        legal_time_window_valid=True,
+        legal_time_window_offset=0x1234,
+        piecewise_rate=0x23456,
+        splice_type=10,
+        dts_next_access_unit=0x1ABCDEFFF,
+    )
+    field = AdaptationField(
+        random_access_indicator=False,
+        elementary_stream_priority_indicator=True,
+        splice_countdown=-2,
+        transport_private_data=b"abc",
+        extension=extension,
+    )
+
+    encoded_extension = encode_adaptation_field_extension(
+        extension, stuffing_length=1
+    )
+    encoded = encode_adaptation_field(
+        field, stuffing_length=1, extension_stuffing_length=1
+    )
+    assert encoded_extension.hex() == "ff9234c23456adaf37dfffff"
+    assert encoded.hex() == "27fe036162630cff9234c23456adaf37dfffffff"
+
+    packet = parse_transport_packet(_adaptation_packet(encoded))
+    assert packet.adaptation == field
+    assert (
+        encode_adaptation_field(
+            packet.adaptation,
+            stuffing_length=1,
+            extension_stuffing_length=1,
+        )
+        == encoded
+    )
+
+
+def test_adaptation_writer_rejects_invalid_models_and_packet_overflow() -> None:
+    with pytest.raises(ValueError, match="appear together"):
+        AdaptationFieldExtension(legal_time_window_valid=True)
+    with pytest.raises(ValueError, match="positive 22-bit"):
+        AdaptationFieldExtension(piecewise_rate=0)
+    with pytest.raises(ValueError, match="requires splice_countdown"):
+        AdaptationField(
+            extension=AdaptationFieldExtension(
+                splice_type=0,
+                dts_next_access_unit=0,
+            )
+        )
+    with pytest.raises(ValueError, match="requires an adaptation extension"):
+        encode_adaptation_field(
+            AdaptationField(),
+            extension_stuffing_length=1,
+        )
+    with pytest.raises(ValueError, match="cannot contain flags"):
+        AdaptationField(empty=True, random_access_indicator=True)
+    with pytest.raises(ValueError, match="cannot contain stuffing"):
+        encode_adaptation_field(AdaptationField(empty=True), stuffing_length=1)
+    with pytest.raises(ValueError, match="183"):
+        encode_adaptation_field(AdaptationField(), stuffing_length=183)
+
+
+def test_empty_adaptation_field_round_trips() -> None:
+    packet = parse_transport_packet(_adaptation_packet(b""))
+    assert packet.adaptation == AdaptationField(empty=True)
+    assert encode_adaptation_field(packet.adaptation) == b""
 
 
 @pytest.mark.parametrize(

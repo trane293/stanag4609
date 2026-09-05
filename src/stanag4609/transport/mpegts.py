@@ -53,6 +53,105 @@ class AdaptationFieldExtension:
     splice_type: int | None = None
     dts_next_access_unit: int | None = None
 
+    def __post_init__(self) -> None:
+        if (self.legal_time_window_valid is None) != (
+            self.legal_time_window_offset is None
+        ):
+            raise ValueError("legal-time-window validity and offset must appear together")
+        if self.legal_time_window_valid is not None and not isinstance(
+            self.legal_time_window_valid, bool
+        ):
+            raise TypeError("legal_time_window_valid must be a boolean or None")
+        if self.legal_time_window_offset is not None and not (
+            isinstance(self.legal_time_window_offset, int)
+            and not isinstance(self.legal_time_window_offset, bool)
+            and 0 <= self.legal_time_window_offset <= 0x7FFF
+        ):
+            raise ValueError("legal_time_window_offset must be an unsigned 15-bit integer")
+        if self.piecewise_rate is not None and not (
+            isinstance(self.piecewise_rate, int)
+            and not isinstance(self.piecewise_rate, bool)
+            and 1 <= self.piecewise_rate <= 0x3FFFFF
+        ):
+            raise ValueError("piecewise_rate must be a positive 22-bit integer")
+        if (self.splice_type is None) != (self.dts_next_access_unit is None):
+            raise ValueError("splice type and DTS_next_AU must appear together")
+        if self.splice_type is not None and not (
+            isinstance(self.splice_type, int)
+            and not isinstance(self.splice_type, bool)
+            and 0 <= self.splice_type <= 0xF
+        ):
+            raise ValueError("splice_type must be an unsigned 4-bit integer")
+        if self.dts_next_access_unit is not None and not (
+            isinstance(self.dts_next_access_unit, int)
+            and not isinstance(self.dts_next_access_unit, bool)
+            and 0 <= self.dts_next_access_unit < 2**33
+        ):
+            raise ValueError("dts_next_access_unit must be an unsigned 33-bit integer")
+
+
+@dataclass(frozen=True, slots=True)
+class AdaptationField:
+    """Typed H.222.0 transport-packet adaptation fields."""
+
+    empty: bool = False
+    discontinuity_indicator: bool = False
+    random_access_indicator: bool = False
+    elementary_stream_priority_indicator: bool = False
+    pcr: ProgramClockReference | None = None
+    opcr: ProgramClockReference | None = None
+    splice_countdown: int | None = None
+    transport_private_data: bytes | None = None
+    extension: AdaptationFieldExtension | None = None
+
+    def __post_init__(self) -> None:
+        for name in (
+            "empty",
+            "discontinuity_indicator",
+            "random_access_indicator",
+            "elementary_stream_priority_indicator",
+        ):
+            if not isinstance(getattr(self, name), bool):
+                raise TypeError(f"{name} must be a boolean")
+        for name in ("pcr", "opcr"):
+            value = getattr(self, name)
+            if value is not None and not isinstance(value, ProgramClockReference):
+                raise TypeError(f"{name} must be ProgramClockReference or None")
+        if self.splice_countdown is not None and not (
+            isinstance(self.splice_countdown, int)
+            and not isinstance(self.splice_countdown, bool)
+            and -128 <= self.splice_countdown <= 127
+        ):
+            raise ValueError("splice_countdown must be a signed 8-bit integer")
+        if self.transport_private_data is not None:
+            if not isinstance(self.transport_private_data, bytes):
+                raise TypeError("transport_private_data must be bytes or None")
+            if len(self.transport_private_data) > 255:
+                raise ValueError("transport_private_data cannot exceed 255 bytes")
+        if self.extension is not None and not isinstance(
+            self.extension, AdaptationFieldExtension
+        ):
+            raise TypeError("extension must be AdaptationFieldExtension or None")
+        if (
+            self.extension is not None
+            and self.extension.splice_type is not None
+            and self.splice_countdown is None
+        ):
+            raise ValueError("seamless splice extension requires splice_countdown")
+        if self.empty and any(
+            (
+                self.discontinuity_indicator,
+                self.random_access_indicator,
+                self.elementary_stream_priority_indicator,
+                self.pcr is not None,
+                self.opcr is not None,
+                self.splice_countdown is not None,
+                self.transport_private_data is not None,
+                self.extension is not None,
+            )
+        ):
+            raise ValueError("empty adaptation field cannot contain flags or data")
+
 
 def encode_program_clock_reference(clock: ProgramClockReference) -> bytes:
     """Encode the six-byte PCR/OPCR representation from H.222.0 Table 2-6."""
@@ -71,6 +170,108 @@ def encode_program_clock_reference(clock: ProgramClockReference) -> bytes:
             extension & 0xFF,
         )
     )
+
+
+def _encode_adaptation_timestamp(splice_type: int, timestamp: int) -> bytes:
+    return bytes(
+        (
+            (splice_type << 4) | (((timestamp >> 30) & 0x07) << 1) | 1,
+            (timestamp >> 22) & 0xFF,
+            (((timestamp >> 15) & 0x7F) << 1) | 1,
+            (timestamp >> 7) & 0xFF,
+            ((timestamp & 0x7F) << 1) | 1,
+        )
+    )
+
+
+def _validate_stuffing_length(value: int, *, name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
+
+
+def encode_adaptation_field_extension(
+    extension: AdaptationFieldExtension, *, stuffing_length: int = 0
+) -> bytes:
+    """Encode extension bytes, excluding the outer one-byte length field."""
+
+    if not isinstance(extension, AdaptationFieldExtension):
+        raise TypeError("extension must be AdaptationFieldExtension")
+    _validate_stuffing_length(stuffing_length, name="stuffing_length")
+    flags = 0x1F
+    body = bytearray()
+    if extension.legal_time_window_offset is not None:
+        flags |= 0x80
+        encoded = extension.legal_time_window_offset
+        if extension.legal_time_window_valid:
+            encoded |= 0x8000
+        body.extend(encoded.to_bytes(2, "big"))
+    if extension.piecewise_rate is not None:
+        flags |= 0x40
+        body.extend((0xC00000 | extension.piecewise_rate).to_bytes(3, "big"))
+    if extension.splice_type is not None:
+        assert extension.dts_next_access_unit is not None
+        flags |= 0x20
+        body.extend(
+            _encode_adaptation_timestamp(
+                extension.splice_type, extension.dts_next_access_unit
+            )
+        )
+    result = bytes((flags,)) + bytes(body) + b"\xFF" * stuffing_length
+    if len(result) > 255:
+        raise ValueError("adaptation field extension cannot exceed 255 bytes")
+    return result
+
+
+def encode_adaptation_field(
+    field: AdaptationField,
+    *,
+    stuffing_length: int = 0,
+    extension_stuffing_length: int = 0,
+) -> bytes:
+    """Encode adaptation bytes, excluding the packet's one-byte length field."""
+
+    if not isinstance(field, AdaptationField):
+        raise TypeError("field must be AdaptationField")
+    _validate_stuffing_length(stuffing_length, name="stuffing_length")
+    _validate_stuffing_length(
+        extension_stuffing_length, name="extension_stuffing_length"
+    )
+    if field.extension is None and extension_stuffing_length:
+        raise ValueError("extension_stuffing_length requires an adaptation extension")
+    if field.empty:
+        if stuffing_length:
+            raise ValueError("empty adaptation field cannot contain stuffing")
+        return b""
+    flags = (
+        int(field.discontinuity_indicator) << 7
+        | int(field.random_access_indicator) << 6
+        | int(field.elementary_stream_priority_indicator) << 5
+    )
+    body = bytearray()
+    if field.pcr is not None:
+        flags |= 0x10
+        body.extend(encode_program_clock_reference(field.pcr))
+    if field.opcr is not None:
+        flags |= 0x08
+        body.extend(encode_program_clock_reference(field.opcr))
+    if field.splice_countdown is not None:
+        flags |= 0x04
+        body.extend(field.splice_countdown.to_bytes(1, "big", signed=True))
+    if field.transport_private_data is not None:
+        flags |= 0x02
+        body.append(len(field.transport_private_data))
+        body.extend(field.transport_private_data)
+    if field.extension is not None:
+        flags |= 0x01
+        encoded_extension = encode_adaptation_field_extension(
+            field.extension, stuffing_length=extension_stuffing_length
+        )
+        body.append(len(encoded_extension))
+        body.extend(encoded_extension)
+    result = bytes((flags,)) + bytes(body) + b"\xFF" * stuffing_length
+    if len(result) > 183:
+        raise ValueError("adaptation field cannot exceed 183 bytes")
+    return result
 
 
 def _parse_program_clock_reference(
@@ -203,6 +404,26 @@ class TransportPacket:
     @property
     def random_access_indicator(self) -> bool:
         return bool(self.adaptation_field and self.adaptation_field[0] & 0x40)
+
+    @property
+    def adaptation(self) -> AdaptationField | None:
+        """Return the typed adaptation fields, or ``None`` when absent."""
+
+        if not self.has_adaptation_field:
+            return None
+        return AdaptationField(
+            empty=not self.adaptation_field,
+            discontinuity_indicator=self.discontinuity_indicator,
+            random_access_indicator=self.random_access_indicator,
+            elementary_stream_priority_indicator=(
+                self.elementary_stream_priority_indicator
+            ),
+            pcr=self.pcr,
+            opcr=self.opcr,
+            splice_countdown=self.splice_countdown,
+            transport_private_data=self.transport_private_data,
+            extension=self.adaptation_field_extension,
+        )
 
     def __bytes__(self) -> bytes:
         return self.raw
