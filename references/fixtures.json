@@ -1,0 +1,248 @@
+{
+  "schema_version": 3,
+  "fixtures": [
+    {
+      "id": "ffmpeg-day-flight",
+      "path": "ffmpeg-mpegts-klv/Day Flight.mpg",
+      "filename": "Day Flight.mpg",
+      "url": "https://samples.ffmpeg.org/MPEG2/mpegts-klv/Day%20Flight.mpg",
+      "source_page": "https://samples.ffmpeg.org/MPEG2/mpegts-klv/",
+      "sha256": "a491ceff524b0008e3076d9eb30782badac2d53053731accc0a4e1226177260e",
+      "size": 102004664,
+      "container": "MPEG-2 Transport Stream, 188-byte packets",
+      "streams": [
+        "H.264 video on PID 481",
+        "asynchronous KLVA on PID 497"
+      ],
+      "expected_uas_packets": 6,
+      "expected_pcr_count": 13331,
+      "notes": "Public real-UAS sample. Its checksum-valid ST 0601 packets carry nonconforming four-byte Tag 22 values; strict decoding rejects them and preserve mode reports diagnostics."
+    },
+    {
+      "id": "ffmpeg-night-flight-ir",
+      "path": "ffmpeg-mpegts-klv/Night Flight IR.mpg",
+      "filename": "Night Flight IR.mpg",
+      "url": "https://samples.ffmpeg.org/MPEG2/mpegts-klv/Night%20Flight%20IR.mpg",
+      "source_page": "https://samples.ffmpeg.org/MPEG2/mpegts-klv/",
+      "sha256": "8d229f4031644cd8a3f1e56f3cc74f12b0f10506f69bf03536e6fbce83e937ad",
+      "size": 170146016,
+      "container": "MPEG-2 Transport Stream, 188-byte packets",
+      "streams": [
+        "H.264 infrared video on PID 481",
+        "asynchronous KLVA on PID 497"
+      ],
+      "expected_uas_packets": 18,
+      "expected_pcr_count": 22064,
+      "notes": "Public infrared FMV sample. Its checksum-valid ST 0601 packets carry nonconforming four-byte Tag 22 values; strict decoding rejects them and preserve mode reports diagnostics."
+    },
+    {
+      "id": "esri-truck",
+      "path": "esri-fmv/Truck.ts",
+      "filename": "Truck.ts",
+      "url": "https://www.arcgis.com/sharing/rest/content/items/55ec6f32d5e342fcbfba376ca2cc409a/data",
+      "source_page": "https://www.arcgis.com/home/item.html?id=55ec6f32d5e342fcbfba376ca2cc409a",
+      "sha256": "8667276b2c2fb36baa089b00e3978f55893cacf6e0d8f6e6d480bb934747cc79",
+      "size": 103211436,
+      "archive": {
+        "format": "zip",
+        "member": "FMV tutorial data/Truck.ts",
+        "sha256": "5ee14797a42a05eaaf982789912a12c2f5395a0bb0b1fbbc468a875f3d44d0bc",
+        "size": 96313676
+      },
+      "container": "MPEG-2 Transport Stream, 188-byte packets",
+      "streams": [
+        "H.264 video on PID 256",
+        "AAC audio on PID 257",
+        "synchronous KLVA on PID 258"
+      ],
+      "expected_uas_packets": 356,
+      "expected_pcr_count": 888,
+      "expected_audio_frames": 6946,
+      "expected_audio_samples": 7112704,
+      "expected_audio_sample_rate": 48000,
+      "expected_audio_channels": 2,
+      "expected_player_timeline_samples": 711,
+      "expected_video_start_pts": 10812383,
+      "expected_media_start_pts": 10809606,
+      "expected_first_player_sample_seconds": 0.11432222222222223,
+      "notes": "Official Esri FMV tutorial sample. It exercises H.264, AAC audio, and synchronous fragmented Metadata AUs. The verifier intentionally reports deployed-stream conformance defects, including missing metadata descriptors, metadata AU sequence discontinuities, and PCR intervals over the ST 1402 limit."
+    },
+    {
+      "id": "impleotv-stinspector-negative-corpus",
+      "kind": "conformance-bundle",
+      "path": "impleotv-stinspector/testfiles.zip",
+      "filename": "testfiles.zip",
+      "url": "https://github.com/impleotv/stinspector-release/releases/download/v.0.0.0/testfiles.zip",
+      "source_page": "https://github.com/impleotv/stinspector-release/releases/tag/v.0.0.0",
+      "sha256": "fe586773ab8f9996ce5b59f133fd07cc7187c062baa1dec591f81b9c411796a2",
+      "size": 3750413,
+      "container": "ZIP archive containing independent negative MPEG-2 Transport Stream fixtures",
+      "members": [
+        {
+          "filename": "klv-corrupt-checksum.ts",
+          "sha256": "88a0dd246381266f45781f02e5e08651660cf1d45e4e3591b0df0ad515f6658c",
+          "size": 268464,
+          "expected_status": "error",
+          "expected_code": "metadata.decode",
+          "expected_message": "checksum mismatch"
+        },
+        {
+          "filename": "klv-corrupt-key.ts",
+          "sha256": "5fc3464596d47ddd75f54e0957e485336aa40426182b456fa9419c561594a041",
+          "size": 269780,
+          "expected_status": "error",
+          "expected_code": "metadata.decode",
+          "expected_message": "expected KLV key prefix"
+        },
+        {
+          "filename": "klv-corrupt-packets.ts",
+          "sha256": "428b3b96b73c35ef25daae7f431ef6867055144bc16660db951b38d01b96463e",
+          "size": 268464,
+          "expected_status": "error",
+          "expected_code": "metadata.decode",
+          "expected_message": "declares 3 value byte(s), only 2 remain"
+        },
+        {
+          "filename": "klv-duplicate-tags.ts",
+          "sha256": "2199b84525ef164d77983c59803aaf0f7daed272656a5c22456624383a96dd0f",
+          "size": 267148,
+          "expected_status": "error",
+          "expected_code": "metadata.decode",
+          "expected_message": "singleton tag 65 occurs twice"
+        },
+        {
+          "filename": "klv-missing-mandatory-tags.ts",
+          "sha256": "22e70fd21fc5bd833906a845451481b064e89a06100abd55c8e6bcf149d79aa0",
+          "size": 272412,
+          "expected_status": "error",
+          "expected_code": "metadata.decode",
+          "expected_message": "tag 65) is required"
+        },
+        {
+          "filename": "klv-missing-pid.ts",
+          "sha256": "f54f14422e81ee674a5cc13ff492a5284efeb26f31751a0d6080f42c3192ec20",
+          "size": 212252,
+          "expected_status": "error",
+          "expected_code": "fmv.klv",
+          "expected_message": "KLVA metadata is declared but contains no PES data"
+        },
+        {
+          "filename": "mpegts-cc-error.ts",
+          "sha256": "b6c99b3a60134a93ed327ef1b1c995662f04f35b373e561b9fb5e728f408ce2b",
+          "size": 247784,
+          "expected_status": "error",
+          "expected_code": "transport.continuity",
+          "expected_message": "payload continuity counter"
+        },
+        {
+          "filename": "mpegts-duplicate-packets.ts",
+          "sha256": "223132f46cd0dfbefed09ebfbff4d3af4bf6372187561ecfc34d9c4e0d0093aa",
+          "size": 247032,
+          "expected_status": "warning",
+          "expected_code": "transport.duplicate",
+          "expected_message": "exact duplicate MPEG-TS payload packet"
+        },
+        {
+          "filename": "mpegts-max-pts-interval.ts",
+          "sha256": "69dfae9559d3ca1ad1872ae6da6c1b9f64801e8900eff15a5e12ffb88e272de4",
+          "size": 245528,
+          "expected_status": "error",
+          "expected_code": "st1402.pts.interval",
+          "expected_message": "limits the difference to 0.7 seconds"
+        },
+        {
+          "filename": "mpegts-pat-blackout.ts",
+          "sha256": "bc652924aa358eb383facd0e5e685bdb5d10cba0be5e85256a41947f7b5eb496",
+          "size": 243648,
+          "expected_status": "error",
+          "expected_code": "st1402.psi.pat.interval",
+          "expected_message": "PAT has not recurred for at least 300.000000 milliseconds"
+        },
+        {
+          "filename": "mpegts-pcr-backward.ts",
+          "sha256": "f6dec3994a4269d7c2e860835ecb9b563a401948fa7207e7a464a2f67dc689d3",
+          "size": 246844,
+          "expected_status": "error",
+          "expected_code": "st1402.pcr.regression",
+          "expected_message": "PCR time regressed"
+        },
+        {
+          "filename": "mpegts-pcr-interval-jump.ts",
+          "sha256": "af0f8e2159d1844ac8914788d36ba3e365f64af365ac10ff2c3115280bc417ea",
+          "size": 243836,
+          "expected_status": "error",
+          "expected_code": "st1402.pcr.interval",
+          "expected_message": "requires a PCR at least once every 100 milliseconds"
+        },
+        {
+          "filename": "mpegts-pes-length.ts",
+          "sha256": "0b284a3da3b720f01336e4cb0fdf81b1c69066002d9d1f369a61a229ff1238b6",
+          "size": 245528,
+          "expected_status": "error",
+          "expected_code": "transport.decode",
+          "expected_message": "bytes beyond declared PES packet"
+        },
+        {
+          "filename": "mpegts-pmt-blackout.ts",
+          "sha256": "c0d5e865eff2230a85e9d8f4d7f0e1702c6e7b46f78312607def8c8d74fb2b84",
+          "size": 243648,
+          "expected_status": "error",
+          "expected_code": "st1402.psi.pmt.interval",
+          "expected_message": "PMT has not recurred for at least 300.000000 milliseconds"
+        },
+        {
+          "filename": "mpegts-pts-dts-monotonicity.ts",
+          "sha256": "9c1f5882063b902581d2ff61090ee1a349c5c0964f51dadecc9d920339d72680",
+          "size": 246092,
+          "expected_status": "error",
+          "expected_code": "st1402.pts.interval",
+          "expected_message": "limits the difference to 0.7 seconds"
+        },
+        {
+          "filename": "mpegts-psi-crc-corrupt.ts",
+          "sha256": "75752602964053b0fec8649d16ceb03d969e0ae3e531c755d75a2b8ed9296774",
+          "size": 244776,
+          "expected_status": "error",
+          "expected_code": "psi.crc",
+          "expected_message": "DVB SDT MPEG-2 CRC-32 mismatch"
+        },
+        {
+          "filename": "mpegts-remove-PAT.ts",
+          "sha256": "be9c9fc0634b9e9c873074b2a9592142f377225360145ab6af283c6c8763e0a2",
+          "size": 225412,
+          "expected_status": "error",
+          "expected_code": "psi.pat",
+          "expected_message": "no current CRC-valid PAT"
+        },
+        {
+          "filename": "mpegts-remove-PMT.ts",
+          "sha256": "577575c31a7f41441fb140c8b7b0798ad1c50f4261b9a2371fffa7cc517ed9af",
+          "size": 228420,
+          "expected_status": "error",
+          "expected_code": "psi.pmt",
+          "expected_message": "no current CRC-valid PMT"
+        },
+        {
+          "filename": "mpegts-sync-byte-corruption.ts",
+          "sha256": "52875308a53073ae236bbf444184922e9432e18315c371697adbce8685eb9f3b",
+          "size": 248160,
+          "expected_status": "error",
+          "expected_code": "transport.structure",
+          "expected_message": "invalid MPEG-2 TS sync byte"
+        },
+        {
+          "filename": "mpegts-tei.ts",
+          "sha256": "451700ca3f109d677a2753ccd7b1b9b3561f148a40f52fb0e36bfc6aa2b6821f",
+          "size": 248160,
+          "expected_status": "error",
+          "expected_code": "transport.decode",
+          "expected_message": "transport error set"
+        }
+      ],
+      "unasserted_members": [
+        "mpegts-pcr-pts-drift.ts"
+      ],
+      "notes": "Public negative-conformance corpus published with ImpleoTV STANAG4609 Inspector. The integration suite pins and exercises fault-specific diagnostics independently of the proprietary application. The sole unasserted PCR/PTS drift member remains inside ST 1402's published H.264 lead bound; no non-normative drift threshold is invented."
+    }
+  ]
+}

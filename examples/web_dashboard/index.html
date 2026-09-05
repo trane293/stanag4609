@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FMV operations dashboard</title>
+  <style>
+    :root { color-scheme: dark; --bg:#071018; --panel:#0d1a24; --line:#203342;
+      --text:#e8f1f6; --muted:#8fa6b5; --cyan:#54d6d0; --amber:#f7b955;
+      --red:#ff6b72; --blue:#6ea8fe; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 15% 0,#142937 0,var(--bg) 38%);
+      color:var(--text); font:14px/1.45 ui-sans-serif,system-ui,sans-serif; }
+    header { display:flex; justify-content:space-between; align-items:end; padding:18px 22px;
+      border-bottom:1px solid var(--line); }
+    h1 { margin:0; font-size:19px; letter-spacing:.02em; }
+    .status { color:var(--cyan); font:12px ui-monospace,monospace; }
+    main { display:grid; grid-template-columns:minmax(0,2fr) minmax(320px,1fr); gap:14px;
+      padding:14px; max-width:1600px; margin:auto; }
+    .stack { display:grid; gap:14px; align-content:start; }
+    .card { background:color-mix(in srgb,var(--panel) 94%,transparent); border:1px solid var(--line);
+      border-radius:12px; overflow:hidden; box-shadow:0 12px 30px #0005; }
+    .card h2 { margin:0; padding:10px 13px; border-bottom:1px solid var(--line);
+      color:var(--muted); font-size:11px; letter-spacing:.12em; text-transform:uppercase; }
+    video { width:100%; display:block; background:#000; max-height:68vh; }
+    #map { width:100%; height:290px; display:block; background:#09131c; }
+    .grid-line { stroke:#18303f; stroke-width:1; } .track { fill:none; stroke:var(--cyan); stroke-width:2; }
+    .point { stroke:#061018; stroke-width:2; } .sensor { fill:var(--blue); }
+    .frame_center { fill:var(--cyan); } .target,.vmti_target { fill:var(--amber); }
+    #telemetry { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1px;
+      background:var(--line); }
+    .metric { background:var(--panel); padding:9px 11px; min-height:57px; }
+    .metric span { display:block; color:var(--muted); font-size:11px; }
+    .metric strong { display:block; margin-top:4px; font:13px ui-monospace,monospace;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #feed { max-height:330px; overflow:auto; padding:7px; }
+    .event { display:grid; grid-template-columns:64px 1fr auto; gap:9px; padding:8px;
+      border-radius:7px; color:var(--muted); }
+    .event.current { background:#17303c; color:var(--text); }
+    .event time { color:var(--cyan); font:12px ui-monospace,monospace; }
+    .badge { border:1px solid var(--line); border-radius:999px; padding:1px 7px; font-size:11px; }
+    .warn { color:var(--amber); border-color:#76591f; }
+    #empty { padding:24px; color:var(--muted); }
+    @media (max-width:900px) { main { grid-template-columns:1fr; } video { max-height:none; } }
+  </style>
+</head>
+<body>
+  <header><div><h1>FMV operations dashboard</h1><div class="status" id="clock">Loading timeline…</div></div>
+    <div class="status" id="identity"></div></header>
+  <main>
+    <section class="stack"><div class="card"><video id="video" controls preload="metadata" src="media.mp4"></video></div>
+      <div class="card"><h2>Geospatial view</h2><svg id="map" viewBox="0 0 800 290" role="img" aria-label="Current FMV geometry"></svg></div></section>
+    <aside class="stack"><div class="card"><h2>Current telemetry</h2><div id="telemetry"></div><div id="empty">No metadata is active yet.</div></div>
+      <div class="card"><h2>Activity feed</h2><div id="feed"></div></div></aside>
+  </main>
+  <script>
+    const video=document.querySelector('#video'), telemetry=document.querySelector('#telemetry');
+    const feed=document.querySelector('#feed'), map=document.querySelector('#map');
+    const clock=document.querySelector('#clock'), identity=document.querySelector('#identity');
+    let samples=[], active=-1;
+    const escText=v=>v===null||v===undefined?'—':typeof v==='number'&&Number.isFinite(v)
+      ?v.toFixed(6).replace(/\.?0+$/,''):typeof v==='object'?JSON.stringify(v):String(v);
+    const field=(sample,name)=>sample?.fields?.[name]?.display ?? sample?.fields?.[name]?.value ?? sample?.fields?.[name];
+    const time=t=>`${Math.floor(t/60).toString().padStart(2,'0')}:${(t%60).toFixed(2).padStart(5,'0')}`;
+    function pointFeatures(features){ return features.filter(f=>f?.geometry?.type==='Point'); }
+    function renderTelemetry(sample){
+      const rows=[['UTC timestamp',field(sample,'Precision Time Stamp')],['Mission',field(sample,'Mission ID')],
+        ['Platform',field(sample,'Platform Designation')],['Sensor',field(sample,'Image Source Sensor')],
+        ['Heading',field(sample,'Platform Heading Angle')],['Pitch',field(sample,'Platform Pitch Angle')],
+        ['Roll',field(sample,'Platform Roll Angle')],['Sensor altitude',field(sample,'Sensor True Altitude')],
+        ['Frame latitude',field(sample,'Frame Center Latitude')],['Frame longitude',field(sample,'Frame Center Longitude')],
+        ['Targets',sample?.detections?.length ?? 0],['Diagnostics',sample?.issues?.length ?? 0]];
+      telemetry.replaceChildren(...rows.map(([label,value])=>{ const d=document.createElement('div'); d.className='metric';
+        const l=document.createElement('span'),v=document.createElement('strong'); l.textContent=label; v.textContent=escText(value);
+        d.append(l,v); return d; }));
+      document.querySelector('#empty').hidden=true;
+      identity.textContent=`Program ${sample.program_number} · PID 0x${sample.pid.toString(16).padStart(4,'0')}`;
+    }
+    function renderMap(sample){
+      map.replaceChildren();
+      for(let x=0;x<=800;x+=80){const l=document.createElementNS('http://www.w3.org/2000/svg','line');l.setAttribute('x1',x);l.setAttribute('x2',x);l.setAttribute('y2',290);l.setAttribute('class','grid-line');map.append(l)}
+      for(let y=0;y<=290;y+=58){const l=document.createElementNS('http://www.w3.org/2000/svg','line');l.setAttribute('y1',y);l.setAttribute('y2',y);l.setAttribute('x2',800);l.setAttribute('class','grid-line');map.append(l)}
+      const points=pointFeatures(sample.geospatial||[]); if(!points.length)return;
+      const coords=points.map(f=>f.geometry.coordinates), xs=coords.map(c=>c[0]), ys=coords.map(c=>c[1]);
+      const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+      const sx=x=>60+(x-minX)/Math.max(maxX-minX,.00001)*680, sy=y=>245-(y-minY)/Math.max(maxY-minY,.00001)*200;
+      if(coords.length>1){const p=document.createElementNS('http://www.w3.org/2000/svg','polyline');p.setAttribute('points',coords.map(c=>`${sx(c[0])},${sy(c[1])}`).join(' '));p.setAttribute('class','track');map.append(p)}
+      points.forEach((f,i)=>{const c=coords[i],role=f.properties?.role||'target';const g=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        g.setAttribute('cx',sx(c[0]));g.setAttribute('cy',sy(c[1]));g.setAttribute('r',7);g.setAttribute('class',`point ${role}`);
+        const title=document.createElementNS('http://www.w3.org/2000/svg','title');title.textContent=`${role}: ${c[1].toFixed(6)}, ${c[0].toFixed(6)}`;g.append(title);map.append(g)});
+    }
+    function renderFeed(index){ const first=Math.max(0,index-9), slice=samples.slice(first,index+1).reverse();
+      feed.replaceChildren(...slice.map((s,n)=>{const row=document.createElement('div');row.className=`event ${n===0?'current':''}`;
+        const t=document.createElement('time');t.textContent=time(s.time_seconds);const body=document.createElement('div');
+        const geo=pointFeatures(s.geospatial||[]);body.textContent=`${geo.length} map point${geo.length===1?'':'s'} · ${s.detections?.length||0} detection${s.detections?.length===1?'':'s'}`;
+        const badge=document.createElement('span');badge.className=`badge ${(s.issues?.length||0)?'warn':''}`;badge.textContent=(s.issues?.length||0)?`${s.issues.length} issue(s)`:'clean';row.append(t,body,badge);return row;})); }
+    function selectIndex(seconds){let lo=0,hi=samples.length-1,result=-1;while(lo<=hi){const mid=(lo+hi)>>1;if(samples[mid].time_seconds<=seconds){result=mid;lo=mid+1}else hi=mid-1}return result}
+    function update(){clock.textContent=`Media ${time(video.currentTime)} / ${time(video.duration||0)}`;const index=selectIndex(video.currentTime);if(index===active)return;active=index;
+      if(index<0){telemetry.replaceChildren();document.querySelector('#empty').hidden=false;feed.replaceChildren();map.replaceChildren();return}const sample=samples[index];renderTelemetry(sample);renderMap(sample);renderFeed(index)}
+    video.addEventListener('timeupdate',update);video.addEventListener('seeked',update);video.addEventListener('loadedmetadata',update);
+    fetch('timeline.json').then(r=>{if(!r.ok)throw new Error(`timeline HTTP ${r.status}`);return r.json()}).then(data=>{samples=data.samples||[];clock.textContent=`${samples.length} metadata samples ready`;update()}).catch(error=>{clock.textContent=error.message;clock.style.color='var(--red)'})
+  </script>
+</body>
+</html>

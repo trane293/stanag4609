@@ -1,0 +1,165 @@
+site_name: stanag4609
+site_description: Pure-Python STANAG 4609 transport and MISB KLV toolkit
+site_url: https://stanag4609.readthedocs.io/
+repo_name: trane293/stanag4609
+repo_url: https://github.com/trane293/stanag4609
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; stanag4609 contributors — MIT licensed
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - src
+          options:
+            docstring_section_style: table
+            inherited_members: false
+            members_order: source
+            merge_init_into_class: true
+            separate_signature: true
+            show_root_heading: true
+            show_signature_annotations: true
+            show_source: false
+            signature_crossrefs: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Get started:
+      - Quickstart: QUICKSTART.md
+      - Command line: CLI.md
+      - Reference player: PLAYER.md
+      - Performance benchmarks: BENCHMARKS.md
+  - Tutorials:
+      - Inspect and debug FMV: tutorials/inspect_fmv.md
+      - Create FMV from video and CSV: tutorials/create_fmv.md
+      - Add AI detections as VMTI: tutorials/ai_to_vmti.md
+      - Build a video/map dashboard: tutorials/web_dashboard.md
+      - Transform and fan out live KLV: tutorials/live_fanout.md
+  - Work with FMV:
+      - Live transform pipeline: LIVE_PIPELINE.md
+      - AI and VMTI sidecars: AI_SIDECARS.md
+      - Adapter guide: ADAPTERS.md
+      - Web clients: WEB_CLIENTS.md
+      - FFmpeg and GStreamer: FFMPEG_GSTREAMER.md
+      - Audio: AUDIO.md
+      - Video properties: VIDEO.md
+      - MISP and UTC timestamps: TIMESTAMPS.md
+      - UDP transport: UDP_TRANSPORT.md
+      - RTP transport: RTP_TRANSPORT.md
+      - GeoJSON streams: GEOJSON.md
+      - Ecosystem interoperability: ECOSYSTEM.md
+  - API reference:
+      - Overview: api/index.md
+      - KLV and IMAP: api/klv.md
+      - ST 0601 metadata: api/st0601.md
+      - ST 0902 MISMMS: api/st0902.md
+      - ST 0903 VMTI: api/st0903.md
+      - ST 1002 range imagery: api/range.md
+      - Transformations and geo-registration: api/transformations.md
+      - MPEG-2 transport: api/transport.md
+      - Compressed video: api/video.md
+      - Verification: api/verifier.md
+      - AI sidecars: api/sidecar.md
+      - Audio and geospatial exports: api/media.md
+      - Reference player: api/player.md
+  - Standards and assurance:
+      - Verify and debug FMV: VERIFIER.md
+      - Standards provenance: STANDARDS.md
+      - Conformance: CONFORMANCE.md
+      - Objective completion audit: COMPLETION_AUDIT.md
+      - Known limitations: LIMITATIONS.md
+      - Public fixtures: PUBLIC_FIXTURES.md
+      - PAT and PMT cadence: PSI_CADENCE.md
+      - PCR cadence: PCR_CADENCE.md
+      - Metadata STD: METADATA_STD.md
+      - Transport rate and PCR restamping: TRANSPORT_RATE.md
+      - PTS cadence: PTS_CADENCE.md
+      - Requirement traces:
+          - MPEG-2 Systems (H.222.0): requirements/H222.0-2014.md
+          - MISP-2019.1 applicability: requirements/MISP-2019.1.md
+          - KLV encoding (SMPTE ST 336): requirements/SMPTE-ST336-2017.md
+          - Asynchronous KLV (SMPTE RP 217): requirements/SMPTE-RP217-2001.md
+          - ST 0102.12 Security: requirements/ST0102.12.md
+          - ST 0107.5 Report-on-Change: requirements/ST0107.5.md
+          - ST 0601.19 UAS Local Set: requirements/ST0601.19.md
+          - ST 0604.6 Video Timestamps: requirements/ST0604.6.md
+          - ST 0804.4 RTP: requirements/ST0804.4.md
+          - ST 0806.4 RVT Local Set: requirements/ST0806.4.md
+          - ST 0902.8 MISMMS: requirements/ST0902.8.md
+          - ST 0903.6 VMTI: requirements/ST0903.6.md
+          - ST 1001.1 Audio: requirements/ST1001.1.md
+          - ST 1002.3 Range Imagery: requirements/ST1002.3.md
+          - ST 1010.3 Uncertainty: requirements/ST1010.3.md
+          - ST 1201.5 Mapping: requirements/ST1201.5.md
+          - ST 1202.3 Transformations: requirements/ST1202.3.md
+          - ST 1204.3 MIIS: requirements/ST1204.3.md
+          - ST 1206.1 SAR: requirements/ST1206.1.md
+          - ST 1303.2 Array Packs: requirements/ST1303.2.md
+          - ST 1402.2 MPEG-2 TS profile: requirements/ST1402.2.md
+          - ST 1601.2 Geo-registration: requirements/ST1601.2.md
+          - ST 1602.2 Composite Imaging: requirements/ST1602.2.md
+          - ST 1607.2 Metadata Substreams: requirements/ST1607.2.md
+  - Architecture:
+      - Core boundary: adr/0001-core-boundary.md
+      - Live transform pipeline: adr/0002-live-transform-pipeline.md
+  - Contribute:
+      - Contribution guide: https://github.com/trane293/stanag4609/blob/main/CONTRIBUTING.md
+      - Development method: DEVELOPMENT.md
+      - Documentation roadmap: DOCUMENTATION.md
+      - Remaining work: ROADMAP.md
+      - Release process: RELEASING.md
+
+validation:
+  links:
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn

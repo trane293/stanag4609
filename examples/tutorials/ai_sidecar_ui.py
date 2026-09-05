@@ -1,0 +1,238 @@
+"""Run real Ultralytics inference against an FMV file in the reference UI."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from collections.abc import Iterator, Sequence
+from contextlib import suppress
+from dataclasses import asdict
+from datetime import datetime
+from functools import partial
+from http.server import ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+
+from stanag4609 import AlgorithmLocalSet, OntologyLocalSet
+from stanag4609.player import extract_overlay_detections
+from stanag4609.player.server import PlayerHTTPRequestHandler, prepare_player_assets
+from stanag4609.sidecar import (
+    FrameEnvelope,
+    InferenceContext,
+    InferenceResult,
+    UltralyticsYOLODetector,
+    VMTIMetadataEmitter,
+)
+
+_ROAD_CLASSES = (2, 3, 5, 7)  # COCO car, motorcycle, bus, truck
+_LABELS = ("car", "motorcycle", "bus", "truck")
+
+
+class _PreparedPrediction:
+    """Expose one precomputed Ultralytics result through the adapter contract."""
+
+    def __init__(self, result: Any) -> None:
+        self.result = result
+
+    def predict(self, *, source: Any, **_kwargs: Any) -> tuple[Any, ...]:
+        del source
+        return (self.result,)
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Run real YOLO vehicle inference and show ST 0903 in the FMV player"
+    )
+    parser.add_argument("source", type=Path, help="input MPEG-2 transport stream")
+    parser.add_argument("--output", type=Path, default=Path("work/ai-sidecar-ui"))
+    parser.add_argument("--weights", default="yolo11n.pt")
+    parser.add_argument("--confidence", type=float, default=0.35)
+    parser.add_argument("--image-size", type=int, default=960)
+    parser.add_argument("--batch-size", type=int, default=24)
+    parser.add_argument("--device", default=None, help="for example cpu, mps, or 0")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8767)
+    return parser
+
+
+def _sampled_frames(
+    media: Path, samples: Sequence[dict[str, Any]]
+) -> Iterator[tuple[int, Any]]:
+    try:
+        import cv2
+    except ImportError as error:  # pragma: no cover - optional dependency guidance
+        raise SystemExit(
+            "install the demo dependency: pip install 'stanag4609[ai-ultralytics]'"
+        ) from error
+
+    capture = cv2.VideoCapture(str(media))
+    fps = float(capture.get(cv2.CAP_PROP_FPS))
+    if not capture.isOpened() or fps <= 0:
+        raise SystemExit(f"could not decode prepared video: {media}")
+    sample_index = 0
+    frame_index = 0
+    try:
+        while sample_index < len(samples):
+            ok, frame = capture.read()
+            if not ok:
+                break
+            frame_time = frame_index / fps
+            while (
+                sample_index < len(samples)
+                and float(samples[sample_index]["time_seconds"])
+                <= frame_time + 0.5 / fps
+            ):
+                yield sample_index, frame.copy()
+                sample_index += 1
+            frame_index += 1
+    finally:
+        capture.release()
+
+
+def _timestamp(sample: dict[str, Any]) -> int:
+    value = sample["fields"]["Precision Time Stamp"]["value"]
+    return int(datetime.fromisoformat(value).timestamp() * 1_000_000)
+
+
+def _annotate_with_yolo(
+    *,
+    media: Path,
+    timeline: dict[str, Any],
+    weights: str,
+    confidence: float,
+    image_size: int,
+    batch_size: int,
+    device: str | None,
+) -> tuple[int, int]:
+    try:
+        from ultralytics import YOLO
+    except ImportError as error:  # pragma: no cover - optional dependency guidance
+        raise SystemExit(
+            "install the demo dependency: pip install 'stanag4609[ai-ultralytics]'"
+        ) from error
+
+    model = YOLO(weights)
+    algorithms = (
+        AlgorithmLocalSet(
+            1,
+            f"Ultralytics {Path(weights).stem}",
+            Path(weights).stem,
+            "detector",
+            1,
+        ),
+    )
+    ontologies = tuple(
+        OntologyLocalSet(
+            index + 1,
+            "https://cocodataset.org/#explore",
+            f"https://cocodataset.org/#explore#{label}",
+            label=label,
+        )
+        for index, label in enumerate(_LABELS)
+    )
+    emitter = VMTIMetadataEmitter(
+        "yolo",
+        metadata_pid=0x120,
+        metadata_service_id=7,
+        leap_seconds=35,
+        algorithms=algorithms,
+        ontologies=ontologies,
+        ontology_by_label={label: index + 1 for index, label in enumerate(_LABELS)},
+    )
+    samples = timeline["samples"]
+    detected_frames = detection_count = 0
+    pending: list[tuple[int, Any]] = []
+
+    def process(batch: list[tuple[int, Any]]) -> None:
+        nonlocal detected_frames, detection_count
+        frames = [frame for _, frame in batch]
+        kwargs: dict[str, Any] = {
+            "classes": list(_ROAD_CLASSES),
+            "conf": confidence,
+            "imgsz": image_size,
+            "verbose": False,
+        }
+        if device is not None:
+            kwargs["device"] = device
+        results = model.predict(frames, **kwargs)
+        for (sample_index, pixels), result in zip(batch, results, strict=True):
+            height, width = pixels.shape[:2]
+            sample = samples[sample_index]
+            frame = FrameEnvelope(
+                sequence_number=sample_index,
+                pts=int(sample["pts"]),
+                width=width,
+                height=height,
+                pixels=pixels,
+                timestamp_microseconds=_timestamp(sample),
+            )
+            detector = UltralyticsYOLODetector(
+                _PreparedPrediction(result), algorithm_id=1
+            )
+            output = detector(InferenceContext(frame))
+            context = InferenceContext(frame).with_result(InferenceResult("yolo", output))
+            packet = emitter(context)
+            vmti = packet.decoded.value(74)
+            sample["detections"] = [
+                asdict(item) for item in extract_overlay_detections(vmti)
+            ]
+            sample["fields"]["AI Sidecar"] = {
+                "value": f"real {Path(weights).name} inference -> ST 0903 VMTI"
+            }
+            if output.detections:
+                detected_frames += 1
+                detection_count += len(output.detections)
+
+    for item in _sampled_frames(media, samples):
+        pending.append(item)
+        if len(pending) == batch_size:
+            process(pending)
+            print(f"inference: {pending[-1][0] + 1}/{len(samples)} samples", flush=True)
+            pending.clear()
+    if pending:
+        process(pending)
+        print(f"inference: {pending[-1][0] + 1}/{len(samples)} samples", flush=True)
+    return detected_frames, detection_count
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    if not 1 <= args.port <= 65_535:
+        raise SystemExit("--port must be between 1 and 65535")
+    if not 0 < args.confidence <= 1:
+        raise SystemExit("--confidence must be greater than 0 and at most 1")
+    if args.image_size < 32 or args.batch_size < 1:
+        raise SystemExit(
+            "--image-size must be at least 32 and --batch-size must be positive"
+        )
+
+    assets = prepare_player_assets(args.source, args.output)
+    timeline = json.loads(assets.timeline.read_text(encoding="utf-8"))
+    detected_frames, detection_count = _annotate_with_yolo(
+        media=assets.media,
+        timeline=timeline,
+        weights=args.weights,
+        confidence=args.confidence,
+        image_size=args.image_size,
+        batch_size=args.batch_size,
+        device=args.device,
+    )
+    assets.timeline.write_text(
+        json.dumps(timeline, separators=(",", ":")), encoding="utf-8"
+    )
+
+    handler = partial(PlayerHTTPRequestHandler, directory=str(assets.root))
+    with ThreadingHTTPServer((args.host, args.port), handler) as server:
+        url = f"http://{args.host}:{server.server_port}/"
+        print(
+            f"AI sidecar UI: {url} model={args.weights} "
+            f"detected_frames={detected_frames} detections={detection_count}",
+            flush=True,
+        )
+        with suppress(KeyboardInterrupt):
+            server.serve_forever()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>STANAG 4609 Reference Player</title>
+  <style>
+    :root { color-scheme: dark; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    body { margin: 0; background: #091018; color: #dbe8f4; font-size: 13px; }
+    header { padding: 14px 20px; border-bottom: 1px solid #263849; color: #8ed8ff; font-size: 14px; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) clamp(420px, 36vw, 560px); gap: 16px; padding: 16px; }
+    .video-shell { position: relative; align-self: start; line-height: 0; }
+    video { display: block; width: 100%; max-height: calc(100vh - 90px); background: black; }
+    #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    aside { max-height: calc(100vh - 90px); overflow: auto; border: 1px solid #263849; border-radius: 8px; }
+    .map-shell { position: relative; height: 210px; border-bottom: 1px solid #263849; background: #07131c; }
+    #map { width: 100%; height: 100%; display: block; }
+    #map-caption { position: absolute; left: 8px; bottom: 6px; padding: 3px 5px; background: #07131ccc; color: #7894aa; font-size: 10px; }
+    #status { padding: 12px; position: sticky; top: 0; background: #101c28; color: #7ee2a8; line-height: 1.4; }
+    #status.error { color: #ff9aab; }
+    #diagnostics { margin: 0; padding: 10px 12px; border-top: 1px solid #69414a; border-bottom: 1px solid #69414a; background: #2a1820; color: #ffd4dc; }
+    #diagnostics h2 { margin: 0 0 6px; color: #ff9aab; font-size: 12px; font-weight: 600; }
+    #issue-list { margin: 0; padding-left: 20px; line-height: 1.45; }
+    dl { margin: 0; padding: 8px 12px 16px; }
+    .field { display: grid; grid-template-columns: minmax(9rem, .75fr) minmax(0, 1.25fr); gap: 12px; padding: 8px 0; border-bottom: 1px solid #1c2b38; }
+    dt { color: #90a8bc; overflow-wrap: break-word; }
+    dd { margin: 0; text-align: right; overflow-wrap: anywhere; word-break: normal; }
+    .unit { display: inline-block; color: #6d879b; margin-left: 6px; white-space: nowrap; }
+    @media (max-width: 1100px) {
+      main { grid-template-columns: 1fr; }
+      video { max-height: 55vh; }
+      aside { max-height: 45vh; }
+    }
+    @media (max-width: 520px) {
+      header { padding-inline: 12px; }
+      main { gap: 12px; padding: 12px; }
+      .field { grid-template-columns: 1fr; gap: 4px; }
+      dd { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <header>STANAG 4609 / MISB synchronized reference player</header>
+  <main>
+    <div class="video-shell">
+      <video id="video" controls autoplay></video>
+      <canvas id="overlay" aria-label="VMTI detection overlay"></canvas>
+    </div>
+    <aside>
+      <div class="map-shell"><canvas id="map" aria-label="Geospatial map"></canvas><div id="map-caption">Waiting for geospatial metadata…</div></div>
+      <div id="status" role="status" aria-live="polite">Loading metadata…</div>
+      <section id="diagnostics" aria-live="polite" hidden>
+        <h2>Metadata diagnostics</h2>
+        <ul id="issue-list"></ul>
+      </section>
+      <dl id="fields"></dl>
+    </aside>
+  </main>
+  <script>
+    const video = document.querySelector('#video');
+    const overlay = document.querySelector('#overlay');
+    const context = overlay.getContext('2d');
+    const status = document.querySelector('#status');
+    const panel = document.querySelector('#fields');
+    const diagnostics = document.querySelector('#diagnostics');
+    const issueList = document.querySelector('#issue-list');
+    const map = document.querySelector('#map');
+    const mapContext = map.getContext('2d');
+    const mapCaption = document.querySelector('#map-caption');
+    const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6, useGrouping: false });
+    const query = new URLSearchParams(window.location.search);
+    const liveMode = query.get('live') === '1';
+    const streamMode = liveMode || query.get('metadata') === 'sse';
+    const MAX_STREAM_SAMPLES = 512;
+    let samples = [], selected = -1, eventStream = null, streamEnded = false;
+    if (!liveMode) video.src = 'media.mp4';
+    function loadTimeline() {
+      fetch('timeline.json').then(response => {
+        if (!response.ok) throw new Error(`timeline request returned HTTP ${response.status}`);
+        return response.json();
+      }).then(data => {
+        if (!Array.isArray(data.samples)) throw new Error('timeline does not contain a samples array');
+        samples = data.samples;
+        if (!samples.length) {
+          showUnavailable('No ST 0601 metadata samples found', 'No geospatial metadata');
+          return;
+        }
+        render(findSample(video.currentTime));
+      }).catch(error => showUnavailable(`Metadata error: ${error.message || error}`, 'Metadata unavailable', true));
+    }
+    function stopMetadataStream() {
+      if (eventStream) eventStream.close();
+      eventStream = null;
+    }
+    function startMetadataStream({ restart = false } = {}) {
+      if (!streamMode || (eventStream && !restart)) return;
+      stopMetadataStream();
+      streamEnded = false;
+      if (!liveMode) {
+        selected = -1;
+        samples = [];
+      }
+      const start = Math.max(0, Number(video.currentTime) || 0);
+      const rate = Math.min(16, Math.max(0.1, Number(video.playbackRate) || 1));
+      status.classList.remove('error');
+      status.textContent = `Connecting live metadata at t=${start.toFixed(3)}s…`;
+      const lastEventId = samples.length ? samples[samples.length - 1]._event_id : -1;
+      const endpoint = liveMode
+        ? `metadata/live?after=${encodeURIComponent(lastEventId)}`
+        : `metadata/events?start=${encodeURIComponent(start.toFixed(6))}&rate=${encodeURIComponent(rate)}`;
+      const source = new EventSource(endpoint);
+      eventStream = source;
+      source.addEventListener('sample', event => {
+        if (eventStream !== source) return;
+        try {
+          const sample = JSON.parse(event.data);
+          sample._event_id = Number(event.lastEventId);
+          samples.push(sample);
+          if (samples.length > MAX_STREAM_SAMPLES) {
+            const removed = samples.length - MAX_STREAM_SAMPLES;
+            samples.splice(0, removed);
+            selected = Math.max(-1, selected - removed);
+          }
+          render(findSample(video.currentTime));
+        } catch (error) {
+          stopMetadataStream();
+          showUnavailable(`Metadata stream error: ${error.message || error}`, 'Metadata unavailable', true);
+        }
+      });
+      source.addEventListener('reset', event => {
+        if (eventStream !== source) return;
+        samples = [];
+        selected = -1;
+        const reset = JSON.parse(event.data);
+        status.textContent = `Live metadata history skipped ${reset.dropped} samples; resynchronizing…`;
+      });
+      source.addEventListener('end', () => {
+        if (eventStream !== source) return;
+        streamEnded = true;
+        stopMetadataStream();
+        if (!samples.length) showUnavailable('No ST 0601 metadata samples found', 'No geospatial metadata');
+      });
+      source.onerror = () => {
+        if (eventStream !== source || streamEnded) return;
+        if (liveMode) {
+          status.textContent = 'Live metadata connection interrupted; reconnecting…';
+          return;
+        }
+        stopMetadataStream();
+        showUnavailable('Metadata stream disconnected', 'Metadata unavailable', true);
+      };
+    }
+    if (!streamMode) loadTimeline();
+    function waitForEvent(target, name) {
+      return new Promise((resolve, reject) => {
+        const cleanup = () => { target.removeEventListener(name, done); target.removeEventListener('error', failed); };
+        const done = () => { cleanup(); resolve(); };
+        const failed = () => { cleanup(); reject(new Error(`${name} failed`)); };
+        target.addEventListener(name, done, {once: true});
+        target.addEventListener('error', failed, {once: true});
+      });
+    }
+    async function appendMedia(sourceBuffer, bytes) {
+      if (sourceBuffer.updating) await waitForEvent(sourceBuffer, 'updateend');
+      sourceBuffer.appendBuffer(bytes);
+      await waitForEvent(sourceBuffer, 'updateend');
+    }
+    async function startLiveMedia() {
+      if (!('MediaSource' in window)) throw new Error('Media Source Extensions are unavailable');
+      const mediaSource = new MediaSource();
+      video.src = URL.createObjectURL(mediaSource);
+      await waitForEvent(mediaSource, 'sourceopen');
+      let initialization;
+      while (true) {
+        initialization = await fetch('media/init.mp4?wait=10', {cache: 'no-store'});
+        if (initialization.status !== 503) break;
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      if (!initialization.ok) throw new Error(`media initialization returned HTTP ${initialization.status}`);
+      const mimeType = initialization.headers.get('Content-Type');
+      if (!mimeType || !MediaSource.isTypeSupported(mimeType)) throw new Error(`unsupported live media type: ${mimeType || 'missing'}`);
+      const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+      await appendMedia(sourceBuffer, await initialization.arrayBuffer());
+      let after = Number(initialization.headers.get('X-First-Fragment-ID')) - 1;
+      while (mediaSource.readyState === 'open') {
+        const response = await fetch(`media/fragment?after=${encodeURIComponent(after)}&wait=10`, {cache: 'no-store'});
+        if (response.status === 409) throw new Error('live media history was exceeded; reload to join the current keyframe');
+        if (response.status === 204) {
+          if (response.headers.get('X-Stream-Error') === 'true') throw new Error('live media transcoder stopped with an error');
+          if (response.headers.get('X-Stream-End') === 'true') {
+            if (sourceBuffer.updating) await waitForEvent(sourceBuffer, 'updateend');
+            mediaSource.endOfStream();
+            break;
+          }
+          continue;
+        }
+        if (!response.ok) throw new Error(`media fragment returned HTTP ${response.status}`);
+        await appendMedia(sourceBuffer, await response.arrayBuffer());
+        after = Number(response.headers.get('X-Fragment-ID'));
+        if (sourceBuffer.buffered.length) {
+          const beginning = sourceBuffer.buffered.start(0);
+          const end = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
+          if (video.currentTime < beginning) video.currentTime = beginning;
+          if (end - beginning > 30 && !sourceBuffer.updating) sourceBuffer.remove(beginning, end - 30);
+        }
+        if (video.paused) video.play().catch(() => {});
+      }
+    }
+    if (liveMode) {
+      startMetadataStream();
+      startLiveMedia().catch(error => showUnavailable(`Live media error: ${error.message || error}`, 'Metadata unavailable', true));
+    }
+    function findSample(time) {
+      let lo = 0, hi = samples.length - 1, answer = -1;
+      while (lo <= hi) { const mid = (lo + hi) >> 1; if (samples[mid].time_seconds <= time) { answer = mid; lo = mid + 1; } else hi = mid - 1; }
+      return answer;
+    }
+    function render(index) {
+      if (index < 0 || !samples[index]) {
+        showUnavailable(`Waiting for first metadata sample… ${samples.length} samples loaded`, 'Waiting for geospatial metadata…');
+        return;
+      }
+      if (index === selected) return;
+      selected = index; const sample = samples[index];
+      const detections = sample.detections || [];
+      const issues = sample.issues || [];
+      status.classList.remove('error');
+      const delivery = streamMode ? 'SSE live · ' : '';
+      status.textContent = `${delivery}t=${sample.time_seconds.toFixed(3)}s · PID ${sample.pid} · PTS ${sample.pts ?? 'async'} · ${detections.length} targets · ${issues.length} diagnostics`;
+      panel.replaceChildren(...Object.entries(sample.fields || {}).map(([name, entry]) => {
+        const row = document.createElement('div'); row.className = 'field';
+        const dt = document.createElement('dt'); dt.textContent = name;
+        const dd = document.createElement('dd');
+        dd.textContent = displayValue(entry);
+        if (entry.units) { const unit = document.createElement('span'); unit.className = 'unit'; unit.textContent = entry.units; dd.append(unit); }
+        row.append(dt, dd); return row;
+      }));
+      issueList.replaceChildren(...issues.map(message => {
+        const item = document.createElement('li'); item.textContent = message; return item;
+      }));
+      diagnostics.hidden = issues.length === 0;
+      drawDetections(sample);
+      drawMap(sample);
+    }
+    function showUnavailable(message, mapMessage, isError = false) {
+      selected = -1;
+      status.classList.toggle('error', isError);
+      status.textContent = message;
+      panel.replaceChildren();
+      issueList.replaceChildren();
+      diagnostics.hidden = true;
+      drawDetections(null);
+      drawMap(null);
+      mapCaption.textContent = mapMessage;
+    }
+    function displayValue(entry) {
+      if (entry.display != null) return entry.display;
+      if (typeof entry.value === 'number') return numberFormat.format(entry.value);
+      if (typeof entry.value === 'object') return JSON.stringify(entry.value);
+      return entry.value ?? '';
+    }
+    function geometryPositions(geometry) {
+      if (!geometry) return [];
+      if (geometry.type === 'Point') return [geometry.coordinates];
+      const descend = value => typeof value?.[0] === 'number' ? [value] : (value || []).flatMap(descend);
+      return descend(geometry.coordinates);
+    }
+    function drawMap(sample) {
+      const width = map.clientWidth, height = map.clientHeight;
+      if (!width || !height || !mapContext) return;
+      const ratio = window.devicePixelRatio || 1;
+      if (map.width !== Math.round(width * ratio) || map.height !== Math.round(height * ratio)) {
+        map.width = Math.round(width * ratio); map.height = Math.round(height * ratio);
+      }
+      mapContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+      mapContext.clearRect(0, 0, width, height);
+      const features = sample?.geospatial || [];
+      const rawPositions = features.flatMap(feature => geometryPositions(feature.geometry));
+      if (!rawPositions.length) { mapCaption.textContent = 'No current geospatial geometry'; return; }
+      const referenceLongitude = rawPositions[0][0];
+      const unwrap = longitude => {
+        while (longitude - referenceLongitude > 180) longitude -= 360;
+        while (longitude - referenceLongitude < -180) longitude += 360;
+        return longitude;
+      };
+      const positions = rawPositions.map(([longitude, latitude]) => [unwrap(longitude), latitude]);
+      let minX = Math.min(...positions.map(point => point[0])), maxX = Math.max(...positions.map(point => point[0]));
+      let minY = Math.min(...positions.map(point => point[1])), maxY = Math.max(...positions.map(point => point[1]));
+      const xPad = Math.max((maxX - minX) * 0.12, 0.0025), yPad = Math.max((maxY - minY) * 0.12, 0.0025);
+      minX -= xPad; maxX += xPad; minY -= yPad; maxY += yPad;
+      const project = ([longitude, latitude]) => [
+        10 + ((unwrap(longitude) - minX) / (maxX - minX)) * (width - 20),
+        10 + ((maxY - latitude) / (maxY - minY)) * (height - 20),
+      ];
+      mapContext.strokeStyle = '#173044'; mapContext.lineWidth = 1;
+      for (let index = 1; index < 4; index++) {
+        const x = (width * index) / 4, y = (height * index) / 4;
+        mapContext.beginPath(); mapContext.moveTo(x, 0); mapContext.lineTo(x, height); mapContext.stroke();
+        mapContext.beginPath(); mapContext.moveTo(0, y); mapContext.lineTo(width, y); mapContext.stroke();
+      }
+      const drawRing = ring => {
+        if (!ring.length) return;
+        mapContext.beginPath();
+        ring.forEach((point, index) => { const [x, y] = project(point); index ? mapContext.lineTo(x, y) : mapContext.moveTo(x, y); });
+        mapContext.closePath(); mapContext.fill(); mapContext.stroke();
+      };
+      for (const feature of features.filter(item => item.geometry?.type.endsWith('Polygon'))) {
+        mapContext.strokeStyle = '#55bcea'; mapContext.fillStyle = '#2a9dca26'; mapContext.lineWidth = 2;
+        const polygons = feature.geometry.type === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
+        polygons.forEach(polygon => polygon.forEach(drawRing));
+      }
+      const colors = {sensor: '#f3c969', frame_center: '#62e6a7', target: '#ff7185', vmti_target: '#ff9f43'};
+      for (const feature of features.filter(item => item.geometry?.type === 'Point')) {
+        const [x, y] = project(feature.geometry.coordinates);
+        const role = feature.properties?.role || 'point';
+        mapContext.fillStyle = colors[role] || '#dbe8f4'; mapContext.strokeStyle = '#07131c'; mapContext.lineWidth = 2;
+        mapContext.beginPath(); mapContext.arc(x, y, 5, 0, Math.PI * 2); mapContext.fill(); mapContext.stroke();
+        const mapLabel = role === 'vmti_target' ? `VMTI target ${feature.properties?.target_id ?? '?'}` : role.replace('_', ' ');
+        mapContext.fillStyle = colors[role] || '#dbe8f4'; mapContext.font = '10px ui-monospace, monospace';
+        const labelWidth = mapContext.measureText(mapLabel).width;
+        const labelX = x + 8 + labelWidth <= width - 4 ? x + 8 : x - labelWidth - 8;
+        mapContext.fillText(mapLabel, Math.max(4, labelX), y + 3);
+      }
+      mapCaption.textContent = `${minY.toFixed(5)}…${maxY.toFixed(5)}° lat · ${minX.toFixed(5)}…${maxX.toFixed(5)}° lon`;
+    }
+    function drawDetections(sample) {
+      const cssWidth = video.clientWidth, cssHeight = video.clientHeight;
+      if (!cssWidth || !cssHeight || !context) return;
+      const ratio = window.devicePixelRatio || 1;
+      const pixelWidth = Math.round(cssWidth * ratio), pixelHeight = Math.round(cssHeight * ratio);
+      if (overlay.width !== pixelWidth || overlay.height !== pixelHeight) {
+        overlay.width = pixelWidth; overlay.height = pixelHeight;
+      }
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.clearRect(0, 0, cssWidth, cssHeight);
+      const videoRatio = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : cssWidth / cssHeight;
+      let imageWidth = cssWidth, imageHeight = cssWidth / videoRatio;
+      if (imageHeight > cssHeight) { imageHeight = cssHeight; imageWidth = cssHeight * videoRatio; }
+      const offsetX = (cssWidth - imageWidth) / 2, offsetY = (cssHeight - imageHeight) / 2;
+      for (const detection of sample?.detections || []) {
+        const color = detection.status === 'dropped' ? '#ff7185' : '#62e6a7';
+        context.strokeStyle = color; context.fillStyle = color; context.lineWidth = 2;
+        if (Array.isArray(detection.mask_runs) && Number.isInteger(detection.mask_width) && Number.isInteger(detection.mask_height)) {
+          context.save(); context.fillStyle = color; context.globalAlpha = 0.22;
+          for (const run of detection.mask_runs) {
+            let pixel = run.start_pixel - 1, remaining = run.run_length;
+            while (remaining > 0) {
+              const row = Math.floor(pixel / detection.mask_width), column = pixel % detection.mask_width;
+              const span = Math.min(remaining, detection.mask_width - column);
+              context.fillRect(
+                offsetX + (column / detection.mask_width) * imageWidth,
+                offsetY + (row / detection.mask_height) * imageHeight,
+                (span / detection.mask_width) * imageWidth,
+                Math.max(1, imageHeight / detection.mask_height),
+              );
+              pixel += span; remaining -= span;
+            }
+          }
+          context.restore();
+        }
+        if (Array.isArray(detection.contour) && detection.contour.length >= 3) {
+          context.save(); context.strokeStyle = color; context.fillStyle = color; context.lineWidth = 2;
+          context.beginPath();
+          detection.contour.forEach(([normalizedX, normalizedY], index) => {
+            const x = offsetX + normalizedX * imageWidth, y = offsetY + normalizedY * imageHeight;
+            index ? context.lineTo(x, y) : context.moveTo(x, y);
+          });
+          context.closePath(); context.globalAlpha = 0.18; context.fill();
+          context.globalAlpha = 1; context.stroke(); context.restore();
+        }
+        const hasBox = [detection.left, detection.top, detection.right, detection.bottom].every(Number.isFinite);
+        if (hasBox) {
+          const x = offsetX + detection.left * imageWidth;
+          const y = offsetY + detection.top * imageHeight;
+          const width = (detection.right - detection.left) * imageWidth;
+          const height = (detection.bottom - detection.top) * imageHeight;
+          context.strokeRect(x, y, width, height);
+          const label = [detection.label || `target ${detection.target_id}`, detection.confidence == null ? null : `${detection.confidence}%`].filter(Boolean).join(' ');
+          context.font = '12px ui-monospace, monospace';
+          const labelWidth = context.measureText(label).width + 8;
+          context.fillRect(x, Math.max(0, y - 18), labelWidth, 18);
+          context.fillStyle = '#061018'; context.fillText(label, x + 4, Math.max(13, y - 5));
+        }
+        if (Number.isFinite(detection.center_x) && Number.isFinite(detection.center_y)) {
+          const x = offsetX + detection.center_x * imageWidth;
+          const y = offsetY + detection.center_y * imageHeight;
+          context.beginPath(); context.moveTo(x - 5, y); context.lineTo(x + 5, y);
+          context.moveTo(x, y - 5); context.lineTo(x, y + 5); context.stroke();
+        }
+      }
+    }
+    video.addEventListener('timeupdate', () => render(findSample(video.currentTime)));
+    video.addEventListener('playing', () => startMetadataStream());
+    video.addEventListener('pause', () => { if (!liveMode) stopMetadataStream(); });
+    video.addEventListener('ended', () => { if (!liveMode) stopMetadataStream(); });
+    video.addEventListener('waiting', () => { if (!liveMode) stopMetadataStream(); });
+    video.addEventListener('stalled', () => { if (!liveMode) stopMetadataStream(); });
+    video.addEventListener('ratechange', () => {
+      if (streamMode && !liveMode && !video.paused) startMetadataStream({ restart: true });
+    });
+    video.addEventListener('seeked', () => {
+      if (streamMode && !liveMode && !video.paused) startMetadataStream({ restart: true });
+      else render(findSample(video.currentTime));
+    });
+    video.addEventListener('loadedmetadata', () => selected >= 0 && drawDetections(samples[selected]));
+    new ResizeObserver(() => selected >= 0 && drawDetections(samples[selected])).observe(video);
+    new ResizeObserver(() => selected >= 0 && drawMap(samples[selected])).observe(map);
+  </script>
+</body>
+</html>

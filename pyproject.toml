@@ -1,0 +1,143 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "stanag4609"
+version = "0.1.0a5"
+description = "Pure-Python STANAG 4609 transport and MISB KLV toolkit"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "stanag4609 contributors" }]
+keywords = [
+  "stanag4609",
+  "stanag-4609",
+  "misb",
+  "klv",
+  "fmv",
+  "mpeg-ts",
+  "st0601",
+  "st0902",
+  "st0903",
+  "vmti",
+  "geospatial-video",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed",
+  "Topic :: Scientific/Engineering :: GIS",
+  "Topic :: Multimedia :: Video",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.urls]
+Documentation = "https://stanag4609.readthedocs.io/"
+Source = "https://github.com/trane293/stanag4609"
+Issues = "https://github.com/trane293/stanag4609/issues"
+Changelog = "https://github.com/trane293/stanag4609/blob/main/CHANGELOG.md"
+
+[project.scripts]
+stanag4609-benchmark-live = "stanag4609.player.benchmark:main"
+stanag4609-export-esri = "stanag4609.csvexport:main"
+stanag4609-export-geojson = "stanag4609.geojson:main"
+stanag4609-mux-esri = "stanag4609.csvmux:main"
+stanag4609-player = "stanag4609.player.server:main"
+stanag4609-verify = "stanag4609.verifier:main"
+
+[project.optional-dependencies]
+ai-ultralytics = [
+  "ultralytics>=8.3",
+]
+ai-onnx = [
+  "onnxruntime>=1.20",
+]
+ai-triton-grpc = [
+  "tritonclient[grpc]>=2.50",
+]
+ai-triton-http = [
+  "tritonclient[http]>=2.50",
+]
+audio-pyav = [
+  "av>=16,<18; python_version < '3.11'",
+  "av>=18.1; python_version >= '3.11'",
+]
+browser-test = [
+  "playwright>=1.62,<2",
+]
+docs = [
+  "mkdocs-material>=9.7,<10",
+  "mkdocstrings[python]>=1.0,<2",
+]
+test = [
+  "hypothesis>=6.112",
+  "pytest>=8.3",
+  "pytest-cov>=5.0",
+]
+dev = [
+  "stanag4609[test]",
+  "build>=1.2",
+  "mypy>=1.11",
+  "ruff>=0.6",
+  "twine>=5.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stanag4609"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/docs",
+  "/examples",
+  "/references/*.json",
+  "/references/standards/manifest.json",
+  "/src",
+  "/tests",
+  "/CHANGELOG.md",
+  "/CONTRIBUTING.md",
+  "/LICENSE",
+  "/README.md",
+  "/mkdocs.yml",
+  "/pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+markers = [
+  "browser: tests requiring a locally installed Playwright Chromium browser",
+  "integration: tests using large opt-in public media fixtures",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["stanag4609"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 90
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+packages = ["stanag4609"]

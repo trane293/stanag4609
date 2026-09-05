@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install development dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Type check
+        run: mypy src
+      - name: Test
+        run: pytest --cov=stanag4609 --cov-branch --cov-report=term-missing
+
+  package-and-docs:
+    name: Package and documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install build dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev,docs]"
+      - name: Build documentation
+        run: mkdocs build --strict
+      - name: Build distributions
+        run: python -m build
+      - name: Check distribution metadata and README rendering
+        run: twine check --strict dist/*
+
+  optional-audio:
+    name: Optional PyAV audio backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install PyAV backend and test dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[test,audio-pyav]"
+      - name: Decode all ST 1001 codec profiles
+        run: pytest -q tests/unit/test_audio_pyav.py
+
+  browser-player:
+    name: Reference player in Chromium
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install browser-test dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[test,browser-test]"
+      - name: Install Chromium system dependencies
+        run: python -m playwright install --with-deps chromium
+      - name: Ensure FFmpeg fixture generator is available
+        run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Exercise playback, seeking, metadata, overlays, map, and SSE
+        run: pytest -q -m browser tests/browser

@@ -1,0 +1,125 @@
+# Remaining work and continuation guide
+
+This page records the work that remains after the `0.1.0a5` release candidate.
+It separates verified capability from future scope so another developer or agent
+can resume without reconstructing project history.
+
+The [objective completion audit](COMPLETION_AUDIT.md) maps the original release
+goal to current evidence and explains why the overall goal remains open.
+
+## Proven release baseline
+
+- The full unit suite exceeds the configured 90% branch-coverage gate.
+- Public integration tests cover H.264 with asynchronous KLVA, H.264/AAC with
+  synchronous KLVA, and browser asset preparation with geospatial samples.
+- An independently published 21-file negative-conformance corpus is pinned;
+  20 members prove fault-specific verifier diagnostics after per-member hash
+  authentication. The sole unasserted PCR/PTS-drift member stays inside the
+  applicable published timing bound and is retained as an explicit non-claim.
+- The ArcGIS raw-video/CSV workflow generates MPEG-2 video, Layer II audio, and
+  866 synchronous ST 0601 packets; its structural verifier report is clean and
+  every packet appears in the player timeline.
+- Distribution builds, console entry points, strict documentation, and fresh
+  wheel/source installs are release gates rather than manual assumptions.
+
+See [public fixtures](PUBLIC_FIXTURES.md) for reproducible identities and the
+important negative-conformance expectations.
+
+## Highest-priority protocol work
+
+1. Complete MISP-2019.1 software-verifiable image-profile checks. Embedded
+   ST 0604 timestamps are now parsed and count-audited for H.262/AVC/HEVC;
+   H.262/AVC/HEVC dimensions, display/timing fields, scan signalling, and codec
+   profile/level are now inspected. Timestamp messages are now associated with
+   recognized compressed access units using H.262 picture, AVC prefix-SEI, and
+   HEVC prefix/suffix-SEI placement; broader whole-bitstream codec certification
+   remains. All 86 active and 34 deprecated requirement identifiers now have
+   checksum-bound exact inventory and human-readable disposition; the verifier
+   also enforces MISP-2015.1-49 single-mechanism Security Metadata carriage.
+2. Close the remaining contextual and cross-item ST 0601.19 conformance gaps,
+   especially producer-supplied time-of-birth/precision facts. The child
+   standards embedded by Items 73, 95, 98, and 99 now have typed bridges;
+   Item 98 additionally has parallel Amend/MSID Report-on-Change resolution,
+   and rejects Item 9/10 uncertainty arrays that lack their dimensionally
+   compatible Item 4/5/8 source geometry,
+   Item 99 has cross-branch policy validation, and Item 97 includes ST 1002
+   caller-dimension SPRM center defaults, plane subtraction, and reconstruction.
+   Every active root item is typed, and
+   verifier summaries quantify which packets received birth-time,
+   IMAP-precision, and VMTI frame context; retain lossless unknown-item
+   behavior for future extensions.
+3. Expand ST 0903.6 beyond the implemented VMTI/VTarget/VTracker/VMask/VChip,
+   ontology, algorithm, and geospatial slices, with official and independent
+   real-stream vectors.
+4. Broaden independently reviewed ST 0902.8 policy profiles beyond the now
+   implemented caller-supplied classification, country, and handling checks;
+   policy authorship and authoritative code-list selection remain external.
+5. Broaden ST 1001.1-labelled audio conformance fixtures while keeping codec
+   scope focused on common Layer II and AAC profiles.
+6. Add a redistributable real ST 0903/VMTI FMV fixture. Current VMTI coverage is
+   synthetic and standards-vector driven; it is not yet independently sourced
+   recorded-media interoperability evidence. The public ImpleoTV negative
+   corpus and OpenSensorHub sample stream were inspected and contain no VMTI;
+   OpenSensorHub's upstream VMTI test permits zero targets, so neither closes
+   this requirement.
+
+## Transport and live deployment
+
+- Extend the ST 0804.4 MPEG-2 TS-over-RTP core only where deployments need it.
+  Count-bounded sequence reordering plus strict RTCP Sender Report read/write
+  and exact RTP/NTP synchronization are implemented. SR/RR-first compound
+  validation, typed SDES CNAME, and packetizer sender counters/emission are
+  implemented too. Adaptive cadence, participant/collision/BYE state, native
+  elementary-stream RTP, and RTSP remain separate profiles, not implied by
+  multiplexed-TS support.
+- Extend the implemented bounded MPTS-to-selected-SPTS transform with a
+  separate whole-multiplex rewriting API if deployments require unrelated
+  programs to remain in the same output transport.
+- Extend the measured low-latency fragmented-MP4/MSE reference gateway from
+  complete 148–371-second real-FMV runs to multi-hour paced input, repeated
+  reconnect epochs, and concurrent viewers. The first-party JSON benchmark now
+  proves bounded late-join histories and 8.44–17.68× finite-file headroom on
+  three pinned fixtures; sub-second targets, multi-viewer fan-out, adaptive
+  bitrate, and WebRTC/HLS remain production deployment profiles.
+- Extend the published live-player performance and memory method to sustained
+  UDP, file demux, mux, verifier, and sidecar workloads.
+- The verifier PMT-validation cache is now proven bounded to one active
+  identity per program across 128 changing revisions; extend the same
+  measurement discipline to end-to-end throughput and resident memory.
+- Add failure-injection tests for prolonged loss, reorder, jitter, and output
+  backpressure. Explicit reconnect boundaries now discard and report every
+  partial TS/PSI/PES/KLV structure before rediscovery.
+
+## Developer experience and assurance
+
+- Add external-link checking and broader executable documentation snippets to
+  CI. Generated API targets, the shipped player JavaScript syntax, strict site
+  build, and a deterministic Chromium interaction job for playback, seeking,
+  synchronized static/SSE metadata, reconnects, diagnostics, overlays, and map
+  rendering are already gated.
+- Seek authoritative profile evidence before assigning any failure to the sole
+  unasserted ImpleoTV PCR/PTS-drift member. Its observed H.264 timing remains
+  within ST 1402 §7.4, so a corpus filename is not a conformance requirement.
+- Test optional Ultralytics, ONNX Runtime, Triton, FFmpeg, and GStreamer
+  examples in dedicated dependency jobs. PyAV now has a dedicated all-codec
+  decode job plus real AAC FMV acceptance coverage.
+- Add verified, version-specific interoperability results for Esri and other FMV
+  consumers instead of predicting compatibility.
+- Expand the first real UI/CLI tutorial captures with upgrade guides, benchmark
+  methodology, and production security/deployment guidance before a stable
+  `1.0` claim.
+
+## How to resume
+
+1. Read [development method](DEVELOPMENT.md), [conformance](CONFORMANCE.md), and
+   [standards provenance](STANDARDS.md).
+2. Pick one traced requirement or integration outcome and write its failing test
+   first.
+3. Keep core dependencies empty; adapters own optional runtimes.
+4. Add the implementation, requirement-trace evidence, limitation change, and
+   runnable example in the same small conventional commit.
+5. Run the full release gates in [releasing](RELEASING.md) before a tag.
+
+Do not mark the overall library “fully STANAG 4609 conformant” until every
+applicable normative requirement has an auditable trace and independent fixture
+coverage. Alpha releases are useful integration milestones, not certification.
