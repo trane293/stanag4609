@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from io import BytesIO
 
 import pytest
 
+from stanag4609 import encode_transport_packet as public_encode_transport_packet
+from stanag4609 import rebuild_transport_packet as public_rebuild_transport_packet
 from stanag4609.errors import DecodeError, TruncatedData
 from stanag4609.transport.mpegts import (
     TS_PACKET_SIZE,
@@ -14,8 +17,10 @@ from stanag4609.transport.mpegts import (
     encode_adaptation_field,
     encode_adaptation_field_extension,
     encode_program_clock_reference,
+    encode_transport_packet,
     iter_transport_stream,
     parse_transport_packet,
+    rebuild_transport_packet,
 )
 
 
@@ -196,6 +201,135 @@ def test_empty_adaptation_field_round_trips() -> None:
     packet = parse_transport_packet(_adaptation_packet(b""))
     assert packet.adaptation == AdaptationField(empty=True)
     assert encode_adaptation_field(packet.adaptation) == b""
+
+
+def test_encode_payload_only_transport_packet_exactly() -> None:
+    assert public_encode_transport_packet is encode_transport_packet
+    assert public_rebuild_transport_packet is rebuild_transport_packet
+    payload = b"\xA5" * 184
+    raw = encode_transport_packet(
+        pid=0x123,
+        payload=payload,
+        transport_error_indicator=True,
+        payload_unit_start=True,
+        transport_priority=True,
+        scrambling_control=2,
+        continuity_counter=9,
+    )
+
+    assert raw[:4] == bytes.fromhex("47e12399")
+    packet = parse_transport_packet(raw)
+    assert packet.transport_error_indicator
+    assert packet.payload_unit_start
+    assert packet.transport_priority
+    assert packet.scrambling_control == 2
+    assert packet.continuity_counter == 9
+    assert packet.payload == payload
+    assert packet.adaptation is None
+
+
+def test_encode_transport_packet_adds_canonical_adaptation_stuffing() -> None:
+    clock = ProgramClockReference(90_000, 17)
+    adaptation = AdaptationField(random_access_indicator=True, pcr=clock)
+    payload = bytes(range(170))
+
+    raw = encode_transport_packet(
+        pid=0x101,
+        payload=payload,
+        payload_unit_start=True,
+        continuity_counter=15,
+        adaptation=adaptation,
+    )
+
+    assert len(raw) == TS_PACKET_SIZE
+    assert raw[:5] == bytes.fromhex("4741013f0d")
+    packet = parse_transport_packet(raw)
+    assert packet.adaptation == adaptation
+    assert packet.adaptation_field.endswith(b"\xFF" * 6)
+    assert packet.payload == payload
+
+
+def test_encode_adaptation_only_and_zero_length_adaptation_packets() -> None:
+    adaptation_only = encode_transport_packet(
+        pid=0x101,
+        continuity_counter=3,
+        adaptation=AdaptationField(discontinuity_indicator=True),
+    )
+    assert adaptation_only[:6] == bytes.fromhex("47010123b780")
+    assert adaptation_only[6:] == b"\xFF" * 182
+    assert parse_transport_packet(adaptation_only).adaptation == AdaptationField(
+        discontinuity_indicator=True
+    )
+
+    empty = encode_transport_packet(
+        pid=0x101,
+        payload=b"\x22" * 183,
+        adaptation=AdaptationField(empty=True),
+    )
+    assert empty[:5] == bytes.fromhex("4701013000")
+    assert parse_transport_packet(empty).adaptation == AdaptationField(empty=True)
+
+
+def test_rebuild_transport_packet_preserves_header_payload_and_noop_bytes() -> None:
+    source = parse_transport_packet(
+        encode_transport_packet(
+            pid=0x144,
+            payload=b"source" * 28,
+            payload_unit_start=True,
+            transport_priority=True,
+            continuity_counter=7,
+            adaptation=AdaptationField(
+                pcr=ProgramClockReference(123_456, 12),
+                transport_private_data=b"private",
+            ),
+        )
+    )
+    assert rebuild_transport_packet(source) == source.raw
+    with pytest.raises(ValueError, match="non-negative integer"):
+        rebuild_transport_packet(source, extension_stuffing_length=False)
+
+    assert source.adaptation is not None
+    changed = replace(source.adaptation, random_access_indicator=True)
+    rebuilt = parse_transport_packet(
+        rebuild_transport_packet(source, adaptation=changed)
+    )
+    assert rebuilt.pid == source.pid
+    assert rebuilt.payload_unit_start == source.payload_unit_start
+    assert rebuilt.transport_priority == source.transport_priority
+    assert rebuilt.continuity_counter == source.continuity_counter
+    assert rebuilt.payload == source.payload
+    assert rebuilt.adaptation == changed
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"pid": -1, "payload": b"x" * 184}, "pid"),
+        ({"pid": 0, "payload": b"x" * 184, "continuity_counter": 16}, "continuity"),
+        ({"pid": 0, "payload": b"x" * 184, "scrambling_control": 4}, "scrambling"),
+        ({"pid": 0, "payload": b"x" * 183}, "exactly 184"),
+        (
+            {
+                "pid": 0,
+                "payload": b"x" * 184,
+                "adaptation": AdaptationField(),
+            },
+            "do not fit",
+        ),
+        (
+            {
+                "pid": 0,
+                "adaptation": AdaptationField(empty=True),
+            },
+            "empty adaptation field",
+        ),
+    ],
+)
+def test_encode_transport_packet_rejects_invalid_layouts(
+    kwargs: dict[str, object], message: str
+) -> None:
+    with pytest.raises((TypeError, ValueError), match=message):
+        encode_transport_packet(**kwargs)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(

@@ -46,8 +46,10 @@ from stanag4609.transport.mpegts import (
     encode_adaptation_field,
     encode_adaptation_field_extension,
     encode_program_clock_reference,
+    encode_transport_packet,
     iter_transport_stream,
     parse_transport_packet,
+    rebuild_transport_packet,
 )
 from stanag4609.transport.mux import (
     MAX_ASYNC_PES_PAYLOAD,
@@ -326,6 +328,7 @@ __all__ = [
     "encode_pes_packet",
     "encode_program_clock_reference",
     "encode_rtcp_sender_compound",
+    "encode_transport_packet",
     "find_klv_streams",
     "iter_transport_stream",
     "iter_udp_datagrams",
@@ -345,6 +348,7 @@ __all__ = [
     "parse_rtp_packet",
     "parse_transport_packet",
     "pcr_from_ticks",
+    "rebuild_transport_packet",
     "rewrite_packet_pcr",
     "simulate_asynchronous_metadata_pes",
     "simulate_synchronous_metadata_pes",

@@ -5,12 +5,13 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import BinaryIO
+from typing import BinaryIO, overload
 
 from stanag4609.errors import DecodeError, TruncatedData
 
 TS_PACKET_SIZE = 188
 TS_SYNC_BYTE = 0x47
+_UNCHANGED_ADAPTATION = object()
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,6 +275,106 @@ def encode_adaptation_field(
     return result
 
 
+def _validate_transport_uint(value: int, maximum: int, *, name: str) -> None:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not 0 <= value <= maximum
+    ):
+        raise ValueError(f"{name} must be an integer from 0 to {maximum}")
+
+
+def encode_transport_packet(
+    *,
+    pid: int,
+    payload: bytes = b"",
+    transport_error_indicator: bool = False,
+    payload_unit_start: bool = False,
+    transport_priority: bool = False,
+    scrambling_control: int = 0,
+    continuity_counter: int = 0,
+    adaptation: AdaptationField | None = None,
+    extension_stuffing_length: int = 0,
+) -> bytes:
+    """Build one canonical 188-byte H.222.0 transport packet.
+
+    A supplied non-empty adaptation field is padded with outer ``0xFF`` bytes
+    to fill the packet. A zero-length adaptation field is representable only
+    alongside exactly 183 payload bytes. Without adaptation data, the payload
+    must occupy all 184 bytes after the transport header.
+    """
+
+    _validate_transport_uint(pid, 0x1FFF, name="pid")
+    _validate_transport_uint(
+        scrambling_control, 0x03, name="scrambling_control"
+    )
+    _validate_transport_uint(continuity_counter, 0x0F, name="continuity_counter")
+    for name, value in (
+        ("transport_error_indicator", transport_error_indicator),
+        ("payload_unit_start", payload_unit_start),
+        ("transport_priority", transport_priority),
+    ):
+        if not isinstance(value, bool):
+            raise TypeError(f"{name} must be a boolean")
+    if not isinstance(payload, bytes):
+        raise TypeError("payload must be bytes")
+    _validate_stuffing_length(
+        extension_stuffing_length, name="extension_stuffing_length"
+    )
+
+    if adaptation is None:
+        if extension_stuffing_length:
+            raise ValueError("extension_stuffing_length requires an adaptation field")
+        if len(payload) != 184:
+            raise ValueError(
+                "payload-only transport packet requires exactly 184 payload bytes"
+            )
+        adaptation_field_control = 1
+        packet_body = payload
+    else:
+        if not isinstance(adaptation, AdaptationField):
+            raise TypeError("adaptation must be AdaptationField or None")
+        available = 183 - len(payload)
+        if available < 0:
+            raise ValueError("adaptation and payload do not fit in a transport packet")
+        encoded = encode_adaptation_field(
+            adaptation,
+            extension_stuffing_length=extension_stuffing_length,
+        )
+        if len(encoded) > available:
+            raise ValueError("adaptation and payload do not fit in a transport packet")
+        stuffing_length = available - len(encoded)
+        if adaptation.empty and stuffing_length:
+            raise ValueError(
+                "empty adaptation field requires exactly 183 payload bytes"
+            )
+        if stuffing_length:
+            encoded = encode_adaptation_field(
+                adaptation,
+                stuffing_length=stuffing_length,
+                extension_stuffing_length=extension_stuffing_length,
+            )
+        adaptation_field_control = 3 if payload else 2
+        packet_body = bytes((len(encoded),)) + encoded + payload
+
+    header = bytes(
+        (
+            TS_SYNC_BYTE,
+            (int(transport_error_indicator) << 7)
+            | (int(payload_unit_start) << 6)
+            | (int(transport_priority) << 5)
+            | (pid >> 8),
+            pid & 0xFF,
+            (scrambling_control << 6)
+            | (adaptation_field_control << 4)
+            | continuity_counter,
+        )
+    )
+    result = header + packet_body
+    assert len(result) == TS_PACKET_SIZE
+    return result
+
+
 def _parse_program_clock_reference(
     adaptation_field: bytes,
     cursor: int,
@@ -427,6 +528,70 @@ class TransportPacket:
 
     def __bytes__(self) -> bytes:
         return self.raw
+
+
+@overload
+def rebuild_transport_packet(
+    packet: TransportPacket,
+    *,
+    payload: bytes | None = None,
+    extension_stuffing_length: int = 0,
+) -> bytes: ...
+
+
+@overload
+def rebuild_transport_packet(
+    packet: TransportPacket,
+    *,
+    adaptation: AdaptationField | None,
+    payload: bytes | None = None,
+    extension_stuffing_length: int = 0,
+) -> bytes: ...
+
+
+def rebuild_transport_packet(
+    packet: TransportPacket,
+    *,
+    adaptation: object = _UNCHANGED_ADAPTATION,
+    payload: bytes | None = None,
+    extension_stuffing_length: int = 0,
+) -> bytes:
+    """Rebuild a parsed packet with optional payload or adaptation changes.
+
+    With no overrides, the exact source bytes are returned. A rebuilt packet
+    preserves all parsed header fields and automatically fills a non-empty
+    adaptation field to retain the fixed packet size.
+    """
+
+    if not isinstance(packet, TransportPacket):
+        raise TypeError("packet must be TransportPacket")
+    _validate_stuffing_length(
+        extension_stuffing_length, name="extension_stuffing_length"
+    )
+    if (
+        adaptation is _UNCHANGED_ADAPTATION
+        and payload is None
+        and extension_stuffing_length == 0
+    ):
+        return packet.raw
+    if adaptation is _UNCHANGED_ADAPTATION:
+        selected_adaptation = packet.adaptation
+    elif adaptation is None or isinstance(adaptation, AdaptationField):
+        selected_adaptation = adaptation
+    else:
+        raise TypeError("adaptation must be AdaptationField or None")
+    selected_payload = packet.payload if payload is None else payload
+    return encode_transport_packet(
+        pid=packet.pid,
+        payload=selected_payload,
+        transport_error_indicator=packet.transport_error_indicator,
+        payload_unit_start=packet.payload_unit_start,
+        transport_priority=packet.transport_priority,
+        scrambling_control=packet.scrambling_control,
+        continuity_counter=packet.continuity_counter,
+        adaptation=selected_adaptation,
+        extension_stuffing_length=extension_stuffing_length,
+    )
 
 
 def parse_transport_packet(raw: bytes, *, offset: int = 0) -> TransportPacket:
