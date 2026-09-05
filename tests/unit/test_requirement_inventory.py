@@ -11,6 +11,15 @@ ROOT = Path(__file__).resolve().parents[2]
 INVENTORY = ROOT / "references" / "requirements.json"
 STANDARDS_MANIFEST = ROOT / "references" / "standards" / "manifest.json"
 
+
+def _requirement_ids(value: str) -> set[str]:
+    return set(value.split())
+
+
+def _st_requirement_ids(value: str) -> set[str]:
+    return {item.replace("_", " ") for item in value.split()}
+
+
 ST0601_ACTIVE = {
     "ST 0601.8-03",
     "ST 0601.8-08",
@@ -68,10 +77,43 @@ ST0902_ACTIVE = {
     "ST 0902.3-04",
     "ST 0902.8-05",
 }
-
-
-def _requirement_ids(value: str) -> set[str]:
-    return set(value.split())
+ST0903_ACTIVE = _st_requirement_ids(
+    """
+    ST_0903.4-01 ST_0903.4-03 ST_0903.4-10 ST_0903.4-13 ST_0903.4-14
+    ST_0903.4-15 ST_0903.4-17 ST_0903.4-18 ST_0903.4-19 ST_0903.4-26
+    ST_0903.4-27 ST_0903.4-35 ST_0903.4-37 ST_0903.4-38 ST_0903.4-40
+    ST_0903.4-56 ST_0903.4-59 ST_0903.4-62 ST_0903.4-63 ST_0903.4-66
+    ST_0903.4-75 ST_0903.4-82 ST_0903.4-85 ST_0903.4-92 ST_0903.4-93
+    ST_0903.4-94 ST_0903.5-98 ST_0903.5-99 ST_0903.5-100 ST_0903.5-101
+    ST_0903.5-102 ST_0903.5-103 ST_0903.5-104 ST_0903.5-105 ST_0903.5-106
+    ST_0903.5-107 ST_0903.5-108 ST_0903.6-116 ST_0903.6-117 ST_0903.6-118
+    ST_0903.6-119 ST_0903.6-120 ST_0903.6-121 ST_0903.6-122 ST_0903.6-123
+    ST_0903.6-124 ST_0903.6-125 ST_0903.6-126 ST_0903.6-127 ST_0903.6-128
+    ST_0903.6-129 ST_0903.6-130 ST_0903.6-131 ST_0903.6-132 ST_0903.6-133
+    ST_0903.6-134 ST_0903.6-135 ST_0903.6-136 ST_0903.6-137 ST_0903.6-138
+    ST_0903.6-139 ST_0903.6-140 ST_0903.6-141 ST_0903.6-142 ST_0903.6-143
+    """
+)
+ST0903_DEPRECATED = _st_requirement_ids(
+    """
+    ST_0903.4-02 ST_0903.4-04 ST_0903.4-05 ST_0903.4-06 ST_0903.4-07
+    ST_0903.4-08 ST_0903.4-09 ST_0903.4-11 ST_0903.4-12 ST_0903.4-16
+    ST_0903.4-20 ST_0903.4-21 ST_0903.4-22 ST_0903.4-23 ST_0903.4-24
+    ST_0903.4-25 ST_0903.4-28 ST_0903.4-29 ST_0903.4-30 ST_0903.4-31
+    ST_0903.4-32 ST_0903.4-33 ST_0903.4-34 ST_0903.4-36 ST_0903.4-39
+    ST_0903.4-41 ST_0903.4-42 ST_0903.4-43 ST_0903.4-44 ST_0903.4-45
+    ST_0903.4-46 ST_0903.4-47 ST_0903.4-48 ST_0903.4-49 ST_0903.4-50
+    ST_0903.4-51 ST_0903.4-52 ST_0903.4-53 ST_0903.4-54 ST_0903.4-55
+    ST_0903.4-57 ST_0903.4-58 ST_0903.4-60 ST_0903.4-61 ST_0903.4-64
+    ST_0903.4-65 ST_0903.4-67 ST_0903.4-68 ST_0903.4-69 ST_0903.4-70
+    ST_0903.4-71 ST_0903.4-72 ST_0903.4-73 ST_0903.4-74 ST_0903.4-76
+    ST_0903.4-77 ST_0903.4-78 ST_0903.4-79 ST_0903.4-80 ST_0903.4-81
+    ST_0903.4-83 ST_0903.4-84 ST_0903.4-86 ST_0903.4-87 ST_0903.4-88
+    ST_0903.4-89 ST_0903.4-90 ST_0903.4-91 ST_0903.4-95 ST_0903.4-96
+    ST_0903.4-97 ST_0903.5-109 ST_0903.5-110 ST_0903.5-111 ST_0903.5-112
+    ST_0903.5-113 ST_0903.5-114 ST_0903.5-115
+    """
+)
 
 
 MISP_2019_1_ACTIVE = _requirement_ids(
@@ -130,6 +172,7 @@ def test_requirement_inventory_names_the_exact_normative_populations() -> None:
     assert set(documents) == {
         "MISB-ST-0601.19",
         "MISB-ST-0902.8",
+        "MISB-ST-0903.6",
         "MISB-MISP-2019.1",
     }
 
@@ -148,6 +191,25 @@ def test_requirement_inventory_names_the_exact_normative_populations() -> None:
     assert st0902["inactive_requirements"] == [
         {"id": "ST 0902.3-02", "status": "deprecated"}
     ]
+
+    st0903 = documents["MISB-ST-0903.6"]
+    assert set(st0903["active_requirements"]) == ST0903_ACTIVE
+    assert len(st0903["active_requirements"]) == len(ST0903_ACTIVE) == 65
+    assert {
+        entry["id"] for entry in st0903["inactive_requirements"]
+    } == ST0903_DEPRECATED
+    assert len(st0903["inactive_requirements"]) == len(ST0903_DEPRECATED) == 78
+    assert {
+        entry["status"] for entry in st0903["inactive_requirements"]
+    } == {"deprecated"}
+    assert ST0903_ACTIVE.isdisjoint(ST0903_DEPRECATED)
+    assert len(ST0903_ACTIVE | ST0903_DEPRECATED) == 143
+
+    st0903_trace = (ROOT / st0903["trace"]).read_text(encoding="utf-8")
+    for requirement in ST0903_DEPRECATED:
+        assert requirement not in st0903_trace, (
+            f"deprecated {requirement} is presented in the active ST 0903.6 trace"
+        )
 
     misp = documents["MISB-MISP-2019.1"]
     assert set(misp["active_requirements"]) == MISP_2019_1_ACTIVE

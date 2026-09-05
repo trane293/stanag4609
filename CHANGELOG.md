@@ -5,6 +5,9 @@ Versioning, with PEP 440 pre-release identifiers while the API is still alpha.
 
 ## Unreleased
 
+- Add checksum-bound exact inventory and CI enforcement for all 65 active and
+  78 deprecated ST 0903.6 requirement identifiers, and remove deprecated
+  identifiers from the current conformance trace.
 - Add an optional first-party PyAV video source that produces model-neutral
   `FrameEnvelope` values with exact 90 kHz PTS conversion, BGR or native frame
   output, deterministic stream selection, and safe container lifecycle; use it

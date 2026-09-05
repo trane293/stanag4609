@@ -49,8 +49,10 @@ important negative-conformance expectations.
    IMAP-precision, and VMTI frame context; retain lossless unknown-item
    behavior for future extensions.
 3. Expand ST 0903.6 beyond the implemented VMTI/VTarget/VTracker/VMask/VChip,
-   ontology, algorithm, and geospatial slices, with official and independent
-   real-stream vectors.
+   ontology, algorithm, and geospatial slices with independent real-stream
+   vectors. All 65 active and 78 deprecated identifiers now have
+   checksum-bound exact accounting; remaining limitations are explicit
+   contextual, producer-owned, or interoperability-evidence boundaries.
 4. Broaden independently reviewed ST 0902.8 policy profiles beyond the now
    implemented caller-supplied classification, country, and handling checks;
    policy authorship and authoritative code-list selection remain external.
