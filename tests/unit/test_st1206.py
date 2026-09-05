@@ -171,6 +171,72 @@ def test_polynomial_contract_and_evaluation() -> None:
         ).radar_cross_section_scale_factor(0, 0)
 
 
+def test_effective_pulse_repetition_frequency_applies_equation_18() -> None:
+    sar = _minimal(
+        true_pulse_repetition_frequency=20_000.0,
+        pulse_repetition_frequency_scale_factor=0.25,
+    )
+    assert sar.effective_pulse_repetition_frequency() == pytest.approx(5_000.0)
+    decoded = decode_sar_motion_imagery_local_set(
+        encode_sar_motion_imagery_local_set(sar, standalone=False),
+        standalone=False,
+    )
+    assert decoded.effective_pulse_repetition_frequency() == pytest.approx(
+        5_000.0,
+        abs=0.4,
+    )
+
+    with pytest.raises(LookupError, match="true pulse repetition frequency"):
+        _minimal(
+            pulse_repetition_frequency_scale_factor=0.25
+        ).effective_pulse_repetition_frequency()
+    with pytest.raises(LookupError, match="scale factor"):
+        _minimal(
+            true_pulse_repetition_frequency=20_000.0
+        ).effective_pulse_repetition_frequency()
+
+    special = IMAPSpecialValue(IMAPSpecialKind.POSITIVE_QUIET_NAN, b"\xd0\x00")
+    with pytest.raises(ValueError, match="numeric IMAP"):
+        _minimal(
+            true_pulse_repetition_frequency=special,
+            pulse_repetition_frequency_scale_factor=0.25,
+        ).effective_pulse_repetition_frequency()
+
+
+def test_radar_cross_section_applies_equation_20_with_pixel_validation() -> None:
+    sar = _minimal(
+        image_rows=2,
+        image_columns=3,
+        radar_cross_section_scale_factor_polynomial=_polynomial(),
+    )
+    assert sar.radar_cross_section(1.0, 2.0, pixel_power=3.5) == pytest.approx(742.0)
+    decoded = decode_sar_motion_imagery_local_set(
+        encode_sar_motion_imagery_local_set(sar, standalone=False),
+        standalone=False,
+    )
+    assert decoded.radar_cross_section(1.0, 2.0, pixel_power=3.5) == pytest.approx(
+        742.0,
+        abs=0.01,
+    )
+
+    for row, column, message in (
+        (-1.0, 0.0, "row"),
+        (0.0, -1.0, "column"),
+        (2.0, 0.0, "row"),
+        (0.0, 3.0, "column"),
+        (float("nan"), 0.0, "row"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            sar.radar_cross_section_scale_factor(row, column)
+
+    with pytest.raises(TypeError, match="row"):
+        sar.radar_cross_section_scale_factor(True, 0.0)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="pixel power"):
+        sar.radar_cross_section(0.0, 0.0, pixel_power=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="pixel power"):
+        sar.radar_cross_section(0.0, 0.0, pixel_power=-1.0)
+
+
 def test_unknown_extension_and_embedded_preservation() -> None:
     value = _minimal(extensions={40: RawSARValue(b"future")})
     wire = encode_sar_motion_imagery_local_set(value, standalone=False)

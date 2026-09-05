@@ -55,6 +55,8 @@ important negative-conformance expectations.
 2. Close the remaining contextual and cross-item ST 0601.19 conformance gaps,
    especially producer-supplied time-of-birth/precision facts. The child
    standards embedded by Items 73, 95, 98, and 99 now have typed bridges;
+   Item 95 additionally has checksum-bound exact ST 1206.1 requirement
+   accounting and effective-PRF/RCS exploitation helpers;
    Item 98 additionally has parallel Amend/MSID Report-on-Change resolution,
    and rejects Item 9/10 uncertainty arrays that lack their dimensionally
    compatible Item 4/5/8 source geometry,

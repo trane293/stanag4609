@@ -42,8 +42,9 @@ and send the same timed metadata to independent GIS or analytics consumers.
   coefficients, forward/inverse coordinate mapping, formula-defined image
   transforms, standard-ordered multi-transform execution, and ST 1010
   uncertainty.
-- ST 1206.1 SAR motion imagery metadata with typed collection/image geometry,
-  radar parameters, radiometric polynomial evaluation, and the ST 0601 Item 95 bridge.
+- ST 1206.1 SAR motion imagery metadata with source-bound requirement accounting,
+  typed collection/image geometry, effective PRF and radiometric RCS evaluation,
+  and the ST 0601 Item 95 bridge.
 - ST 1303.2 Multi-Dimensional Array Packs with Natural, IMAP, Boolean,
   BER-OID unsigned, and ordered run-length representations.
 - ST 1002.3 range imagery with standalone/embedded CRC handling, SPRMs,

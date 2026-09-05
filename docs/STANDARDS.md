@@ -7,8 +7,8 @@ Their exact provenance and SHA-256 digests are recorded in
 `references/standards/manifest.json`; the files themselves are gitignored until
 their redistribution terms have been reviewed.
 
-The exact active and inactive normative-requirement populations for ST 0601.19
-and ST 0902.8 are also recorded in the machine-readable
+The exact active and inactive normative-requirement populations for ST 0601.19,
+ST 0902.8, ST 0903.6, ST 1206.1, and MISP-2019.1 are also recorded in the machine-readable
 `references/requirements.json`. Tests bind that inventory to the acquired
 source digests, require every active identifier to appear in its human-readable
 trace, and compare the ST 0902 Table 1 tag paths with the validator's default

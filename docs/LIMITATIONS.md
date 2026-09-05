@@ -28,6 +28,9 @@
   Algorithm/Ontology/VObject/VFeature label structures, core pixel-detection
   encoder, optional caller-owned OWL/entity/label semantic resolution, and a
   bounded timed-KLV processor contract are implemented.
+  ST 0601 Item 95 covers the complete software-verifiable ST 1206.1 profile,
+  including effective-PRF and radiometric RCS calculations; radar calibration,
+  collection geometry, and measurement truth remain producer-owned.
   Embedded VChip payloads are checked for their declared JPEG or PNG signature;
   full image decoding and externally referenced IRI content are application concerns.
 - The live transformer is pull-driven and emits one explicitly selected program

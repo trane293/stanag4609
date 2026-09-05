@@ -257,6 +257,20 @@
       ]
     },
     {
+      "id": "MISB-ST-1206.1",
+      "source_sha256": "77aa085b264afd55da1e90d7060e5eca69bc3513ba1e64daffef8a802f851ee6",
+      "trace": "docs/requirements/ST1206.1.md",
+      "active_requirements": [
+        "ST 1206-01",
+        "ST 1206-03",
+        "ST 1206-04",
+        "ST 1206-05"
+      ],
+      "inactive_requirements": [
+        {"id": "ST 1206-02", "status": "deprecated"}
+      ]
+    },
+    {
       "id": "MISB-MISP-2019.1",
       "source_sha256": "3167362ace20746ed13e85522130c2e9f3fc9ecf62a112bd75bdced7b102d5ea",
       "trace": "docs/requirements/MISP-2019.1.md",

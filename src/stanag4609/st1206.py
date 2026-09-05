@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -97,6 +98,12 @@ class SARMotionImageryLocalSet:
 
     def radar_cross_section_scale_factor(self, row: float, column: float) -> float:
         """Evaluate the bivariate ST 1206 RCS scale-factor polynomial."""
+        row_value = _pixel_coordinate(row, name="row", dimension=self.image_rows)
+        column_value = _pixel_coordinate(
+            column,
+            name="column",
+            dimension=self.image_columns,
+        )
         polynomial = self.radar_cross_section_scale_factor_polynomial
         if polynomial is None:
             raise LookupError("ST 1206 has no radar cross section polynomial")
@@ -107,8 +114,59 @@ class SARMotionImageryLocalSet:
             if isinstance(coefficient, IMAPSpecialValue):
                 raise ValueError("ST 1206 polynomial contains a non-numeric IMAP value")
             row_power, column_power = divmod(index, columns)
-            result += float(coefficient) * float(row) ** row_power * float(column) ** column_power
+            result += (
+                float(coefficient)
+                * row_value**row_power
+                * column_value**column_power
+            )
+        if not math.isfinite(result):
+            raise ValueError("ST 1206 radar cross section scale factor is not finite")
         return result
+
+    def radar_cross_section(
+        self,
+        row: float,
+        column: float,
+        *,
+        pixel_power: float,
+    ) -> float:
+        """Return target RCS in square metres using ST 1206 Equation 20."""
+
+        if isinstance(pixel_power, bool) or not isinstance(pixel_power, (int, float)):
+            raise TypeError("ST 1206 pixel power must be numeric")
+        power = float(pixel_power)
+        if not math.isfinite(power) or power < 0:
+            raise ValueError("ST 1206 pixel power must be finite and non-negative")
+        result = self.radar_cross_section_scale_factor(row, column) * power
+        if not math.isfinite(result):
+            raise ValueError("ST 1206 radar cross section is not finite")
+        return result
+
+    def effective_pulse_repetition_frequency(self) -> float:
+        """Return effective PRF in hertz using ST 1206 Equation 18."""
+
+        frequency = self.true_pulse_repetition_frequency
+        scale = self.pulse_repetition_frequency_scale_factor
+        if frequency is None:
+            raise LookupError("ST 1206 has no true pulse repetition frequency")
+        if scale is None:
+            raise LookupError("ST 1206 has no pulse repetition frequency scale factor")
+        if isinstance(frequency, IMAPSpecialValue) or isinstance(scale, IMAPSpecialValue):
+            raise ValueError("ST 1206 effective PRF requires numeric IMAP values")
+        return float(frequency) * float(scale)
+
+
+def _pixel_coordinate(value: float, *, name: str, dimension: int | None) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"ST 1206 pixel {name} must be numeric")
+    coordinate = float(value)
+    if not math.isfinite(coordinate) or coordinate < 0:
+        raise ValueError(f"ST 1206 pixel {name} must be finite and non-negative")
+    if dimension is not None and coordinate >= dimension:
+        raise ValueError(
+            f"ST 1206 pixel {name} {coordinate} is outside image dimension {dimension}"
+        )
+    return coordinate
 
 
 _MAPPED_FIELDS = {

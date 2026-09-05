@@ -1,7 +1,8 @@
 # Transformations and geo-registration API
 
 Typed MISB ST 1202 image transformations, ST 1601 geo-registration results,
-ST 1602 composite-image metadata, and ST 1607 Segment/Amend receiver state.
+ST 1602 composite-image metadata, ST 1206 SAR exploitation metadata, and ST
+1607 Segment/Amend receiver state.
 
 ## Build formula-defined transformations
 
@@ -75,6 +76,24 @@ if registration is not None:
     print(registration.algorithm_name, registration.algorithm_version)
 ```
 
+## Exploit ST 1206 SAR metadata
+
+ST 0601 Item 95 decodes directly to `SARMotionImageryLocalSet`. Its helpers
+apply the equations defined by ST 1206 while rejecting absent values, MISB IMAP
+special values, non-finite inputs, and pixel coordinates outside declared image
+dimensions.
+
+```python
+sar = uas_packet.value(95)
+if sar is not None:
+    effective_prf_hz = sar.effective_pulse_repetition_frequency()
+    target_rcs_m2 = sar.radar_cross_section(
+        row=512.0,
+        column=768.0,
+        pixel_power=measured_peak_power,
+    )
+```
+
 ::: stanag4609.st1202
     options:
       members: true
@@ -84,6 +103,10 @@ if registration is not None:
       members: true
 
 ::: stanag4609.st1602
+    options:
+      members: true
+
+::: stanag4609.st1206
     options:
       members: true
 
