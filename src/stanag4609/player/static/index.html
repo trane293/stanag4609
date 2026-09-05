@@ -560,8 +560,8 @@
       const bin = timelineBins[index];
       const time = index * timelineBinDuration;
       const rankedLabels = [...bin.labels.entries()].sort((left, right) => right[1] - left[1]);
-      const topLabels = rankedLabels.slice(0, 4).map(([label, count]) => `${label} ×${count}`);
-      const hiddenLabelCount = rankedLabels.slice(4).reduce((sum, [, count]) => sum + count, 0);
+      const topLabels = rankedLabels.slice(0, MAX_TIMELINE_GROUPS).map(([label, count]) => `${label} ×${count}`);
+      const hiddenLabelCount = rankedLabels.slice(MAX_TIMELINE_GROUPS).reduce((sum, [, count]) => sum + count, 0);
       if (bin.other + hiddenLabelCount) topLabels.push(`other ×${bin.other + hiddenLabelCount}`);
       const labels = topLabels.join(' · ');
       timelineCanvas.dataset.hoverCount = String(bin.count);
