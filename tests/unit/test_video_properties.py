@@ -172,6 +172,46 @@ def test_h262_properties_decode_main_profile_progressive_sequence() -> None:
             bit_depth_chroma=8,
         )
     ]
+    assert properties[0].level_picture_size_conforms is True
+    assert properties[0].level_sample_rate_conforms is True
+
+
+def test_h262_main_level_enforces_sampling_density() -> None:
+    parser = H262VideoPropertiesParser()
+    result = parser.feed(
+        _sequence_header(width=721)
+        + _sequence_extension()
+        + b"\x00\x00\x01\xb7"
+    ) + parser.finish()
+
+    assert result[0].misp_profile_level is True
+    assert result[0].level_picture_size_conforms is False
+
+
+def test_h262_main_level_enforces_frame_and_luma_sample_rate() -> None:
+    parser = H262VideoPropertiesParser()
+    result = parser.feed(
+        _sequence_header(width=320, height=240, frame_rate=8)
+        + _sequence_extension()
+        + b"\x00\x00\x01\xb7"
+    ) + parser.finish()
+
+    assert result[0].frame_rate == 60
+    assert result[0].level_picture_size_conforms is True
+    assert result[0].level_sample_rate_conforms is False
+
+
+def test_h262_high_level_accepts_common_1080p30_resources() -> None:
+    parser = H262VideoPropertiesParser()
+    result = parser.feed(
+        _sequence_header(width=1920, height=1080, frame_rate=5)
+        + _sequence_extension(level=4)
+        + b"\x00\x00\x01\xb7"
+    ) + parser.finish()
+
+    assert result[0].level == "High"
+    assert result[0].level_picture_size_conforms is True
+    assert result[0].level_sample_rate_conforms is True
 
 
 def test_h262_properties_apply_size_and_frame_rate_extensions() -> None:

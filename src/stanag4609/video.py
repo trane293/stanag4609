@@ -37,6 +37,10 @@ _H262_LEVELS = {
     10: "Low",
 }
 _H262_CHROMA_FORMATS = {1: "4:2:0", 2: "4:2:2", 3: "4:4:4"}
+_H262_MAIN_PROFILE_LEVEL_LIMITS = {
+    4: (1_920, 1_088, Fraction(60, 1), 62_668_800),
+    8: (720, 576, Fraction(30, 1), 10_368_000),
+}
 _MISP_AVC_LEVEL_CODES = frozenset({9, 10, 11, 12, 13, 20, 21, 22, 30, 31, 32, 40})
 _MISP_HEVC_LEVEL_CODES = frozenset({30, 60, 63, 90, 93, 120, 123, 150, 153})
 _AVC_LEVEL_LIMITS = {
@@ -157,21 +161,27 @@ class VideoProperties:
 
     @property
     def level_picture_size_conforms(self) -> bool | None:
-        """Whether coded picture dimensions fit the signalled AVC/HEVC level."""
+        """Whether coded picture dimensions fit the signalled codec level."""
 
         width = self.coded_width or self.width
         height = self.coded_height or self.height
         if self.level_code is None:
             return None
+        if self.stream_type == 0x02:
+            h262_limits = _H262_MAIN_PROFILE_LEVEL_LIMITS.get(self.level_code)
+            if self.profile != "Main" or h262_limits is None:
+                return None
+            maximum_width, maximum_height, _, _ = h262_limits
+            return width <= maximum_width and height <= maximum_height
         if self.stream_type == 0x1B:
-            limits = (
+            avc_limits = (
                 (1_485, 99)
                 if self.level == "1b"
                 else _AVC_LEVEL_LIMITS.get(self.level_code)
             )
-            if limits is None:
+            if avc_limits is None:
                 return None
-            _, maximum_frame_size = limits
+            _, maximum_frame_size = avc_limits
             width_in_mbs = (width + 15) // 16
             height_in_mbs = (height + 15) // 16
             return (
@@ -180,10 +190,10 @@ class VideoProperties:
                 and height_in_mbs * height_in_mbs <= maximum_frame_size * 8
             )
         if self.stream_type == 0x24:
-            limits = _HEVC_LEVEL_LIMITS.get(self.level_code)
-            if limits is None:
+            hevc_limits = _HEVC_LEVEL_LIMITS.get(self.level_code)
+            if hevc_limits is None:
                 return None
-            maximum_luma_picture_size, _ = limits
+            maximum_luma_picture_size, _ = hevc_limits
             return (
                 width * height <= maximum_luma_picture_size
                 and width * width <= maximum_luma_picture_size * 8
@@ -193,7 +203,7 @@ class VideoProperties:
 
     @property
     def level_sample_rate_conforms(self) -> bool | None:
-        """Whether coded size and advertised rate fit the AVC/HEVC level."""
+        """Whether coded size and advertised rate fit the codec level."""
 
         if self.frame_rate is None:
             return None
@@ -201,22 +211,41 @@ class VideoProperties:
         height = self.coded_height or self.height
         if self.level_code is None:
             return None
+        if self.stream_type == 0x02:
+            h262_limits = _H262_MAIN_PROFILE_LEVEL_LIMITS.get(self.level_code)
+            if (
+                self.profile != "Main"
+                or h262_limits is None
+                or self.progressive is None
+            ):
+                return None
+            _, _, maximum_frame_rate, maximum_luma_sample_rate = h262_limits
+            padded_width = 16 * ((width + 15) // 16)
+            vertical_block = 16 if self.progressive else 32
+            padded_height = vertical_block * (
+                (height + vertical_block - 1) // vertical_block
+            )
+            return (
+                self.frame_rate <= maximum_frame_rate
+                and padded_width * padded_height * self.frame_rate
+                <= maximum_luma_sample_rate
+            )
         if self.stream_type == 0x1B:
-            limits = (
+            avc_limits = (
                 (1_485, 99)
                 if self.level == "1b"
                 else _AVC_LEVEL_LIMITS.get(self.level_code)
             )
-            if limits is None:
+            if avc_limits is None:
                 return None
-            maximum_macroblocks_per_second, _ = limits
+            maximum_macroblocks_per_second, _ = avc_limits
             macroblocks = ((width + 15) // 16) * ((height + 15) // 16)
             return macroblocks * self.frame_rate <= maximum_macroblocks_per_second
         if self.stream_type == 0x24:
-            limits = _HEVC_LEVEL_LIMITS.get(self.level_code)
-            if limits is None:
+            hevc_limits = _HEVC_LEVEL_LIMITS.get(self.level_code)
+            if hevc_limits is None:
                 return None
-            _, maximum_luma_sample_rate = limits
+            _, maximum_luma_sample_rate = hevc_limits
             return width * height * self.frame_rate <= maximum_luma_sample_rate
         return None
 

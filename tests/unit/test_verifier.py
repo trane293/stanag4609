@@ -847,6 +847,36 @@ def test_verifier_rejects_any_interlaced_sequence_not_only_latest() -> None:
     assert "1 of 2 observed sequence property sets" in finding.message
 
 
+def test_verifier_enforces_h262_level_resources_across_every_sequence() -> None:
+    oversized = bytes.fromhex(
+        "000001b32d11e03430d42380000001b5148a1fffff00000001b7"
+    )
+    excessive_rate = bytes.fromhex(
+        "000001b31400f03830d42380000001b5148a1fffff00000001b7"
+    )
+    conforming_latest = bytes.fromhex(
+        "000001b32d01e03430d42380000001b5148a1fffff00000001b7"
+    )
+    report = _verify(
+        _transport(
+            video_stream_type=0x02,
+            video_payload=oversized + excessive_rate + conforming_latest,
+        )
+    )
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_properties is not None
+    assert video.video_properties.sequences == 3
+    assert video.video_properties.level_picture_size_violations == 1
+    assert video.video_properties.level_sample_rate_violations == 2
+    assert video.video_properties.latest is not None
+    assert video.video_properties.latest.level_picture_size_conforms is True
+    findings = {item.code: item for item in report.findings}
+    assert findings["video.level.picture_size"].status is VerificationStatus.ERROR
+    assert findings["video.level.sample_rate"].status is VerificationStatus.ERROR
+    assert "H.262" in findings["video.level.picture_size"].requirement
+
+
 def test_verifier_reports_hevc_profile_and_class1_depth_separately() -> None:
     main10_sps = bytes.fromhex(
         "0000000142010102200000030090000003000003003fa005020169365959a493"

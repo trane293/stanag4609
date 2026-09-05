@@ -2675,12 +2675,15 @@ class FMVVerifier:
                 program_number=key[0],
                 pid=key[1],
             )
-            if properties.stream_type in {0x1B, 0x24}:
-                level_requirement = (
-                    "ITU-T H.264 (04/2017) Annex A / MISP-2018.2-114"
-                    if properties.stream_type == 0x1B
-                    else "ITU-T H.265 (02/2018) Annex A / MISP-2018.2-113"
-                )
+            if properties.stream_type in {0x02, 0x1B, 0x24}:
+                level_requirement = {
+                    0x02: (
+                        "ITU-T H.262 (02/2000) Tables 8-11/-12 / "
+                        "MISP-2018.2-115"
+                    ),
+                    0x1B: "ITU-T H.264 (04/2017) Annex A / MISP-2018.2-114",
+                    0x24: "ITU-T H.265 (02/2018) Annex A / MISP-2018.2-113",
+                }[properties.stream_type]
                 picture_violations = property_stats.level_picture_size_violations
                 picture_unverifiable = property_stats.level_picture_size_unverifiable
                 if picture_violations:
