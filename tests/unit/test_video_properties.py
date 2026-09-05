@@ -106,11 +106,26 @@ def _synthetic_hevc_sps(
 
 
 def _sequence_header(
-    *, width: int = 720, height: int = 480, aspect: int = 3, frame_rate: int = 4
+    *,
+    width: int = 720,
+    height: int = 480,
+    aspect: int = 3,
+    frame_rate: int = 4,
+    bit_rate_value: int = 25_000,
+    vbv_buffer_size_value: int = 112,
 ) -> bytes:
     prefix = _bits(((width, 12), (height, 12), (aspect, 4), (frame_rate, 4)))
     # bit_rate_value, marker_bit, vbv_buffer_size_value, constrained flag
-    suffix = _bits(((50_000, 18), (1, 1), (112, 10), (0, 1), (0, 1), (0, 1)))
+    suffix = _bits(
+        (
+            (bit_rate_value, 18),
+            (1, 1),
+            (vbv_buffer_size_value, 10),
+            (0, 1),
+            (0, 1),
+            (0, 1),
+        )
+    )
     return b"\x00\x00\x01\xb3" + prefix + suffix
 
 
@@ -122,6 +137,8 @@ def _sequence_extension(
     chroma: int = 1,
     horizontal_extension: int = 0,
     vertical_extension: int = 0,
+    bit_rate_extension: int = 0,
+    vbv_buffer_size_extension: int = 0,
     frame_rate_n: int = 0,
     frame_rate_d: int = 0,
 ) -> bytes:
@@ -133,9 +150,9 @@ def _sequence_extension(
             (chroma, 2),
             (horizontal_extension, 2),
             (vertical_extension, 2),
-            (0xFFF, 12),
+            (bit_rate_extension, 12),
             (1, 1),
-            (0xFF, 8),
+            (vbv_buffer_size_extension, 8),
             (0, 1),
             (frame_rate_n, 2),
             (frame_rate_d, 5),
@@ -172,6 +189,8 @@ def test_h262_properties_decode_main_profile_progressive_sequence() -> None:
             bit_depth_chroma=8,
             frame_rate_extension_n=0,
             frame_rate_extension_d=0,
+            bit_rate=10_000_000,
+            vbv_buffer_size=1_835_008,
         )
     ]
     assert properties[0].level_picture_size_conforms is True
@@ -179,6 +198,23 @@ def test_h262_properties_decode_main_profile_progressive_sequence() -> None:
     assert properties[0].frame_rate_extension_n == 0
     assert properties[0].frame_rate_extension_d == 0
     assert properties[0].h262_frame_rate_extension_conforms is True
+    assert properties[0].h262_level_bit_rate_conforms is True
+    assert properties[0].h262_level_vbv_buffer_conforms is True
+
+
+def test_h262_main_level_enforces_declared_bit_rate_and_vbv_buffer() -> None:
+    parser = H262VideoPropertiesParser()
+    result = parser.feed(
+        _sequence_header(bit_rate_value=37_501, vbv_buffer_size_value=113)
+        + _sequence_extension()
+        + b"\x00\x00\x01\xb7"
+    ) + parser.finish()
+
+    assert result[0].bit_rate == 15_000_400
+    assert result[0].vbv_buffer_size == 1_851_392
+    assert result[0].h262_level_bit_rate_conforms is False
+    assert result[0].h262_level_vbv_buffer_conforms is False
+    assert result[0].to_dict()["h262_level_bit_rate_conforms"] is False
 
 
 def test_h262_main_level_enforces_sampling_density() -> None:
@@ -226,6 +262,8 @@ def test_h262_properties_apply_size_and_frame_rate_extensions() -> None:
         + _sequence_extension(
             horizontal_extension=1,
             vertical_extension=2,
+            bit_rate_extension=1,
+            vbv_buffer_size_extension=1,
             frame_rate_n=1,
             frame_rate_d=3,
         )
@@ -242,6 +280,8 @@ def test_h262_properties_apply_size_and_frame_rate_extensions() -> None:
     assert result[0].frame_rate_extension_n == 1
     assert result[0].frame_rate_extension_d == 3
     assert result[0].h262_frame_rate_extension_conforms is False
+    assert result[0].bit_rate == 114_857_600
+    assert result[0].vbv_buffer_size == 18_612_224
     assert result[0].to_dict()["h262_frame_rate_extension_conforms"] is False
 
 
@@ -297,6 +337,14 @@ def test_h262_sequence_extension_requires_prior_header_and_valid_codes() -> None
     with pytest.raises(DecodeError, match="frame_rate_code"):
         bad_rate.feed(
             _sequence_header(frame_rate=0)
+            + _sequence_extension()
+            + b"\x00\x00\x01\x00"
+        )
+
+    zero_bit_rate = H262VideoPropertiesParser()
+    with pytest.raises(DecodeError, match="bit_rate must be non-zero"):
+        zero_bit_rate.feed(
+            _sequence_header(bit_rate_value=0)
             + _sequence_extension()
             + b"\x00\x00\x01\x00"
         )

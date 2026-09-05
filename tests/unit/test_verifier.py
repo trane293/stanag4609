@@ -829,8 +829,10 @@ def test_verifier_rejects_any_sequence_exceeding_its_declared_level() -> None:
 
 
 def test_verifier_rejects_any_interlaced_sequence_not_only_latest() -> None:
-    interlaced = bytes.fromhex("000001b32d01e03430d42380000001b514821fffff00")
-    progressive_latest = bytes.fromhex("000001b32d01e03430d42380000001b5148a1fffff00")
+    interlaced = bytes.fromhex("000001b32d01e034186a2380000001b5148200010000")
+    progressive_latest = bytes.fromhex(
+        "000001b32d01e034186a2380000001b5148a00010000"
+    )
     report = _verify(
         _transport(
             video_stream_type=0x02,
@@ -849,13 +851,13 @@ def test_verifier_rejects_any_interlaced_sequence_not_only_latest() -> None:
 
 def test_verifier_enforces_h262_level_resources_across_every_sequence() -> None:
     oversized = bytes.fromhex(
-        "000001b32d11e03430d42380000001b5148a1fffff00000001b7"
+        "000001b32d11e034186a2380000001b5148a00010000000001b7"
     )
     excessive_rate = bytes.fromhex(
-        "000001b31400f03830d42380000001b5148a1fffff00000001b7"
+        "000001b31400f038186a2380000001b5148a00010000000001b7"
     )
     conforming_latest = bytes.fromhex(
-        "000001b32d01e03430d42380000001b5148a1fffff00000001b7"
+        "000001b32d01e034186a2380000001b5148a00010000000001b7"
     )
     report = _verify(
         _transport(
@@ -879,10 +881,10 @@ def test_verifier_enforces_h262_level_resources_across_every_sequence() -> None:
 
 def test_verifier_rejects_h262_frame_rate_extensions_across_every_sequence() -> None:
     extended = bytes.fromhex(
-        "000001b32d01e03430d42380000001b5148a1fffff23000001b7"
+        "000001b32d01e034186a2380000001b5148a00010023000001b7"
     )
     conforming_latest = bytes.fromhex(
-        "000001b32d01e03430d42380000001b5148a1fffff00000001b7"
+        "000001b32d01e034186a2380000001b5148a00010000000001b7"
     )
     report = _verify(
         _transport(
@@ -911,6 +913,35 @@ def test_verifier_rejects_h262_frame_rate_extensions_across_every_sequence() -> 
     assert finding.status is VerificationStatus.ERROR
     assert "1 of 2 observed sequence property sets" in finding.message
     assert "Table E.3" in finding.requirement
+
+
+def test_verifier_enforces_h262_bit_rate_and_vbv_across_every_sequence() -> None:
+    excessive = bytes.fromhex(
+        "000001b32d01e034249f6388000001b5148a00010000000001b7"
+    )
+    conforming_latest = bytes.fromhex(
+        "000001b32d01e034186a2380000001b5148a00010000000001b7"
+    )
+    report = _verify(
+        _transport(
+            video_stream_type=0x02,
+            video_payload=excessive + conforming_latest,
+        )
+    )
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_properties is not None
+    assert video.video_properties.sequences == 2
+    assert video.video_properties.h262_bit_rate_violations == 1
+    assert video.video_properties.h262_vbv_buffer_violations == 1
+    assert video.video_properties.latest is not None
+    assert video.video_properties.latest.h262_level_bit_rate_conforms is True
+    assert video.video_properties.latest.h262_level_vbv_buffer_conforms is True
+    findings = {item.code: item for item in report.findings}
+    assert findings["video.h262.bit_rate"].status is VerificationStatus.ERROR
+    assert findings["video.h262.vbv_buffer_size"].status is VerificationStatus.ERROR
+    assert "Table 8-13" in findings["video.h262.bit_rate"].requirement
+    assert "Table 8-14" in findings["video.h262.vbv_buffer_size"].requirement
 
 
 def test_verifier_reports_hevc_profile_and_class1_depth_separately() -> None:

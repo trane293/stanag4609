@@ -36,8 +36,9 @@ important negative-conformance expectations.
    eight-bit-per-band limit are now inspected
    across every observed sequence property set, so an early profile, scan, or
    bit-depth violation cannot be hidden by a later sequence. H.262 enforces its
-   Main/High Level sampling-density and padded-luminance-rate limits plus the
-   zero frame-rate-extension rule for defined profiles; AVC and HEVC enforce
+   Main/High Level sampling-density, padded-luminance-rate, declared bit-rate,
+   and VBV-buffer limits plus the zero frame-rate-extension rule for defined
+   profiles; AVC and HEVC enforce
    Annex A coded-picture dimensions and available
    sequence-signalled sample throughput.
    Timestamp messages are now associated with

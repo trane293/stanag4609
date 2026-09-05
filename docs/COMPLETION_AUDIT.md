@@ -38,9 +38,9 @@ unqualified “complete STANAG 4609 implementation” or stable `1.0` claim:
    ST 0804.4-18, and embedded video time through MISP-2018.1-104/ST 0604.6;
    declared video codecs are checked against the Class 1 approved set, and
    H.262/AVC/HEVC core sequence and VUI properties, including H.262 Tables
-   8-11/-12 sampling-density and padded-luminance-rate limits and the Table E.3
-   zero frame-rate-extension rule, exact valid AVC/HEVC level identifiers,
-   Annex A coded-picture and available
+   8-11 through 8-14 sampling-density, padded-luminance-rate, declared bit-rate,
+   and VBV-buffer limits and the Table E.3 zero frame-rate-extension rule,
+   exact valid AVC/HEVC level identifiers, Annex A coded-picture and available
    sample-throughput limits, and the separate
    Class 1 eight-bit-per-band boundary, are inspected stream-wide across every
    observed sequence property set, producer-known

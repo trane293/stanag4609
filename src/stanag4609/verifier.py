@@ -237,6 +237,8 @@ class VideoPropertiesVerificationSummary:
     level_sample_rate_violations: int = 0
     level_sample_rate_unverifiable: int = 0
     h262_frame_rate_extension_violations: int = 0
+    h262_bit_rate_violations: int = 0
+    h262_vbv_buffer_violations: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -256,6 +258,8 @@ class VideoPropertiesVerificationSummary:
             "h262_frame_rate_extension_violations": (
                 self.h262_frame_rate_extension_violations
             ),
+            "h262_bit_rate_violations": self.h262_bit_rate_violations,
+            "h262_vbv_buffer_violations": self.h262_vbv_buffer_violations,
         }
 
 
@@ -793,6 +797,8 @@ class _VideoPropertiesStats:
     level_sample_rate_violations: int = 0
     level_sample_rate_unverifiable: int = 0
     h262_frame_rate_extension_violations: int = 0
+    h262_bit_rate_violations: int = 0
+    h262_vbv_buffer_violations: int = 0
 
     def __post_init__(self) -> None:
         self.parser = self._new_parser()
@@ -843,6 +849,10 @@ class _VideoPropertiesStats:
                 self.level_sample_rate_unverifiable += 1
             if properties.h262_frame_rate_extension_conforms is False:
                 self.h262_frame_rate_extension_violations += 1
+            if properties.h262_level_bit_rate_conforms is False:
+                self.h262_bit_rate_violations += 1
+            if properties.h262_level_vbv_buffer_conforms is False:
+                self.h262_vbv_buffer_violations += 1
             if self.latest is not None and properties != self.latest:
                 self.property_changes += 1
             self.latest = properties
@@ -866,6 +876,8 @@ class _VideoPropertiesStats:
             self.level_sample_rate_violations,
             self.level_sample_rate_unverifiable,
             self.h262_frame_rate_extension_violations,
+            self.h262_bit_rate_violations,
+            self.h262_vbv_buffer_violations,
         )
 
 
@@ -2702,6 +2714,46 @@ class FMVVerifier:
                     ),
                     requirement=(
                         "ITU-T H.262 (02/2000) Table E.3 / MISP-2018.2-115"
+                    ),
+                    program_number=key[0],
+                    pid=key[1],
+                )
+                bit_rate_violations = property_stats.h262_bit_rate_violations
+                self._add(
+                    VerificationStatus.PASS
+                    if not bit_rate_violations
+                    else VerificationStatus.ERROR,
+                    "video.h262.bit_rate",
+                    (
+                        f"all {property_stats.sequences} observed sequence property "
+                        "set(s) declare a bit rate within their H.262 level limit"
+                        if not bit_rate_violations
+                        else f"{bit_rate_violations} of {property_stats.sequences} "
+                        "observed sequence property sets declare a bit rate above "
+                        "their H.262 level limit"
+                    ),
+                    requirement=(
+                        "ITU-T H.262 (02/2000) Table 8-13 / MISP-2018.2-115"
+                    ),
+                    program_number=key[0],
+                    pid=key[1],
+                )
+                vbv_violations = property_stats.h262_vbv_buffer_violations
+                self._add(
+                    VerificationStatus.PASS
+                    if not vbv_violations
+                    else VerificationStatus.ERROR,
+                    "video.h262.vbv_buffer_size",
+                    (
+                        f"all {property_stats.sequences} observed sequence property "
+                        "set(s) declare a VBV buffer within their H.262 level limit"
+                        if not vbv_violations
+                        else f"{vbv_violations} of {property_stats.sequences} "
+                        "observed sequence property sets declare a VBV buffer above "
+                        "their H.262 level limit"
+                    ),
+                    requirement=(
+                        "ITU-T H.262 (02/2000) Table 8-14 / MISP-2018.2-115"
                     ),
                     program_number=key[0],
                     pid=key[1],

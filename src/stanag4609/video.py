@@ -41,6 +41,8 @@ _H262_MAIN_PROFILE_LEVEL_LIMITS = {
     4: (1_920, 1_088, Fraction(60, 1), 62_668_800),
     8: (720, 576, Fraction(30, 1), 10_368_000),
 }
+_H262_MAIN_PROFILE_MAX_BIT_RATES = {4: 80_000_000, 8: 15_000_000}
+_H262_MAIN_PROFILE_MAX_VBV_BUFFER_SIZES = {4: 9_781_248, 8: 1_835_008}
 _MISP_AVC_LEVEL_CODES = frozenset({9, 10, 11, 12, 13, 20, 21, 22, 30, 31, 32, 40})
 _MISP_HEVC_LEVEL_CODES = frozenset({30, 60, 63, 90, 93, 120, 123, 150, 153})
 _AVC_LEVEL_LIMITS = {
@@ -142,6 +144,8 @@ class VideoProperties:
     coded_height: int | None = None
     frame_rate_extension_n: int | None = None
     frame_rate_extension_d: int | None = None
+    bit_rate: int | None = None
+    vbv_buffer_size: int | None = None
 
     @property
     def misp_profile_level(self) -> bool:
@@ -261,6 +265,36 @@ class VideoProperties:
             return None
         return self.frame_rate_extension_n == 0 and self.frame_rate_extension_d == 0
 
+    @property
+    def h262_level_bit_rate_conforms(self) -> bool | None:
+        """Whether the declared H.262 bit rate fits its Main Profile level."""
+
+        if (
+            self.stream_type != 0x02
+            or self.profile != "Main"
+            or self.level_code is None
+        ):
+            return None
+        maximum = _H262_MAIN_PROFILE_MAX_BIT_RATES.get(self.level_code)
+        if maximum is None or self.bit_rate is None:
+            return None
+        return self.bit_rate <= maximum
+
+    @property
+    def h262_level_vbv_buffer_conforms(self) -> bool | None:
+        """Whether the declared H.262 VBV size fits its Main Profile level."""
+
+        if (
+            self.stream_type != 0x02
+            or self.profile != "Main"
+            or self.level_code is None
+        ):
+            return None
+        maximum = _H262_MAIN_PROFILE_MAX_VBV_BUFFER_SIZES.get(self.level_code)
+        if maximum is None or self.vbv_buffer_size is None:
+            return None
+        return self.vbv_buffer_size <= maximum
+
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-compatible representation."""
 
@@ -299,12 +333,16 @@ class VideoProperties:
             "coded_height": self.coded_height,
             "frame_rate_extension_n": self.frame_rate_extension_n,
             "frame_rate_extension_d": self.frame_rate_extension_d,
+            "bit_rate": self.bit_rate,
+            "vbv_buffer_size": self.vbv_buffer_size,
             "misp_profile_level": self.misp_profile_level,
             "level_picture_size_conforms": self.level_picture_size_conforms,
             "level_sample_rate_conforms": self.level_sample_rate_conforms,
             "h262_frame_rate_extension_conforms": (
                 self.h262_frame_rate_extension_conforms
             ),
+            "h262_level_bit_rate_conforms": self.h262_level_bit_rate_conforms,
+            "h262_level_vbv_buffer_conforms": self.h262_level_vbv_buffer_conforms,
         }
 
 
@@ -314,6 +352,8 @@ class _H262SequenceHeader:
     height: int
     aspect_ratio_information: int
     frame_rate_code: int
+    bit_rate_value: int
+    vbv_buffer_size_value: int
 
 
 def _read_bits(data: bytes, offset: int, width: int) -> int:
@@ -332,6 +372,8 @@ def _parse_h262_sequence_header(data: bytes) -> _H262SequenceHeader:
     height = _read_bits(data, 12, 12)
     aspect = _read_bits(data, 24, 4)
     frame_rate = _read_bits(data, 28, 4)
+    bit_rate_value = _read_bits(data, 32, 18)
+    vbv_buffer_size_value = _read_bits(data, 51, 10)
     if width == 0 or height == 0:
         raise DecodeError("H.262 sequence dimensions must be non-zero")
     if aspect not in {1, 2, 3, 4}:
@@ -340,7 +382,14 @@ def _parse_h262_sequence_header(data: bytes) -> _H262SequenceHeader:
         raise DecodeError(f"reserved H.262 frame_rate_code {frame_rate}")
     if _read_bits(data, 50, 1) != 1:
         raise DecodeError("H.262 sequence header marker_bit must be one")
-    return _H262SequenceHeader(width, height, aspect, frame_rate)
+    return _H262SequenceHeader(
+        width,
+        height,
+        aspect,
+        frame_rate,
+        bit_rate_value,
+        vbv_buffer_size_value,
+    )
 
 
 def _parse_h262_sequence_extension(
@@ -368,6 +417,14 @@ def _parse_h262_sequence_extension(
         raise DecodeError("H.262 sequence extension marker_bit must be one")
     frame_rate_extension_n = _read_bits(data, 41, 2)
     frame_rate_extension_d = _read_bits(data, 43, 5)
+    bit_rate_value = header.bit_rate_value | (_read_bits(data, 19, 12) << 18)
+    if bit_rate_value == 0:
+        raise DecodeError("H.262 bit_rate must be non-zero")
+    bit_rate = bit_rate_value * 400
+    vbv_buffer_size_value = header.vbv_buffer_size_value | (
+        _read_bits(data, 32, 8) << 10
+    )
+    vbv_buffer_size = vbv_buffer_size_value * 16 * 1024
     frame_rate = _H262_FRAME_RATES[header.frame_rate_code]
     frame_rate *= Fraction(frame_rate_extension_n + 1, frame_rate_extension_d + 1)
     display_aspect_ratio = _H262_DISPLAY_ASPECT_RATIOS.get(
@@ -391,6 +448,8 @@ def _parse_h262_sequence_extension(
         bit_depth_chroma=8,
         frame_rate_extension_n=frame_rate_extension_n,
         frame_rate_extension_d=frame_rate_extension_d,
+        bit_rate=bit_rate,
+        vbv_buffer_size=vbv_buffer_size,
     )
 
 
