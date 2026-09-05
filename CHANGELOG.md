@@ -413,6 +413,8 @@ the pre-1.0 minor version and package classifier communicate API maturity.
   non-redistributed standards manifest.
 - Fixed IMAP normal-value decode/encode stability at quantization boundaries.
 - Added reproducible full-file integration tests for two public FMV streams.
+- Added a pixel-bounded, class-stacked detection timeline with logarithmic
+  density, exact hover summaries, and pointer, range, and keyboard scrubbing.
 - Added first-party AI frame/detection contracts, composable inference graphs,
   and a standards-aware ST 0903 pixel detection bridge.
 - Added exact PCR/OPCR parsing, program-aware clock events, and full-file no-op

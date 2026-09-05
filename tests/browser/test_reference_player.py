@@ -286,6 +286,11 @@ def test_reference_player_renders_and_resynchronizes_in_chromium(player_url: str
         assert 0 < bin_count <= page.locator("#detection-timeline").evaluate(
             "canvas => canvas.clientWidth"
         )
+        playwright.expect(page.locator("#detection-timeline")).to_have_attribute(
+            "data-aggregation", "time-bucket-label-stack"
+        )
+        playwright.expect(page.locator("#timeline-legend")).to_contain_text("truck")
+        playwright.expect(page.locator("#timeline-legend")).to_contain_text("car")
 
         page.locator("#detection-scrubber").fill("0.75")
         playwright.expect(page.locator("#status")).to_contain_text(
@@ -300,8 +305,13 @@ def test_reference_player_renders_and_resynchronizes_in_chromium(player_url: str
             "footprint interpolation"
         )
         assert page.locator("#activity-list .activity-item").count() <= 40
-        page.locator("#detection-timeline").hover(position={"x": 1, "y": 10})
+        page.locator("#detection-timeline").hover(position={"x": 0, "y": 10})
         playwright.expect(page.locator("#timeline-tooltip")).to_contain_text("detection")
+        playwright.expect(page.locator("#timeline-tooltip")).to_contain_text("truck \u00d71")
+        page.locator("#detection-timeline").press("End")
+        assert video.evaluate("video => video.currentTime") == pytest.approx(2.0, abs=0.05)
+        page.locator("#detection-timeline").press("Home")
+        assert video.evaluate("video => video.currentTime") == pytest.approx(0.0, abs=0.05)
         browser.close()
 
 

@@ -16,9 +16,12 @@
     aside { max-height: calc(100vh - 90px); overflow: auto; border: 1px solid #263849; border-radius: 8px; }
     .timeline-shell { position: relative; margin-top: 10px; padding: 9px 10px 8px; border: 1px solid #263849; border-radius: 8px; background: #0b1721; line-height: 1.3; }
     .timeline-heading, .section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 5px; color: #a8bed0; font-size: 11px; font-weight: 600; }
-    #detection-timeline { display: block; width: 100%; height: 68px; cursor: crosshair; border-radius: 4px; background: #071018; }
+    #detection-timeline { display: block; width: 100%; height: 82px; cursor: crosshair; border-radius: 4px; background: #071018; touch-action: none; }
+    #timeline-legend { display: flex; min-height: 15px; flex-wrap: wrap; gap: 3px 12px; margin: 5px 1px 1px; color: #8da7ba; font-size: 10px; }
+    .timeline-legend-item { display: inline-flex; align-items: center; gap: 4px; }
+    .timeline-swatch { width: 7px; height: 7px; border-radius: 2px; }
     #detection-scrubber { display: block; width: 100%; height: 18px; margin: 3px 0 0; accent-color: #62e6a7; }
-    #timeline-tooltip { position: absolute; z-index: 8; max-width: min(320px, 80%); padding: 5px 7px; border: 1px solid #3a576d; border-radius: 4px; background: #07131cf2; color: #e2f2ff; font-size: 10px; pointer-events: none; white-space: nowrap; }
+    #timeline-tooltip { position: absolute; z-index: 8; max-width: min(360px, 80%); padding: 6px 8px; border: 1px solid #3a576d; border-radius: 4px; background: #07131cf2; color: #e2f2ff; font-size: 10px; line-height: 1.45; pointer-events: none; }
     .map-shell { position: relative; height: 300px; border-bottom: 1px solid #263849; background: #07131c; overflow: hidden; touch-action: none; }
     #map { width: 100%; height: 100%; display: block; }
     #map-caption { position: absolute; left: 8px; bottom: 6px; max-width: 65%; padding: 3px 5px; background: #07131cdd; color: #a9c0d2; font-size: 10px; }
@@ -68,7 +71,8 @@
       </div>
       <section class="timeline-shell" aria-labelledby="timeline-title">
         <h2 class="timeline-heading" id="timeline-title"><span>Detection timeline</span><span id="timeline-summary">Waiting for metadata</span></h2>
-        <canvas id="detection-timeline" tabindex="0" aria-label="Time-bucketed detection density; click or drag to seek"></canvas>
+        <canvas id="detection-timeline" tabindex="0" aria-label="Detection timeline grouped by time and class; click or drag to seek, or use arrow keys"></canvas>
+        <div id="timeline-legend" aria-label="Detection class legend"></div>
         <input id="detection-scrubber" type="range" min="0" max="0" step="0.001" value="0" aria-label="Video and detection timeline position">
         <output id="timeline-tooltip" role="tooltip" hidden></output>
       </section>
@@ -108,6 +112,7 @@
     const timelineScrubber = document.querySelector('#detection-scrubber');
     const timelineTooltip = document.querySelector('#timeline-tooltip');
     const timelineSummary = document.querySelector('#timeline-summary');
+    const timelineLegend = document.querySelector('#timeline-legend');
     const activityList = document.querySelector('#activity-list');
     const activityCount = document.querySelector('#activity-count');
     const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6, useGrouping: false });
@@ -116,13 +121,16 @@
     const streamMode = liveMode || query.get('metadata') === 'sse';
     const MAX_STREAM_SAMPLES = 512;
     const MAX_ACTIVITY_ITEMS = 40;
+    const MAX_TIMELINE_GROUPS = 5;
     const ACTIVITY_WINDOW_SECONDS = 30;
     const MAX_TILE_CACHE = 96;
     const TILE_TEMPLATE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
     const basemapEnabled = query.get('basemap') !== 'off';
     let samples = [], selected = -1, eventStream = null, streamEnded = false;
     let timelineOverview = null, timelineOverviewError = null, timelineOverviewRequestKey = null;
-    let timelineBins = [], timelineBinDuration = 0, timelineDirty = true, timelinePointer = null;
+    const TIMELINE_COLORS = ['#62e6a7', '#55bcea', '#ff9f43', '#c792ea', '#ff7185'];
+    const TIMELINE_OTHER_COLOR = '#6f899d';
+    let timelineBins = [], timelineBinDuration = 0, timelineDirty = true, timelinePointer = null, timelineLabelGroups = [];
     let activeMapSample = null, activeMapIndex = -1;
     const mapView = {longitude: 0, latitude: 0, zoom: 2, follow: true};
     const tileCache = new Map();
@@ -465,8 +473,28 @@
           }
         }
       }
+      const labelTotals = new Map();
+      for (const bin of timelineBins) {
+        for (const [label, count] of bin.labels) labelTotals.set(label, (labelTotals.get(label) || 0) + count);
+      }
+      timelineLabelGroups = [...labelTotals.entries()]
+        .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+        .slice(0, MAX_TIMELINE_GROUPS)
+        .map(([label, count], index) => ({label, count, color: TIMELINE_COLORS[index]}));
+      const represented = timelineLabelGroups.reduce((total, group) => total + group.count, 0);
+      const observationCount = timelineOverview ? timelineOverview.observation_count : timelineBins.reduce((sum, bin) => sum + bin.count, 0);
+      const legendGroups = [...timelineLabelGroups];
+      if (observationCount > represented) legendGroups.push({label: 'other', count: observationCount - represented, color: TIMELINE_OTHER_COLOR});
+      timelineLegend.replaceChildren(...legendGroups.map(group => {
+        const item = document.createElement('span'); item.className = 'timeline-legend-item';
+        const swatch = document.createElement('span'); swatch.className = 'timeline-swatch'; swatch.style.background = group.color;
+        const label = document.createElement('span'); label.textContent = `${group.label} · ${group.count}`;
+        item.append(swatch, label); return item;
+      }));
       timelineBinDuration = duration / binCount;
       timelineCanvas.dataset.binCount = String(binCount);
+      timelineCanvas.dataset.aggregation = 'time-bucket-label-stack';
+      timelineCanvas.dataset.labelGroups = String(legendGroups.length);
       timelineDirty = false;
     }
     function drawTimeline() {
@@ -483,10 +511,32 @@
       timelineBins.forEach((bin, index) => {
         if (!bin.count) return;
         const intensity = Math.log1p(bin.count) / Math.log1p(maximum);
-        const barHeight = Math.max(2, intensity * (height - 9));
-        timelineContext.fillStyle = `rgba(98, 230, 167, ${0.28 + intensity * 0.72})`;
-        timelineContext.fillRect((index / timelineBins.length) * width, height - barHeight, Math.max(1, width / timelineBins.length), barHeight);
+        const barHeight = Math.max(2, intensity * (height - 10));
+        const x = (index / timelineBins.length) * width;
+        const barWidth = Math.max(1, width / timelineBins.length);
+        let y = height;
+        let groupedCount = 0;
+        for (const group of timelineLabelGroups) {
+          const count = bin.labels.get(group.label) || 0;
+          if (!count) continue;
+          const segmentHeight = barHeight * count / bin.count;
+          y -= segmentHeight; groupedCount += count;
+          timelineContext.fillStyle = group.color;
+          timelineContext.fillRect(x, y, barWidth, Math.max(1, segmentHeight));
+        }
+        const otherCount = Math.max(0, bin.count - groupedCount);
+        if (otherCount) {
+          const segmentHeight = barHeight * otherCount / bin.count;
+          y -= segmentHeight; timelineContext.fillStyle = TIMELINE_OTHER_COLOR;
+          timelineContext.fillRect(x, y, barWidth, Math.max(1, segmentHeight));
+        }
       });
+      if (timelinePointer) {
+        const hovered = Math.min(timelineBins.length - 1, Math.max(0, Math.floor((timelinePointer.x / Math.max(width, 1)) * timelineBins.length)));
+        const left = (hovered / timelineBins.length) * width;
+        timelineContext.fillStyle = '#dbe8f41f';
+        timelineContext.fillRect(left, 0, Math.max(2, width / timelineBins.length), height);
+      }
       const duration = timelineDuration();
       const current = Math.max(0, Number(video.currentTime) || 0);
       if (duration > 0) {
@@ -496,7 +546,7 @@
       }
       const total = timelineOverview ? timelineOverview.observation_count : timelineBins.reduce((sum, bin) => sum + bin.count, 0);
       const scope = streamMode && !timelineOverview ? 'retained observations' : 'observations';
-      const suffix = timelineOverviewError ? ` · overview unavailable: ${timelineOverviewError}` : (!liveMode && streamMode && !timelineOverview ? ' · loading full-mission overview…' : ` · ${timelineBins.length} density bins`);
+      const suffix = timelineOverviewError ? ` · overview unavailable: ${timelineOverviewError}` : (!liveMode && streamMode && !timelineOverview ? ' · loading full-mission overview…' : ` · ${timelineBins.length} grouped time buckets`);
       timelineSummary.textContent = `${total} ${scope}${suffix}`;
       timelineScrubber.max = String(duration);
       timelineScrubber.value = String(Math.min(duration, current));
@@ -514,27 +564,40 @@
       const hiddenLabelCount = rankedLabels.slice(4).reduce((sum, [, count]) => sum + count, 0);
       if (bin.other + hiddenLabelCount) topLabels.push(`other ×${bin.other + hiddenLabelCount}`);
       const labels = topLabels.join(' · ');
-      timelineTooltip.textContent = `${time.toFixed(3)}–${(time + timelineBinDuration).toFixed(3)}s · ${bin.count} detection${bin.count === 1 ? '' : 's'}${labels ? ` · ${labels}` : ''}`;
+      timelineCanvas.dataset.hoverCount = String(bin.count);
+      timelineTooltip.textContent = `${time.toFixed(3)}–${Math.min(timelineDuration(), time + timelineBinDuration).toFixed(3)}s · ${bin.count} detection${bin.count === 1 ? '' : 's'}${labels ? ` · ${labels}` : ''}`;
       timelineTooltip.hidden = false;
       timelineTooltip.style.left = `${Math.min(Math.max(6, x + 12), timelineCanvas.clientWidth - timelineTooltip.offsetWidth - 6)}px`;
       timelineTooltip.style.top = `${Math.max(4, y - timelineTooltip.offsetHeight - 2)}px`;
     }
-    function seekFromTimeline(clientX) {
+    function seekTimelineTime(time) {
       if (liveMode) return;
-      const bounds = timelineCanvas.getBoundingClientRect();
       const duration = timelineDuration();
       if (duration <= 0) return;
-      video.currentTime = Math.min(duration, Math.max(0, ((clientX - bounds.left) / bounds.width) * duration));
+      video.currentTime = Math.min(duration, Math.max(0, time));
       render(findSample(video.currentTime)); syncPlayhead();
+    }
+    function seekFromTimeline(clientX) {
+      const bounds = timelineCanvas.getBoundingClientRect();
+      seekTimelineTime(((clientX - bounds.left) / bounds.width) * timelineDuration());
     }
     function syncPlayhead() { drawTimeline(); }
     timelineCanvas.addEventListener('pointermove', event => {
-      const bounds = timelineCanvas.getBoundingClientRect(); timelinePointer = {x: event.clientX - bounds.left, y: event.clientY - bounds.top}; showTimelineTooltip(timelinePointer.x, timelinePointer.y);
+      const bounds = timelineCanvas.getBoundingClientRect(); timelinePointer = {x: event.clientX - bounds.left, y: event.clientY - bounds.top}; drawTimeline();
       if (event.buttons === 1) seekFromTimeline(event.clientX);
     });
-    timelineCanvas.addEventListener('pointerleave', () => { timelinePointer = null; timelineTooltip.hidden = true; });
+    timelineCanvas.addEventListener('pointerleave', () => { timelinePointer = null; timelineTooltip.hidden = true; delete timelineCanvas.dataset.hoverCount; drawTimeline(); });
     timelineCanvas.addEventListener('pointerdown', event => { timelineCanvas.setPointerCapture(event.pointerId); seekFromTimeline(event.clientX); });
-    timelineScrubber.addEventListener('input', () => { if (!liveMode) { video.currentTime = Number(timelineScrubber.value); render(findSample(video.currentTime)); syncPlayhead(); } });
+    timelineCanvas.addEventListener('keydown', event => {
+      if (liveMode || !['ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) return;
+      event.preventDefault();
+      const duration = timelineDuration();
+      const step = Math.max(timelineBinDuration, duration / 100, 0.001);
+      if (event.key === 'Home') seekTimelineTime(0);
+      else if (event.key === 'End') seekTimelineTime(duration);
+      else seekTimelineTime(video.currentTime + (event.key === 'ArrowLeft' || event.key === 'PageDown' ? -1 : 1) * step * (event.key.startsWith('Page') ? 10 : 1));
+    });
+    timelineScrubber.addEventListener('input', () => seekTimelineTime(Number(timelineScrubber.value)));
     function geometryPositions(geometry) {
       if (!geometry) return [];
       if (geometry.type === 'Point') return [geometry.coordinates];

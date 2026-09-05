@@ -784,12 +784,16 @@ def test_prepare_player_assets_writes_timeline_ui_and_transcode(
     assert 'canvas id="map"' in html
     assert 'canvas id="detection-timeline"' in html
     assert 'input id="detection-scrubber"' in html
+    assert 'div id="timeline-legend"' in html
     assert 'ol id="activity-list"' in html
     assert 'id="map-attribution"' in html
     assert "https://tile.openstreetmap.org/{z}/{x}/{y}.png" in html
     assert "MAX_TILE_CACHE = 96" in html
     assert "MAX_ACTIVITY_ITEMS = 40" in html
     assert "Math.min(Math.ceil(width), 2048)" in html
+    assert "time-bucket-label-stack" in html
+    assert "Math.log1p(bin.count)" in html
+    assert "MAX_TIMELINE_GROUPS = 5" in html
     assert "map.dataset.detectionPolygons" in html
     assert "detection.contour" in html
     assert "detection.mask_runs" in html

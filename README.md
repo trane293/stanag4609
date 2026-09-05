@@ -779,9 +779,13 @@ baselayer, with a network-free grid fallback, and plots the sensor, frame
 center, target, full or offset-derived image footprint, and footprint-projected
 AI boxes. Typed VMTI targets with pixel geometry are drawn as synchronized
 bounding boxes and centroid markers, including labels and confidence when the
-packet carries Algorithm/Ontology metadata. A scrubber under the video uses
-bounded canvas density bins with hover summaries instead of one element per
-detection, while a capped activity feed groups detections around the playhead.
+packet carries Algorithm/Ontology metadata. A scrubber under the video groups
+detections into bounded time buckets and stacks the five most prevalent classes
+plus `other`; log-scaled density keeps both quiet and busy periods visible.
+Hover reveals the exact bucket interval and class counts, while click, drag,
+keyboard, and range controls seek the shared media clock. The canvas never
+creates one element per detection, and a capped activity feed groups detections
+around the playhead.
 Sparse Report-on-Change packets inherit still-current values, so
 the display does not lose coordinates merely because a packet omits an
 unchanged item. Before the first timestamped metadata sample, the map, fields,

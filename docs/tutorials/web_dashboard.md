@@ -43,9 +43,12 @@ panels. The source implementation is in
 The bundled `stanag4609-player` adds a pannable OpenStreetMap baselayer, mapped
 frame footprints and VMTI boxes, a grouped 30-second activity feed, and an
 interactive detection timeline. The timeline aggregates observations into no
-more than one density bin per canvas pixel (and never more than 2,048), so a
+more than one time bucket per canvas pixel (and never more than 2,048), so a
 mission with millions of observations does not become millions of DOM nodes.
-Hover a bin for its time range, count, and top labels; click or drag to seek.
+Within each bucket it stacks the five most prevalent classes plus `other`, and
+uses logarithmic height scaling so short bursts remain legible beside dense
+periods. Hover a bucket for its precise interval and class counts; click, drag,
+or use the keyboard to seek.
 Use `http://127.0.0.1:8765/?basemap=off` when testing offline. The public OSM
 tiles are appropriate for this low-volume reference UI, not an unrestricted
 production tile backend.

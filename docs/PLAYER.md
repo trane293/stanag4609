@@ -158,10 +158,12 @@ overlays empty instead of displaying future telemetry. Empty, malformed, or
 unavailable timeline responses produce distinct operator-readable states.
 
 The interactive detection timeline under the video uses at most one canvas bin
-per rendered pixel, capped at 2,048 bins. Counts are log-scaled so dense periods
-remain comparable, hover summarizes the time range and most common labels, and
-clicking or dragging seeks the video. A keyboard-accessible range control shares
-the same clock. The activity feed groups same-sample detections by label and
+per rendered pixel, capped at 2,048 bins. It groups by time first, then stacks
+the five most prevalent detection classes plus an exact-accounting `other`
+group. Counts are log-scaled so dense periods remain comparable. Hover
+summarizes the precise time interval and class counts; clicking, dragging,
+Home/End, arrow/Page keys, and the range control all seek the same media clock.
+No per-detection DOM nodes are created. The activity feed groups same-sample detections by label and
 lifecycle state, retains a rolling 30-second window, and renders at most 40 rows;
 it therefore does not create one DOM node for every observation in a long
 mission. Each row shows media time, UTC when derivable, confidence, count, and
