@@ -102,6 +102,23 @@ def _timestamp(sample: dict[str, Any]) -> int:
     return int(datetime.fromisoformat(value).timestamp() * 1_000_000)
 
 
+def _frame_corners(sample: dict[str, Any]) -> tuple[tuple[float, float], ...] | None:
+    """Return image-ordered WGS84 corners from the player's footprint feature."""
+
+    for feature in sample.get("geospatial", ()):
+        if feature.get("properties", {}).get("role") != "frame_footprint":
+            continue
+        geometry = feature.get("geometry", {})
+        coordinates = geometry.get("coordinates", ())
+        if geometry.get("type") != "Polygon" or not coordinates:
+            return None
+        ring = coordinates[0]
+        if len(ring) < 4:
+            return None
+        return tuple((float(point[0]), float(point[1])) for point in ring[:4])
+    return None
+
+
 def _annotate_with_yolo(
     *,
     media: Path,
@@ -113,7 +130,7 @@ def _annotate_with_yolo(
     device: str | None,
 ) -> tuple[int, int]:
     try:
-        from ultralytics import YOLO
+        from ultralytics import YOLO  # type: ignore[attr-defined]
     except ImportError as error:  # pragma: no cover - optional dependency guidance
         raise SystemExit(
             "install the demo dependency: pip install 'stanag4609[ai-ultralytics]'"
@@ -173,7 +190,11 @@ def _annotate_with_yolo(
             packet = emitter(context)
             vmti = packet.decoded.value(74)
             sample["detections"] = [
-                asdict(item) for item in extract_overlay_detections(vmti)
+                asdict(item)
+                for item in extract_overlay_detections(
+                    vmti,
+                    frame_corners=_frame_corners(sample),
+                )
             ]
             sample["fields"]["AI Sidecar"] = {
                 "value": f"real {Path(weights).name} inference -> ST 0903 VMTI"

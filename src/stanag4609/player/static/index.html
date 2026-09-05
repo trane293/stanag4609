@@ -9,13 +9,32 @@
     body { margin: 0; background: #091018; color: #dbe8f4; font-size: 13px; }
     header { padding: 14px 20px; border-bottom: 1px solid #263849; color: #8ed8ff; font-size: 14px; }
     main { display: grid; grid-template-columns: minmax(0, 1fr) clamp(420px, 36vw, 560px); gap: 16px; padding: 16px; }
+    .media-column { min-width: 0; align-self: start; }
     .video-shell { position: relative; align-self: start; line-height: 0; }
-    video { display: block; width: 100%; max-height: calc(100vh - 90px); background: black; }
+    video { display: block; width: 100%; max-height: calc(100vh - 205px); background: black; }
     #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     aside { max-height: calc(100vh - 90px); overflow: auto; border: 1px solid #263849; border-radius: 8px; }
-    .map-shell { position: relative; height: 210px; border-bottom: 1px solid #263849; background: #07131c; }
+    .timeline-shell { position: relative; margin-top: 10px; padding: 9px 10px 8px; border: 1px solid #263849; border-radius: 8px; background: #0b1721; line-height: 1.3; }
+    .timeline-heading, .section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 5px; color: #a8bed0; font-size: 11px; font-weight: 600; }
+    #detection-timeline { display: block; width: 100%; height: 68px; cursor: crosshair; border-radius: 4px; background: #071018; }
+    #detection-scrubber { display: block; width: 100%; height: 18px; margin: 3px 0 0; accent-color: #62e6a7; }
+    #timeline-tooltip { position: absolute; z-index: 8; max-width: min(320px, 80%); padding: 5px 7px; border: 1px solid #3a576d; border-radius: 4px; background: #07131cf2; color: #e2f2ff; font-size: 10px; pointer-events: none; white-space: nowrap; }
+    .map-shell { position: relative; height: 300px; border-bottom: 1px solid #263849; background: #07131c; overflow: hidden; touch-action: none; }
     #map { width: 100%; height: 100%; display: block; }
-    #map-caption { position: absolute; left: 8px; bottom: 6px; padding: 3px 5px; background: #07131ccc; color: #7894aa; font-size: 10px; }
+    #map-caption { position: absolute; left: 8px; bottom: 6px; max-width: 65%; padding: 3px 5px; background: #07131cdd; color: #a9c0d2; font-size: 10px; }
+    #map-attribution { position: absolute; right: 5px; bottom: 4px; padding: 2px 4px; background: #f4f7f0d9; color: #25323a; font: 10px/1.2 system-ui, sans-serif; }
+    #map-attribution a { color: #184a70; }
+    .map-controls { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
+    .map-controls button { min-width: 28px; padding: 5px 7px; border: 1px solid #49657a; border-radius: 4px; background: #0b1b27e8; color: #dbe8f4; cursor: pointer; }
+    .map-controls button:hover, .map-controls button:focus-visible { background: #173044; outline: 1px solid #8ed8ff; }
+    #activity { padding: 10px 12px 12px; border-bottom: 1px solid #263849; background: #0b151f; }
+    #activity-count { color: #6f899d; font-weight: 400; }
+    #activity-list { display: grid; gap: 5px; max-height: 190px; margin: 0; padding: 0; overflow: auto; list-style: none; }
+    .activity-item { width: 100%; padding: 7px 8px; border: 1px solid #1d3445; border-radius: 5px; background: #0e1d28; color: #dbe8f4; text-align: left; cursor: pointer; }
+    .activity-item:hover, .activity-item:focus-visible { border-color: #4d7d9e; background: #132938; outline: none; }
+    .activity-primary { display: flex; justify-content: space-between; gap: 8px; color: #91efb9; }
+    .activity-secondary { margin-top: 3px; color: #7894aa; font-size: 10px; }
+    .empty-state { margin: 0; color: #6f899d; font-size: 11px; }
     #status { padding: 12px; position: sticky; top: 0; background: #101c28; color: #7ee2a8; line-height: 1.4; }
     #status.error { color: #ff9aab; }
     #diagnostics { margin: 0; padding: 10px 12px; border-top: 1px solid #69414a; border-bottom: 1px solid #69414a; background: #2a1820; color: #ffd4dc; }
@@ -28,7 +47,7 @@
     .unit { display: inline-block; color: #6d879b; margin-left: 6px; white-space: nowrap; }
     @media (max-width: 1100px) {
       main { grid-template-columns: 1fr; }
-      video { max-height: 55vh; }
+      video { max-height: 50vh; }
       aside { max-height: 45vh; }
     }
     @media (max-width: 520px) {
@@ -42,12 +61,29 @@
 <body>
   <header>STANAG 4609 / MISB synchronized reference player</header>
   <main>
-    <div class="video-shell">
-      <video id="video" controls autoplay></video>
-      <canvas id="overlay" aria-label="VMTI detection overlay"></canvas>
+    <div class="media-column">
+      <div class="video-shell">
+        <video id="video" controls autoplay></video>
+        <canvas id="overlay" aria-label="VMTI detection overlay"></canvas>
+      </div>
+      <section class="timeline-shell" aria-labelledby="timeline-title">
+        <h2 class="timeline-heading" id="timeline-title"><span>Detection timeline</span><span id="timeline-summary">Waiting for metadata</span></h2>
+        <canvas id="detection-timeline" tabindex="0" aria-label="Time-bucketed detection density; click or drag to seek"></canvas>
+        <input id="detection-scrubber" type="range" min="0" max="0" step="0.001" value="0" aria-label="Video and detection timeline position">
+        <output id="timeline-tooltip" role="tooltip" hidden></output>
+      </section>
     </div>
     <aside>
-      <div class="map-shell"><canvas id="map" aria-label="Geospatial map"></canvas><div id="map-caption">Waiting for geospatial metadata…</div></div>
+      <div class="map-shell">
+        <canvas id="map" aria-label="Interactive geospatial map with current FMV footprint and detections"></canvas>
+        <div class="map-controls" aria-label="Map controls"><button id="map-zoom-in" type="button" aria-label="Zoom map in">+</button><button id="map-zoom-out" type="button" aria-label="Zoom map out">−</button><button id="map-follow" type="button" aria-label="Follow current frame">Follow</button></div>
+        <div id="map-caption">Waiting for geospatial metadata…</div>
+        <div id="map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
+      </div>
+      <section id="activity" aria-labelledby="activity-title">
+        <h2 class="section-heading" id="activity-title"><span>AI detection activity</span><span id="activity-count">0 observations</span></h2>
+        <ol id="activity-list"><li class="empty-state">No detections at this time</li></ol>
+      </section>
       <div id="status" role="status" aria-live="polite">Loading metadata…</div>
       <section id="diagnostics" aria-live="polite" hidden>
         <h2>Metadata diagnostics</h2>
@@ -67,12 +103,28 @@
     const map = document.querySelector('#map');
     const mapContext = map.getContext('2d');
     const mapCaption = document.querySelector('#map-caption');
+    const timelineCanvas = document.querySelector('#detection-timeline');
+    const timelineContext = timelineCanvas.getContext('2d');
+    const timelineScrubber = document.querySelector('#detection-scrubber');
+    const timelineTooltip = document.querySelector('#timeline-tooltip');
+    const timelineSummary = document.querySelector('#timeline-summary');
+    const activityList = document.querySelector('#activity-list');
+    const activityCount = document.querySelector('#activity-count');
     const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6, useGrouping: false });
     const query = new URLSearchParams(window.location.search);
     const liveMode = query.get('live') === '1';
     const streamMode = liveMode || query.get('metadata') === 'sse';
     const MAX_STREAM_SAMPLES = 512;
+    const MAX_ACTIVITY_ITEMS = 40;
+    const ACTIVITY_WINDOW_SECONDS = 30;
+    const MAX_TILE_CACHE = 96;
+    const TILE_TEMPLATE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const basemapEnabled = query.get('basemap') !== 'off';
     let samples = [], selected = -1, eventStream = null, streamEnded = false;
+    let timelineBins = [], timelineBinDuration = 0, timelineDirty = true, timelinePointer = null;
+    let activeMapSample = null, activeMapIndex = -1;
+    const mapView = {longitude: 0, latitude: 0, zoom: 2, follow: true};
+    const tileCache = new Map();
     if (!liveMode) video.src = 'media.mp4';
     function loadTimeline() {
       fetch('timeline.json').then(response => {
@@ -81,6 +133,8 @@
       }).then(data => {
         if (!Array.isArray(data.samples)) throw new Error('timeline does not contain a samples array');
         samples = data.samples;
+        samples.forEach(decorateSample);
+        invalidateTimeline();
         if (!samples.length) {
           showUnavailable('No ST 0601 metadata samples found', 'No geospatial metadata');
           return;
@@ -115,12 +169,14 @@
         try {
           const sample = JSON.parse(event.data);
           sample._event_id = Number(event.lastEventId);
+          decorateSample(sample);
           samples.push(sample);
           if (samples.length > MAX_STREAM_SAMPLES) {
             const removed = samples.length - MAX_STREAM_SAMPLES;
             samples.splice(0, removed);
             selected = Math.max(-1, selected - removed);
           }
+          invalidateTimeline();
           render(findSample(video.currentTime));
         } catch (error) {
           stopMetadataStream();
@@ -131,6 +187,7 @@
         if (eventStream !== source) return;
         samples = [];
         selected = -1;
+        invalidateTimeline();
         const reset = JSON.parse(event.data);
         status.textContent = `Live metadata history skipped ${reset.dropped} samples; resynchronizing…`;
       });
@@ -241,6 +298,8 @@
       diagnostics.hidden = issues.length === 0;
       drawDetections(sample);
       drawMap(sample);
+      renderActivity(index);
+      drawTimeline();
     }
     function showUnavailable(message, mapMessage, isError = false) {
       selected = -1;
@@ -251,6 +310,8 @@
       diagnostics.hidden = true;
       drawDetections(null);
       drawMap(null);
+      renderActivity(-1);
+      drawTimeline();
       mapCaption.textContent = mapMessage;
     }
     function displayValue(entry) {
@@ -259,69 +320,318 @@
       if (typeof entry.value === 'object') return JSON.stringify(entry.value);
       return entry.value ?? '';
     }
+    function sampleTimestamp(sample) {
+      return sample?.fields?.['UTC Timestamp']?.value ?? sample?.fields?.['Precision Time Stamp']?.value ?? null;
+    }
+    function detectionLabel(detection) {
+      return detection.label || (detection.target_id == null ? 'unlabelled target' : `target ${detection.target_id}`);
+    }
+    function decorateSample(sample) {
+      if (!sample || Array.isArray(sample._activity_groups)) return;
+      const groups = new Map();
+      for (const detection of sample.detections || []) {
+        const label = detectionLabel(detection);
+        const key = `${label}\u0000${detection.status || ''}`;
+        let group = groups.get(key);
+        if (!group) {
+          group = {label, status: detection.status || null, count: 0, confidenceTotal: 0, confidenceCount: 0, latitudeTotal: 0, longitudeTotal: 0, haeTotal: 0, located: 0, haeCount: 0, projectedLatitudeTotal: 0, projectedLongitudeTotal: 0, projected: 0, source: detection.location_source || null};
+          groups.set(key, group);
+        }
+        group.count += 1;
+        if (Number.isFinite(detection.confidence)) { group.confidenceTotal += detection.confidence; group.confidenceCount += 1; }
+        if (Number.isFinite(detection.latitude) && Number.isFinite(detection.longitude)) {
+          group.latitudeTotal += detection.latitude; group.longitudeTotal += detection.longitude; group.located += 1;
+          if (Number.isFinite(detection.hae)) { group.haeTotal += detection.hae; group.haeCount += 1; }
+        } else if (Array.isArray(detection.ground_polygon) && detection.ground_polygon.length >= 4) {
+          const corners = detection.ground_polygon.slice(0, 4).filter(point => Array.isArray(point) && point.length >= 2 && point.slice(0, 2).every(Number.isFinite));
+          if (corners.length === 4) {
+            group.projectedLongitudeTotal += corners.reduce((total, point) => total + point[0], 0) / 4;
+            group.projectedLatitudeTotal += corners.reduce((total, point) => total + point[1], 0) / 4;
+            group.projected += 1;
+          }
+        }
+      }
+      sample._activity_groups = [...groups.values()].map(group => ({
+        label: group.label,
+        status: group.status,
+        count: group.count,
+        confidence: group.confidenceCount ? Math.round(group.confidenceTotal / group.confidenceCount) : null,
+        latitude: group.located ? group.latitudeTotal / group.located : null,
+        longitude: group.located ? group.longitudeTotal / group.located : null,
+        hae: group.haeCount ? group.haeTotal / group.haeCount : null,
+        located: group.located,
+        projectedLatitude: group.projected ? group.projectedLatitudeTotal / group.projected : null,
+        projectedLongitude: group.projected ? group.projectedLongitudeTotal / group.projected : null,
+        projected: group.projected,
+        source: group.source,
+      }));
+    }
+    function renderActivity(index) {
+      const rows = [];
+      if (index >= 0 && samples[index]) {
+        const cutoff = samples[index].time_seconds - ACTIVITY_WINDOW_SECONDS;
+        for (let sampleIndex = index; sampleIndex >= 0 && rows.length < MAX_ACTIVITY_ITEMS; sampleIndex -= 1) {
+          const sample = samples[sampleIndex];
+          if (sample.time_seconds < cutoff) break;
+          decorateSample(sample);
+          for (const group of sample._activity_groups || []) {
+            rows.push({sample, group});
+            if (rows.length === MAX_ACTIVITY_ITEMS) break;
+          }
+        }
+      }
+      activityCount.textContent = `${rows.reduce((total, row) => total + row.group.count, 0)} observations`;
+      if (!rows.length) {
+        const empty = document.createElement('li'); empty.className = 'empty-state'; empty.textContent = 'No detections in the last 30 seconds';
+        activityList.replaceChildren(empty); return;
+      }
+      activityList.replaceChildren(...rows.map(({sample, group}) => {
+        const item = document.createElement('li');
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'activity-item';
+        button.dataset.timeSeconds = sample.time_seconds;
+        button.addEventListener('click', () => { if (!liveMode) { video.currentTime = sample.time_seconds; render(findSample(video.currentTime)); syncPlayhead(); } });
+        const primary = document.createElement('span'); primary.className = 'activity-primary';
+        const name = document.createElement('span'); name.textContent = `${group.label}${group.count > 1 ? ` ×${group.count}` : ''}`;
+        const confidence = document.createElement('span'); confidence.textContent = group.confidence == null ? 'confidence n/a' : `${group.confidence}%`;
+        primary.append(name, confidence);
+        const secondary = document.createElement('span'); secondary.className = 'activity-secondary';
+        let location = 'image-space only · no resolved ground location';
+        if (Number.isFinite(group.latitude) && Number.isFinite(group.longitude)) {
+          location = `${group.latitude.toFixed(5)}, ${group.longitude.toFixed(5)}${Number.isFinite(group.hae) ? ` · ${group.hae.toFixed(1)} m HAE` : ''}`;
+        } else if (Number.isFinite(group.projectedLatitude) && Number.isFinite(group.projectedLongitude)) {
+          location = `≈ ${group.projectedLatitude.toFixed(5)}, ${group.projectedLongitude.toFixed(5)} · footprint interpolation`;
+        }
+        const absolute = sampleTimestamp(sample);
+        secondary.textContent = `${sample.time_seconds.toFixed(3)}s${absolute ? ` · ${absolute}` : ''} · ${location}`;
+        button.append(primary, secondary); item.append(button); return item;
+      }));
+    }
+    function timelineDuration() {
+      if (!liveMode && Number.isFinite(video.duration) && video.duration > 0) return video.duration;
+      return samples.length ? Math.max(0.001, samples[samples.length - 1].time_seconds) : 0;
+    }
+    function invalidateTimeline() {
+      timelineDirty = true;
+      requestAnimationFrame(drawTimeline);
+    }
+    function rebuildTimelineBins(width) {
+      const duration = timelineDuration();
+      const binCount = Math.max(1, Math.min(Math.ceil(width), 2048));
+      timelineBins = Array.from({length: binCount}, () => ({count: 0, labels: new Map()}));
+      for (const sample of samples) {
+        if (!Number.isFinite(sample.time_seconds) || !Array.isArray(sample.detections)) continue;
+        const index = Math.min(binCount - 1, Math.max(0, Math.floor((sample.time_seconds / Math.max(duration, 0.001)) * binCount)));
+        const bin = timelineBins[index];
+        bin.count += sample.detections.length;
+        for (const detection of sample.detections) {
+          const label = detectionLabel(detection);
+          bin.labels.set(label, (bin.labels.get(label) || 0) + 1);
+        }
+      }
+      timelineBinDuration = duration / binCount;
+      timelineCanvas.dataset.binCount = String(binCount);
+      timelineDirty = false;
+    }
+    function drawTimeline() {
+      const width = timelineCanvas.clientWidth, height = timelineCanvas.clientHeight;
+      if (!width || !height || !timelineContext) return;
+      const ratio = window.devicePixelRatio || 1;
+      if (timelineCanvas.width !== Math.round(width * ratio) || timelineCanvas.height !== Math.round(height * ratio)) {
+        timelineCanvas.width = Math.round(width * ratio); timelineCanvas.height = Math.round(height * ratio); timelineDirty = true;
+      }
+      timelineContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+      if (timelineDirty || timelineBins.length !== Math.max(1, Math.min(Math.ceil(width), 2048))) rebuildTimelineBins(width);
+      timelineContext.fillStyle = '#071018'; timelineContext.fillRect(0, 0, width, height);
+      const maximum = Math.max(1, ...timelineBins.map(bin => bin.count));
+      timelineBins.forEach((bin, index) => {
+        if (!bin.count) return;
+        const intensity = Math.log1p(bin.count) / Math.log1p(maximum);
+        const barHeight = Math.max(2, intensity * (height - 9));
+        timelineContext.fillStyle = `rgba(98, 230, 167, ${0.28 + intensity * 0.72})`;
+        timelineContext.fillRect((index / timelineBins.length) * width, height - barHeight, Math.max(1, width / timelineBins.length), barHeight);
+      });
+      const duration = timelineDuration();
+      const current = Math.max(0, Number(video.currentTime) || 0);
+      if (duration > 0) {
+        const x = Math.min(width, (current / duration) * width);
+        timelineContext.strokeStyle = '#ffcf70'; timelineContext.lineWidth = 2;
+        timelineContext.beginPath(); timelineContext.moveTo(x, 0); timelineContext.lineTo(x, height); timelineContext.stroke();
+      }
+      const total = timelineBins.reduce((sum, bin) => sum + bin.count, 0);
+      timelineSummary.textContent = `${total} observations · ${timelineBins.length} density bins`;
+      timelineScrubber.max = String(duration);
+      timelineScrubber.value = String(Math.min(duration, current));
+      timelineScrubber.disabled = liveMode || duration <= 0;
+      if (timelinePointer) showTimelineTooltip(timelinePointer.x, timelinePointer.y);
+    }
+    function showTimelineTooltip(x, y) {
+      if (!timelineBins.length) return;
+      const width = timelineCanvas.clientWidth;
+      const index = Math.min(timelineBins.length - 1, Math.max(0, Math.floor((x / Math.max(width, 1)) * timelineBins.length)));
+      const bin = timelineBins[index];
+      const time = index * timelineBinDuration;
+      const labels = [...bin.labels.entries()].sort((left, right) => right[1] - left[1]).slice(0, 4).map(([label, count]) => `${label} ×${count}`).join(' · ');
+      timelineTooltip.textContent = `${time.toFixed(3)}–${(time + timelineBinDuration).toFixed(3)}s · ${bin.count} detection${bin.count === 1 ? '' : 's'}${labels ? ` · ${labels}` : ''}`;
+      timelineTooltip.hidden = false;
+      timelineTooltip.style.left = `${Math.min(Math.max(6, x + 12), timelineCanvas.clientWidth - timelineTooltip.offsetWidth - 6)}px`;
+      timelineTooltip.style.top = `${Math.max(4, y - timelineTooltip.offsetHeight - 2)}px`;
+    }
+    function seekFromTimeline(clientX) {
+      if (liveMode) return;
+      const bounds = timelineCanvas.getBoundingClientRect();
+      const duration = timelineDuration();
+      if (duration <= 0) return;
+      video.currentTime = Math.min(duration, Math.max(0, ((clientX - bounds.left) / bounds.width) * duration));
+      render(findSample(video.currentTime)); syncPlayhead();
+    }
+    function syncPlayhead() { drawTimeline(); }
+    timelineCanvas.addEventListener('pointermove', event => {
+      const bounds = timelineCanvas.getBoundingClientRect(); timelinePointer = {x: event.clientX - bounds.left, y: event.clientY - bounds.top}; showTimelineTooltip(timelinePointer.x, timelinePointer.y);
+      if (event.buttons === 1) seekFromTimeline(event.clientX);
+    });
+    timelineCanvas.addEventListener('pointerleave', () => { timelinePointer = null; timelineTooltip.hidden = true; });
+    timelineCanvas.addEventListener('pointerdown', event => { timelineCanvas.setPointerCapture(event.pointerId); seekFromTimeline(event.clientX); });
+    timelineScrubber.addEventListener('input', () => { if (!liveMode) { video.currentTime = Number(timelineScrubber.value); render(findSample(video.currentTime)); syncPlayhead(); } });
     function geometryPositions(geometry) {
       if (!geometry) return [];
       if (geometry.type === 'Point') return [geometry.coordinates];
       const descend = value => typeof value?.[0] === 'number' ? [value] : (value || []).flatMap(descend);
       return descend(geometry.coordinates);
     }
-    function drawMap(sample) {
+    function mercatorWorld([longitude, latitude], zoom) {
+      const size = 256 * (2 ** zoom);
+      const clamped = Math.max(-85.05112878, Math.min(85.05112878, latitude));
+      const radians = clamped * Math.PI / 180;
+      return [((longitude + 180) / 360) * size, (1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) / 2 * size];
+    }
+    function worldLongitude(x, zoom) { return (x / (256 * (2 ** zoom))) * 360 - 180; }
+    function worldLatitude(y, zoom) {
+      const value = Math.PI * (1 - 2 * y / (256 * (2 ** zoom)));
+      return Math.atan(Math.sinh(value)) * 180 / Math.PI;
+    }
+    function mapPositions(sample) {
+      const featurePositions = (sample?.geospatial || []).flatMap(feature => geometryPositions(feature.geometry));
+      const detectionPositions = (sample?.detections || []).flatMap(detection => {
+        const polygon = Array.isArray(detection.ground_polygon) ? detection.ground_polygon : [];
+        const point = Number.isFinite(detection.longitude) && Number.isFinite(detection.latitude) ? [[detection.longitude, detection.latitude]] : [];
+        return [...polygon, ...point];
+      });
+      return [...featurePositions, ...detectionPositions].filter(point => Array.isArray(point) && point.length >= 2 && point.slice(0, 2).every(Number.isFinite));
+    }
+    function fitMapToSample(sample) {
+      const positions = mapPositions(sample);
+      if (!positions.length) return false;
+      const reference = positions[0][0];
+      const unwrapped = positions.map(([longitude, latitude]) => {
+        while (longitude - reference > 180) longitude -= 360;
+        while (longitude - reference < -180) longitude += 360;
+        return [longitude, latitude];
+      });
+      const minimumLongitude = Math.min(...unwrapped.map(point => point[0]));
+      const maximumLongitude = Math.max(...unwrapped.map(point => point[0]));
+      const minimumLatitude = Math.min(...unwrapped.map(point => point[1]));
+      const maximumLatitude = Math.max(...unwrapped.map(point => point[1]));
+      mapView.longitude = ((minimumLongitude + maximumLongitude) / 2 + 540) % 360 - 180;
+      mapView.latitude = (minimumLatitude + maximumLatitude) / 2;
+      const width = Math.max(1, map.clientWidth - 48), height = Math.max(1, map.clientHeight - 48);
+      for (let zoom = 18; zoom >= 1; zoom -= 1) {
+        const first = mercatorWorld([minimumLongitude, maximumLatitude], zoom);
+        const last = mercatorWorld([maximumLongitude, minimumLatitude], zoom);
+        if (Math.abs(last[0] - first[0]) <= width && Math.abs(last[1] - first[1]) <= height) { mapView.zoom = zoom; break; }
+      }
+      return true;
+    }
+    function trimTileCache() {
+      while (tileCache.size > MAX_TILE_CACHE) tileCache.delete(tileCache.keys().next().value);
+    }
+    function mapTile(zoom, x, y) {
+      const count = 2 ** zoom;
+      if (y < 0 || y >= count) return null;
+      const wrappedX = ((x % count) + count) % count;
+      const key = `${zoom}/${wrappedX}/${y}`;
+      if (tileCache.has(key)) {
+        const entry = tileCache.get(key); tileCache.delete(key); tileCache.set(key, entry); return entry;
+      }
+      const entry = {state: 'loading', image: new Image()};
+      entry.image.crossOrigin = 'anonymous';
+      entry.image.onload = () => { if (tileCache.get(key) === entry) { entry.state = 'loaded'; drawMap(activeMapSample, {preserveView: true}); } };
+      entry.image.onerror = () => { if (tileCache.get(key) === entry) entry.state = 'failed'; };
+      entry.image.src = TILE_TEMPLATE.replace('{z}', zoom).replace('{x}', wrappedX).replace('{y}', y);
+      tileCache.set(key, entry); trimTileCache(); return entry;
+    }
+    function drawMap(sample, {preserveView = false} = {}) {
+      activeMapSample = sample;
       const width = map.clientWidth, height = map.clientHeight;
       if (!width || !height || !mapContext) return;
       const ratio = window.devicePixelRatio || 1;
       if (map.width !== Math.round(width * ratio) || map.height !== Math.round(height * ratio)) {
         map.width = Math.round(width * ratio); map.height = Math.round(height * ratio);
       }
-      mapContext.setTransform(ratio, 0, 0, ratio, 0, 0);
-      mapContext.clearRect(0, 0, width, height);
-      const features = sample?.geospatial || [];
-      const rawPositions = features.flatMap(feature => geometryPositions(feature.geometry));
-      if (!rawPositions.length) { mapCaption.textContent = 'No current geospatial geometry'; return; }
-      const referenceLongitude = rawPositions[0][0];
-      const unwrap = longitude => {
-        while (longitude - referenceLongitude > 180) longitude -= 360;
-        while (longitude - referenceLongitude < -180) longitude += 360;
-        return longitude;
-      };
-      const positions = rawPositions.map(([longitude, latitude]) => [unwrap(longitude), latitude]);
-      let minX = Math.min(...positions.map(point => point[0])), maxX = Math.max(...positions.map(point => point[0]));
-      let minY = Math.min(...positions.map(point => point[1])), maxY = Math.max(...positions.map(point => point[1]));
-      const xPad = Math.max((maxX - minX) * 0.12, 0.0025), yPad = Math.max((maxY - minY) * 0.12, 0.0025);
-      minX -= xPad; maxX += xPad; minY -= yPad; maxY += yPad;
-      const project = ([longitude, latitude]) => [
-        10 + ((unwrap(longitude) - minX) / (maxX - minX)) * (width - 20),
-        10 + ((maxY - latitude) / (maxY - minY)) * (height - 20),
-      ];
-      mapContext.strokeStyle = '#173044'; mapContext.lineWidth = 1;
-      for (let index = 1; index < 4; index++) {
-        const x = (width * index) / 4, y = (height * index) / 4;
-        mapContext.beginPath(); mapContext.moveTo(x, 0); mapContext.lineTo(x, height); mapContext.stroke();
-        mapContext.beginPath(); mapContext.moveTo(0, y); mapContext.lineTo(width, y); mapContext.stroke();
+      if (!sample) {
+        activeMapIndex = -1; map.dataset.detectionPolygons = '0';
+      } else if (!preserveView && mapView.follow && selected !== activeMapIndex) {
+        fitMapToSample(sample); activeMapIndex = selected;
       }
+      mapContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+      mapContext.fillStyle = '#0b1a24'; mapContext.fillRect(0, 0, width, height);
+      const center = mercatorWorld([mapView.longitude, mapView.latitude], mapView.zoom);
+      const worldSize = 256 * (2 ** mapView.zoom);
+      const project = ([longitude, latitude]) => {
+        const world = mercatorWorld([longitude, latitude], mapView.zoom);
+        let deltaX = world[0] - center[0];
+        while (deltaX > worldSize / 2) deltaX -= worldSize;
+        while (deltaX < -worldSize / 2) deltaX += worldSize;
+        return [width / 2 + deltaX, height / 2 + world[1] - center[1]];
+      };
+      const left = center[0] - width / 2, top = center[1] - height / 2;
+      const firstTileX = Math.floor(left / 256), lastTileX = Math.floor((left + width) / 256);
+      const firstTileY = Math.floor(top / 256), lastTileY = Math.floor((top + height) / 256);
+      for (let tileY = firstTileY; tileY <= lastTileY; tileY += 1) {
+        for (let tileX = firstTileX; tileX <= lastTileX; tileX += 1) {
+          const x = tileX * 256 - left, y = tileY * 256 - top;
+          const tile = basemapEnabled ? mapTile(mapView.zoom, tileX, tileY) : null;
+          if (tile?.state === 'loaded') mapContext.drawImage(tile.image, Math.round(x), Math.round(y), 257, 257);
+          else {
+            mapContext.fillStyle = '#0c1c27'; mapContext.fillRect(Math.round(x), Math.round(y), 256, 256);
+            mapContext.strokeStyle = '#173044'; mapContext.strokeRect(Math.round(x), Math.round(y), 256, 256);
+          }
+        }
+      }
+      const detectionPolygons = (sample?.detections || []).filter(detection => Array.isArray(detection.ground_polygon) && detection.ground_polygon.length >= 4);
+      map.dataset.detectionPolygons = String(detectionPolygons.length);
+      if (!sample || !mapPositions(sample).length) { mapCaption.textContent = 'No current geospatial geometry'; return; }
       const drawRing = ring => {
         if (!ring.length) return;
         mapContext.beginPath();
         ring.forEach((point, index) => { const [x, y] = project(point); index ? mapContext.lineTo(x, y) : mapContext.moveTo(x, y); });
         mapContext.closePath(); mapContext.fill(); mapContext.stroke();
       };
+      const features = sample.geospatial || [];
       for (const feature of features.filter(item => item.geometry?.type.endsWith('Polygon'))) {
-        mapContext.strokeStyle = '#55bcea'; mapContext.fillStyle = '#2a9dca26'; mapContext.lineWidth = 2;
+        mapContext.strokeStyle = '#55bcea'; mapContext.fillStyle = '#2a9dca30'; mapContext.lineWidth = 2;
         const polygons = feature.geometry.type === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
         polygons.forEach(polygon => polygon.forEach(drawRing));
       }
-      const colors = {sensor: '#f3c969', frame_center: '#62e6a7', target: '#ff7185', vmti_target: '#ff9f43'};
-      for (const feature of features.filter(item => item.geometry?.type === 'Point')) {
-        const [x, y] = project(feature.geometry.coordinates);
-        const role = feature.properties?.role || 'point';
-        mapContext.fillStyle = colors[role] || '#dbe8f4'; mapContext.strokeStyle = '#07131c'; mapContext.lineWidth = 2;
-        mapContext.beginPath(); mapContext.arc(x, y, 5, 0, Math.PI * 2); mapContext.fill(); mapContext.stroke();
-        const mapLabel = role === 'vmti_target' ? `VMTI target ${feature.properties?.target_id ?? '?'}` : role.replace('_', ' ');
-        mapContext.fillStyle = colors[role] || '#dbe8f4'; mapContext.font = '10px ui-monospace, monospace';
-        const labelWidth = mapContext.measureText(mapLabel).width;
-        const labelX = x + 8 + labelWidth <= width - 4 ? x + 8 : x - labelWidth - 8;
-        mapContext.fillText(mapLabel, Math.max(4, labelX), y + 3);
+      for (const detection of detectionPolygons) {
+        mapContext.strokeStyle = '#ff9f43'; mapContext.fillStyle = '#ff9f4333'; mapContext.lineWidth = 2; drawRing(detection.ground_polygon);
       }
-      mapCaption.textContent = `${minY.toFixed(5)}…${maxY.toFixed(5)}° lat · ${minX.toFixed(5)}…${maxX.toFixed(5)}° lon`;
+      const colors = {sensor: '#f3c969', frame_center: '#62e6a7', target: '#ff7185', vmti_target: '#ff9f43'};
+      const points = features.filter(item => item.geometry?.type === 'Point').map(feature => ({coordinates: feature.geometry.coordinates, role: feature.properties?.role || 'point', label: feature.properties?.role === 'vmti_target' ? `VMTI target ${feature.properties?.target_id ?? '?'}` : (feature.properties?.role || 'point').replace('_', ' ')}));
+      for (const detection of sample.detections || []) {
+        if (Number.isFinite(detection.longitude) && Number.isFinite(detection.latitude)) points.push({coordinates: [detection.longitude, detection.latitude], role: 'vmti_target', label: detectionLabel(detection)});
+      }
+      for (const point of points) {
+        const [x, y] = project(point.coordinates);
+        mapContext.fillStyle = colors[point.role] || '#dbe8f4'; mapContext.strokeStyle = '#07131c'; mapContext.lineWidth = 2;
+        mapContext.beginPath(); mapContext.arc(x, y, 5, 0, Math.PI * 2); mapContext.fill(); mapContext.stroke();
+        mapContext.fillStyle = colors[point.role] || '#dbe8f4'; mapContext.font = '10px ui-monospace, monospace';
+        const labelWidth = mapContext.measureText(point.label).width;
+        const labelX = x + 8 + labelWidth <= width - 4 ? x + 8 : x - labelWidth - 8;
+        mapContext.fillText(point.label, Math.max(4, labelX), y + 3);
+      }
+      const positions = mapPositions(sample);
+      const latitudes = positions.map(point => point[1]), longitudes = positions.map(point => point[0]);
+      mapCaption.textContent = `${Math.min(...latitudes).toFixed(5)}…${Math.max(...latitudes).toFixed(5)}° lat · ${Math.min(...longitudes).toFixed(5)}…${Math.max(...longitudes).toFixed(5)}° lon · ${detectionPolygons.length} mapped detection box${detectionPolygons.length === 1 ? '' : 'es'}`;
     }
     function drawDetections(sample) {
       const cssWidth = video.clientWidth, cssHeight = video.clientHeight;
@@ -389,7 +699,28 @@
         }
       }
     }
-    video.addEventListener('timeupdate', () => render(findSample(video.currentTime)));
+    let mapDrag = null;
+    map.addEventListener('pointerdown', event => {
+      map.setPointerCapture(event.pointerId); mapView.follow = false;
+      mapDrag = {x: event.clientX, y: event.clientY, center: mercatorWorld([mapView.longitude, mapView.latitude], mapView.zoom)};
+    });
+    map.addEventListener('pointermove', event => {
+      if (!mapDrag || event.buttons !== 1) return;
+      const centerX = mapDrag.center[0] - (event.clientX - mapDrag.x);
+      const centerY = mapDrag.center[1] - (event.clientY - mapDrag.y);
+      mapView.longitude = ((worldLongitude(centerX, mapView.zoom) + 540) % 360) - 180;
+      mapView.latitude = worldLatitude(centerY, mapView.zoom); drawMap(activeMapSample, {preserveView: true});
+    });
+    map.addEventListener('pointerup', () => { mapDrag = null; });
+    map.addEventListener('wheel', event => {
+      event.preventDefault(); mapView.follow = false;
+      mapView.zoom = Math.max(1, Math.min(18, mapView.zoom + (event.deltaY < 0 ? 1 : -1)));
+      drawMap(activeMapSample, {preserveView: true});
+    }, {passive: false});
+    document.querySelector('#map-zoom-in').addEventListener('click', () => { mapView.follow = false; mapView.zoom = Math.min(18, mapView.zoom + 1); drawMap(activeMapSample, {preserveView: true}); });
+    document.querySelector('#map-zoom-out').addEventListener('click', () => { mapView.follow = false; mapView.zoom = Math.max(1, mapView.zoom - 1); drawMap(activeMapSample, {preserveView: true}); });
+    document.querySelector('#map-follow').addEventListener('click', () => { mapView.follow = true; activeMapIndex = -1; drawMap(activeMapSample); });
+    video.addEventListener('timeupdate', () => { render(findSample(video.currentTime)); syncPlayhead(); });
     video.addEventListener('playing', () => startMetadataStream());
     video.addEventListener('pause', () => { if (!liveMode) stopMetadataStream(); });
     video.addEventListener('ended', () => { if (!liveMode) stopMetadataStream(); });
@@ -402,9 +733,11 @@
       if (streamMode && !liveMode && !video.paused) startMetadataStream({ restart: true });
       else render(findSample(video.currentTime));
     });
-    video.addEventListener('loadedmetadata', () => selected >= 0 && drawDetections(samples[selected]));
+    video.addEventListener('loadedmetadata', () => { invalidateTimeline(); if (selected >= 0) drawDetections(samples[selected]); });
+    video.addEventListener('durationchange', invalidateTimeline);
     new ResizeObserver(() => selected >= 0 && drawDetections(samples[selected])).observe(video);
-    new ResizeObserver(() => selected >= 0 && drawMap(samples[selected])).observe(map);
+    new ResizeObserver(() => { if (selected >= 0) drawMap(samples[selected], {preserveView: true}); }).observe(map);
+    new ResizeObserver(invalidateTimeline).observe(timelineCanvas);
   </script>
 </body>
 </html>

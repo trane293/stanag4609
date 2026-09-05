@@ -19,6 +19,7 @@ from stanag4609.geojson import snapshot_geojson_features
 from stanag4609.player.timeline import (
     MetadataSample,
     _fields,
+    _frame_corners,
     extract_overlay_detections,
 )
 from stanag4609.st0601 import FieldDecodingMode, UASLocalSet
@@ -402,6 +403,7 @@ class LiveMetadataDecoder:
         )
         snapshot = state.observe(event.decoded)
         vmti = snapshot.value(74)
+        frame_corners = _frame_corners(snapshot)
         return MetadataSample(
             max(0.0, seconds),
             event.pts,
@@ -418,6 +420,7 @@ class LiveMetadataDecoder:
                     vmti,
                     frame_center_latitude=snapshot.value(23),
                     frame_center_longitude=snapshot.value(24),
+                    frame_corners=frame_corners,
                 )
                 if isinstance(vmti, VMTILocalSet)
                 else ()

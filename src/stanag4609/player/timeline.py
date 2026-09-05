@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
@@ -23,7 +24,7 @@ from stanag4609.st0601 import (
     misp_timestamp_to_utc,
     resolve_target_elevation,
 )
-from stanag4609.st0601_state import ReportOnChangeState
+from stanag4609.st0601_state import ReportOnChangeSnapshot, ReportOnChangeState
 from stanag4609.st0903 import (
     DetectionStatus,
     VMaskLocalSet,
@@ -225,6 +226,8 @@ class OverlayDetection:
     longitude: float | None = None
     hae: float | None = None
     location_source: str | None = None
+    ground_polygon: tuple[tuple[float, float], ...] = ()
+    ground_polygon_source: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -328,16 +331,105 @@ def _pixel(number: int, *, width: int, height: int) -> tuple[int, int] | None:
     return index % width, index // width
 
 
+def _coordinate(
+    value: object,
+    *,
+    minimum: float,
+    maximum: float,
+) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float, Fraction)):
+        return None
+    result = float(value)
+    return result if math.isfinite(result) and minimum <= result <= maximum else None
+
+
+def _frame_corners(
+    snapshot: ReportOnChangeSnapshot,
+) -> tuple[tuple[float, float], ...] | None:
+    """Return top-left through bottom-left WGS-84 frame corners."""
+
+    full: list[tuple[float, float]] = []
+    for latitude_tag, longitude_tag in ((82, 83), (84, 85), (86, 87), (88, 89)):
+        latitude = _coordinate(snapshot.value(latitude_tag), minimum=-90, maximum=90)
+        longitude = _coordinate(snapshot.value(longitude_tag), minimum=-180, maximum=180)
+        if latitude is None or longitude is None:
+            full = []
+            break
+        full.append((longitude, latitude))
+    if len(full) == 4:
+        return tuple(full)
+
+    center_latitude = _coordinate(snapshot.value(23), minimum=-90, maximum=90)
+    center_longitude = _coordinate(snapshot.value(24), minimum=-180, maximum=180)
+    if center_latitude is None or center_longitude is None:
+        return None
+    offsets: list[tuple[float, float]] = []
+    for latitude_tag, longitude_tag in ((26, 27), (28, 29), (30, 31), (32, 33)):
+        latitude_offset = _coordinate(snapshot.value(latitude_tag), minimum=-0.075, maximum=0.075)
+        longitude_offset = _coordinate(snapshot.value(longitude_tag), minimum=-0.075, maximum=0.075)
+        if latitude_offset is None or longitude_offset is None:
+            return None
+        latitude = center_latitude + latitude_offset
+        if not -90 <= latitude <= 90:
+            return None
+        longitude = (center_longitude + longitude_offset + 180) % 360 - 180
+        offsets.append((longitude, latitude))
+    return tuple(offsets)
+
+
+def _validate_frame_corners(
+    corners: tuple[tuple[float, float], ...] | None,
+) -> tuple[tuple[float, float], ...] | None:
+    if corners is None:
+        return None
+    if not isinstance(corners, tuple) or len(corners) != 4:
+        raise ValueError("frame_corners must contain four longitude/latitude pairs")
+    result: list[tuple[float, float]] = []
+    for point in corners:
+        if not isinstance(point, tuple) or len(point) != 2:
+            raise ValueError("frame_corners must contain four longitude/latitude pairs")
+        longitude = _coordinate(point[0], minimum=-180, maximum=180)
+        latitude = _coordinate(point[1], minimum=-90, maximum=90)
+        if longitude is None or latitude is None:
+            raise ValueError("frame_corners must contain four longitude/latitude pairs")
+        result.append((longitude, latitude))
+    return tuple(result)
+
+
+def _project_frame_point(
+    corners: tuple[tuple[float, float], ...],
+    x: float,
+    y: float,
+) -> tuple[float, float]:
+    reference = corners[0][0]
+    longitudes: list[float] = []
+    for longitude, _latitude in corners:
+        while longitude - reference > 180:
+            longitude -= 360
+        while longitude - reference < -180:
+            longitude += 360
+        longitudes.append(longitude)
+    top_longitude = longitudes[0] * (1 - x) + longitudes[1] * x
+    bottom_longitude = longitudes[3] * (1 - x) + longitudes[2] * x
+    longitude = top_longitude * (1 - y) + bottom_longitude * y
+    top_latitude = corners[0][1] * (1 - x) + corners[1][1] * x
+    bottom_latitude = corners[3][1] * (1 - x) + corners[2][1] * x
+    latitude = top_latitude * (1 - y) + bottom_latitude * y
+    return ((longitude + 180) % 360 - 180, latitude)
+
+
 def extract_overlay_detections(
     vmti: VMTILocalSet,
     *,
     frame_center_latitude: object | None = None,
     frame_center_longitude: object | None = None,
+    frame_corners: tuple[tuple[float, float], ...] | None = None,
 ) -> tuple[OverlayDetection, ...]:
     """Convert typed ST 0903 targets to normalized browser-overlay geometry."""
 
     if not isinstance(vmti, VMTILocalSet):
         raise TypeError("vmti must be VMTILocalSet")
+    validated_corners = _validate_frame_corners(frame_corners)
     width = vmti.value(8)
     height = vmti.value(9)
     if not isinstance(width, int) or not isinstance(height, int) or width < 1 or height < 1:
@@ -446,6 +538,20 @@ def extract_overlay_detections(
             frame_center_latitude=frame_center_latitude,
             frame_center_longitude=frame_center_longitude,
         )
+        ground_polygon: tuple[tuple[float, float], ...] = ()
+        if validated_corners is not None and None not in {left, top, right, bottom}:
+            assert left is not None and top is not None
+            assert right is not None and bottom is not None
+            ground_polygon = tuple(
+                _project_frame_point(validated_corners, x, y)
+                for x, y in (
+                    (left, top),
+                    (right, top),
+                    (right, bottom),
+                    (left, bottom),
+                    (left, top),
+                )
+            )
         detections.append(
             OverlayDetection(
                 target.target_id,
@@ -468,6 +574,8 @@ def extract_overlay_detections(
                 None if target_location is None else target_location.longitude,
                 None if target_location is None else target_location.hae,
                 None if target_location is None else target_location.source,
+                ground_polygon,
+                "frame_footprint_bilinear" if ground_polygon else None,
             )
         )
     return tuple(detections)
@@ -547,6 +655,7 @@ def scan_transport_timeline(chunks: Iterable[bytes]) -> MetadataTimeline:
         )
         snapshot = receiver_state.observe(event.decoded)
         vmti_value = snapshot.value(74)
+        frame_corners = _frame_corners(snapshot)
         samples.append(
             MetadataSample(
                 max(0.0, seconds),
@@ -564,6 +673,7 @@ def scan_transport_timeline(chunks: Iterable[bytes]) -> MetadataTimeline:
                         vmti_value,
                         frame_center_latitude=snapshot.value(23),
                         frame_center_longitude=snapshot.value(24),
+                        frame_corners=frame_corners,
                     )
                     if isinstance(vmti_value, VMTILocalSet)
                     else ()

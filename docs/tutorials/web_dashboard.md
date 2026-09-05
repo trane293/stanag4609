@@ -40,6 +40,16 @@ diagnostics, VMTI activity, and overlays, preventing independently drifting UI
 panels. The source implementation is in
 [`examples/web_dashboard/index.html`](https://github.com/trane293/stanag4609/blob/main/examples/web_dashboard/index.html).
 
+The bundled `stanag4609-player` adds a pannable OpenStreetMap baselayer, mapped
+frame footprints and VMTI boxes, a grouped 30-second activity feed, and an
+interactive detection timeline. The timeline aggregates observations into no
+more than one density bin per canvas pixel (and never more than 2,048), so a
+mission with millions of observations does not become millions of DOM nodes.
+Hover a bin for its time range, count, and top labels; click or drag to seek.
+Use `http://127.0.0.1:8765/?basemap=off` when testing offline. The public OSM
+tiles are appropriate for this low-volume reference UI, not an unrestricted
+production tile backend.
+
 ## Use the asset API in another backend
 
 ```python
@@ -52,7 +62,9 @@ print(assets.media, assets.timeline, assets.root)
 Serve the returned files with normal HTTP range support. A FastAPI, Django,
 Flask, Starlette, Node, or Rust service can use the same stable JSON boundary.
 For long recordings, page or index the timeline by time instead of returning it
-as one response.
+as one response. Preserve aggregate counts when paging so the client can render
+the full-mission density overview before fetching individual detections around
+the playhead.
 
 The bundled reference player also exposes the same samples incrementally:
 

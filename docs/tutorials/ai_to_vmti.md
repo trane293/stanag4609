@@ -46,7 +46,11 @@ The tutorial decodes the prepared player media through the first-party
 same model-neutral interface used by custom, ONNX, HTTP, and Triton stages.
 
 Open that URL, start playback, and seek through the video. The player keeps the
-FMV telemetry, map, activity feed, and VMTI overlays synchronized.
+FMV telemetry, map, grouped activity feed, detection-density timeline, and VMTI
+overlays synchronized. Pixel boxes are encoded into ST 0903 and projected into
+the current ST 0601 frame footprint for the map. That ground polygon is a
+bilinear footprint visualization, while a target carrying absolute or
+parent-offset VTarget coordinates is plotted as a separately resolved point.
 
 ![Reference player showing real YOLO11 detections encoded as ST 0903](../assets/screenshots/ai-sidecar-player.jpg)
 

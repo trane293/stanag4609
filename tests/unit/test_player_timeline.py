@@ -312,7 +312,15 @@ def test_overlay_detections_include_normalized_geometry_and_vocabulary() -> None
         ),
         standalone=False,
     )
-    detection = extract_overlay_detections(vmti)[0]
+    detection = extract_overlay_detections(
+        vmti,
+        frame_corners=(
+            (10.0, 20.0),
+            (12.0, 20.0),
+            (12.0, 18.0),
+            (10.0, 18.0),
+        ),
+    )[0]
     assert detection.status == "active_stopped"
     assert detection.label == "truck"
     assert detection.algorithm_name == "truck-detector"
@@ -331,6 +339,21 @@ def test_overlay_detections_include_normalized_geometry_and_vocabulary() -> None
         (399, 4),
     ]
     assert (detection.mask_width, detection.mask_height) == (100, 50)
+    assert detection.ground_polygon_source == "frame_footprint_bilinear"
+    assert tuple(value for point in detection.ground_polygon for value in point) == pytest.approx(
+        (
+            10.2,
+            19.8,
+            10.6,
+            19.8,
+            10.6,
+            19.4,
+            10.2,
+            19.4,
+            10.2,
+            19.8,
+        )
+    )
 
 
 def test_overlay_extraction_requires_dimensions_and_typed_input() -> None:
@@ -341,6 +364,8 @@ def test_overlay_extraction_requires_dimensions_and_typed_input() -> None:
     assert extract_overlay_detections(vmti) == ()
     with pytest.raises(TypeError, match="VMTILocalSet"):
         extract_overlay_detections(object())  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="four longitude/latitude pairs"):
+        extract_overlay_detections(vmti, frame_corners=((1.0, 2.0),))
 
 
 def test_contour_only_detection_derives_overlay_center() -> None:
@@ -611,6 +636,15 @@ def test_prepare_player_assets_writes_timeline_ui_and_transcode(
     assert "STANAG 4609 / MISB" in html
     assert 'canvas id="overlay"' in html
     assert 'canvas id="map"' in html
+    assert 'canvas id="detection-timeline"' in html
+    assert 'input id="detection-scrubber"' in html
+    assert 'ol id="activity-list"' in html
+    assert 'id="map-attribution"' in html
+    assert "https://tile.openstreetmap.org/{z}/{x}/{y}.png" in html
+    assert "MAX_TILE_CACHE = 96" in html
+    assert "MAX_ACTIVITY_ITEMS = 40" in html
+    assert "Math.min(Math.ceil(width), 2048)" in html
+    assert "map.dataset.detectionPolygons" in html
     assert "detection.contour" in html
     assert "detection.mask_runs" in html
     assert "dd.textContent = displayValue(entry)" in html
@@ -619,7 +653,7 @@ def test_prepare_player_assets_writes_timeline_ui_and_transcode(
     assert "clamp(420px, 36vw, 560px)" in html
     assert "white-space: nowrap" in html
     assert "@media (max-width: 520px)" in html
-    assert "measureText(mapLabel)" in html
+    assert "measureText(point.label)" in html
     assert 'section id="diagnostics"' in html
     assert "issueList.replaceChildren(...issues.map" in html
     assert "diagnostics.hidden = issues.length === 0" in html

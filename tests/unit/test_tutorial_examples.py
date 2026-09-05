@@ -65,6 +65,37 @@ def test_ai_sidecar_ui_samples_first_party_pyav_frames(monkeypatch: Any) -> None
     assert sampled[0][1].timestamp_microseconds == 1_767_312_000_000_000
 
 
+def test_ai_sidecar_ui_extracts_image_ordered_frame_corners() -> None:
+    namespace = runpy.run_path(str(ROOT / "examples/tutorials/ai_sidecar_ui.py"))
+    sample = {
+        "geospatial": [
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-104.1, 41.1],
+                            [-104.0, 41.1],
+                            [-104.0, 41.0],
+                            [-104.1, 41.0],
+                            [-104.1, 41.1],
+                        ]
+                    ],
+                },
+                "properties": {"role": "frame_footprint"},
+            }
+        ]
+    }
+
+    assert namespace["_frame_corners"](sample) == (
+        (-104.1, 41.1),
+        (-104.0, 41.1),
+        (-104.0, 41.0),
+        (-104.1, 41.0),
+    )
+
+
 def test_web_dashboard_uses_player_asset_contract() -> None:
     page = (ROOT / "examples/web_dashboard/index.html").read_text()
 

@@ -771,11 +771,15 @@ the source KLV PTS. Its time origin is the earliest mapped audio/video PTS, so
 FFmpeg-preserved audio lead-in does not shift metadata against the transcoded
 video. The original first-video PTS remains available in the timeline API. The panel exposes timestamps, platform/sensor state, sensor
 and frame-center coordinates, altitude, target coordinates, VMTI, and field
-diagnostics. A synchronized local map plots the sensor, frame center, target,
-and full or offset-derived image footprint without requiring an external tile
-service. Typed VMTI targets with pixel geometry are drawn as synchronized
+diagnostics. A synchronized canvas map uses an attributed OpenStreetMap
+baselayer, with a network-free grid fallback, and plots the sensor, frame
+center, target, full or offset-derived image footprint, and footprint-projected
+AI boxes. Typed VMTI targets with pixel geometry are drawn as synchronized
 bounding boxes and centroid markers, including labels and confidence when the
-packet carries Algorithm/Ontology metadata. Sparse Report-on-Change packets inherit still-current values, so
+packet carries Algorithm/Ontology metadata. A scrubber under the video uses
+bounded canvas density bins with hover summaries instead of one element per
+detection, while a capped activity feed groups detections around the playhead.
+Sparse Report-on-Change packets inherit still-current values, so
 the display does not lose coordinates merely because a packet omits an
 unchanged item. Before the first timestamped metadata sample, the map, fields,
 and overlays remain empty rather than showing future telemetry; per-sample

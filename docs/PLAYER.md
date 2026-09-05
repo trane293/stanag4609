@@ -117,9 +117,19 @@ derives a separate UTC timestamp after applying optional Item 137; it never
 silently labels the unadjusted MISP count as UTC. The panel includes
 mission/platform identity, platform attitude, sensor position and altitude,
 sensor orientation/FOV, frame center, corner coordinates, target coordinates,
-VMTI content, and engineering units when present. Its dependency-free local map
-plots current sensor, frame-center, target, and image-footprint geometry without
-making a network request to a tile service. Embedded VMTI targets with absolute
+VMTI content, and engineering units when present. Its dependency-free canvas map
+uses OpenStreetMap's standard raster tiles for the low-volume localhost demo,
+shows the required attribution, honors browser caching, and keeps a bounded
+96-tile cache without prefetching. Add `?basemap=off` to the player URL for the
+network-free coordinate-grid fallback. Production deployments should configure
+or self-host a tile service whose usage policy matches their traffic instead of
+treating the public OpenStreetMap service as an application backend.
+
+The map plots current sensor, frame-center, target, and image-footprint geometry.
+Pixel-space VMTI bounding boxes are also projected into the current ST 0601
+four-corner footprint with bilinear interpolation and drawn as ground polygons.
+This is an intentionally labelled visualization estimate, not terrain-aware
+camera-model geolocation. Embedded VMTI targets with absolute
 Location metadata or parent-relative latitude/longitude offsets are resolved to
 WGS-84 coordinates, plotted separately, and listed with latitude, longitude,
 HAE, target ID, and location source in the side panel. When legacy and newer scalar
@@ -135,6 +145,18 @@ those diagnostics in a dedicated warning panel for the selected metadata
 sample. Before the first timestamped sample, it leaves the fields, map, and
 overlays empty instead of displaying future telemetry. Empty, malformed, or
 unavailable timeline responses produce distinct operator-readable states.
+
+The interactive detection timeline under the video uses at most one canvas bin
+per rendered pixel, capped at 2,048 bins. Counts are log-scaled so dense periods
+remain comparable, hover summarizes the time range and most common labels, and
+clicking or dragging seeks the video. A keyboard-accessible range control shares
+the same clock. The activity feed groups same-sample detections by label and
+lifecycle state, retains a rolling 30-second window, and renders at most 40 rows;
+it therefore does not create one DOM node for every observation in a long
+mission. Each row shows media time, UTC when derivable, confidence, count, and
+either a resolved location, an explicitly approximate footprint-interpolated
+location, or an `image-space only` state.
+
 Metadata AU
 sequence validation is disabled only for this diagnostic viewer because real
 fielded samples sometimes restart the sequence counter on every PES.
@@ -153,8 +175,12 @@ not round the timeline's machine values.
 applications that want the synchronized, JSON-ready timeline without launching
 the player. `OverlayDetection` exposes normalized contour points plus the
 original compact `OverlayMaskRun` values and parent dimensions for custom
-renderers. Each timeline sample also exposes its current geometry as GeoJSON
-features for a custom map UI.
+renderers. It also exposes `ground_polygon` and `ground_polygon_source` when a
+box can be projected into an ST 0601 frame footprint. Each timeline sample
+exposes its current geometry as GeoJSON features for a custom map UI.
+
+The default basemap behavior follows the
+[OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
 
 `MetadataTimeline.media_start_pts` is the earliest first PTS among the mapped
 audio and video elementary streams. Sample times are relative to that anchor,

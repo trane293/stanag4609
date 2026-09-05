@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import shutil
 import subprocess
 from collections.abc import Iterator
@@ -103,7 +104,7 @@ def _sample(
             target_id=index + 1,
             status="active_moving",
             confidence=93,
-            label="truck",
+            label="truck" if index == 0 else "car",
             algorithm_id=1,
             algorithm_name="fixture-detector",
             left=0.1 + 0.2 * index,
@@ -112,6 +113,18 @@ def _sample(
             bottom=0.45,
             center_x=0.175 + 0.2 * index,
             center_y=0.3,
+            latitude=latitude + 0.12 if index == 0 else None,
+            longitude=-122.88 if index == 0 else None,
+            hae=95.0 if index == 0 else None,
+            location_source="absolute_location" if index == 0 else None,
+            ground_polygon=(
+                (-122.92 + index * 0.01, latitude + 0.08),
+                (-122.84 + index * 0.01, latitude + 0.08),
+                (-122.84 + index * 0.01, latitude + 0.16),
+                (-122.92 + index * 0.01, latitude + 0.16),
+                (-122.92 + index * 0.01, latitude + 0.08),
+            ),
+            ground_polygon_source="frame_footprint_bilinear",
         )
         for index in range(target_count)
     )
@@ -211,9 +224,25 @@ def _canvas_has_ink(page: object, selector: str) -> bool:
 
 @pytest.mark.browser
 def test_reference_player_renders_and_resynchronizes_in_chromium(player_url: str) -> None:
+    tile_requests: list[str] = []
+    transparent_png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAHnOcQAAAAABJRU5ErkJggg=="
+    )
     with playwright.sync_playwright() as runtime:
         browser = runtime.chromium.launch()
         page = browser.new_page(viewport={"width": 1280, "height": 800})
+        page.route(
+            "https://tile.openstreetmap.org/**",
+            lambda route: (
+                tile_requests.append(route.request.url),
+                route.fulfill(
+                    status=200,
+                    content_type="image/png",
+                    headers={"Access-Control-Allow-Origin": "*"},
+                    body=transparent_png,
+                ),
+            )[-1],
+        )
         page.goto(player_url, wait_until="domcontentloaded")
         video = page.locator("#video")
         video.evaluate(
@@ -241,15 +270,38 @@ def test_reference_player_renders_and_resynchronizes_in_chromium(player_url: str
         )
         playwright.expect(page.locator("#diagnostics")).to_contain_text("fixture diagnostic")
         playwright.expect(page.locator("#map-caption")).not_to_contain_text("Waiting")
+        playwright.expect(page.locator("#map-attribution")).to_contain_text("OpenStreetMap")
+        playwright.expect(page.locator("#activity-list")).to_contain_text("truck")
+        playwright.expect(page.locator("#activity-list")).to_contain_text("93%")
+        playwright.expect(page.locator("#activity-list")).to_contain_text("0.000s")
+        playwright.expect(page.locator("#activity-list")).to_contain_text("49.12000")
+        playwright.expect(page.locator("#map")).to_have_attribute(
+            "data-detection-polygons", "1"
+        )
         assert _canvas_has_ink(page, "#overlay")
         assert _canvas_has_ink(page, "#map")
+        assert _canvas_has_ink(page, "#detection-timeline")
+        assert tile_requests
+        bin_count = int(page.locator("#detection-timeline").get_attribute("data-bin-count"))
+        assert 0 < bin_count <= page.locator("#detection-timeline").evaluate(
+            "canvas => canvas.clientWidth"
+        )
 
-        video.evaluate("video => { video.currentTime = 0.75; }")
+        page.locator("#detection-scrubber").fill("0.75")
         playwright.expect(page.locator("#status")).to_contain_text(
             "t=0.500s · PID 258 · PTS 135000 · 2 targets · 0 diagnostics"
         )
         playwright.expect(page.locator("#fields")).to_contain_text("Sensor Latitude50degrees")
         playwright.expect(page.locator("#diagnostics")).to_be_hidden()
+        playwright.expect(page.locator("#map")).to_have_attribute(
+            "data-detection-polygons", "2"
+        )
+        playwright.expect(page.locator("#activity-list")).to_contain_text(
+            "footprint interpolation"
+        )
+        assert page.locator("#activity-list .activity-item").count() <= 40
+        page.locator("#detection-timeline").hover(position={"x": 1, "y": 10})
+        playwright.expect(page.locator("#timeline-tooltip")).to_contain_text("detection")
         browser.close()
 
 
@@ -265,7 +317,10 @@ def test_reference_player_restarts_sse_from_current_media_time(player_url: str) 
             if "/metadata/events?" in request.url
             else None,
         )
-        page.goto(f"{player_url}?metadata=sse", wait_until="domcontentloaded")
+        page.goto(
+            f"{player_url}?metadata=sse&basemap=off",
+            wait_until="domcontentloaded",
+        )
         video = page.locator("#video")
         video.evaluate(
             """async video => {
@@ -324,7 +379,7 @@ def test_live_reference_player_plays_incremental_fragmented_media(
             browser = runtime.chromium.launch()
             page = browser.new_page(viewport={"width": 1280, "height": 800})
             page.goto(
-                f"http://127.0.0.1:{server.server_port}/?live=1",
+                f"http://127.0.0.1:{server.server_port}/?live=1&basemap=off",
                 wait_until="domcontentloaded",
             )
             video = page.locator("#video")
