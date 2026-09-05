@@ -123,6 +123,8 @@ def render_verification_html(
             f"{metadata.imap_precision_validated_items:,} items</span>"
             "<span><b>VMTI context validated</b>"
             f"{metadata.vmti_context_validated_packets:,} packets</span>"
+            "<span><b>Ground truth validated</b>"
+            f"{metadata.ground_truth_validated_items:,} items</span>"
             "<span><b>Invalid/missing timestamps</b>"
             f"{metadata.invalid_or_missing_timestamp_packets:,}</span>"
             f"<span><b>Untracked items</b>{metadata.untracked_item_occurrences:,}</span>"

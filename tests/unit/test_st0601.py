@@ -25,6 +25,7 @@ from stanag4609.st0601 import (
     SensorControlMode,
     SensorFieldOfViewName,
     SpecialValue,
+    ST0601FieldExpectation,
     ST0601Semantic,
     ST0601ValidationContext,
     VerticalDatum,
@@ -511,6 +512,91 @@ def test_imap_precision_context_is_immutable_and_validates_entries() -> None:
         ST0601ValidationContext(imap_system_precisions={True: 0.25})
     with pytest.raises(ValueError, match="allows at most"):
         ST0601ValidationContext(imap_system_precisions={120: 1e-20})
+
+
+def test_field_expectations_validate_producer_ground_truth_with_tolerance() -> None:
+    packet = encode_uas_local_set(
+        {
+            2: datetime(2025, 1, 2, tzinfo=timezone.utc),
+            10: "PLATFORM",
+            13: 40.0,
+            65: 19,
+        }
+    )
+    context = ST0601ValidationContext(
+        field_expectations={
+            10: ST0601FieldExpectation("PLATFORM"),
+            13: ST0601FieldExpectation(40.0, absolute_tolerance=1e-6),
+        }
+    )
+
+    decoded = decode_uas_local_set(packet, context=context)
+    assert decoded.value(10) == "PLATFORM"
+    assert encode_uas_local_set(
+        {
+            2: datetime(2025, 1, 2, tzinfo=timezone.utc),
+            10: "PLATFORM",
+            13: 40.0,
+            65: 19,
+        },
+        context=context,
+    )
+
+    with pytest.raises(ValueError, match=r"tag 10.*producer-supplied ground truth"):
+        encode_uas_local_set(
+            {
+                2: datetime(2025, 1, 2, tzinfo=timezone.utc),
+                10: "OTHER",
+                13: 40.0,
+                65: 19,
+            },
+            context=context,
+        )
+
+    with pytest.raises(DecodeError, match=r"tag 13.*producer-supplied ground truth"):
+        decode_uas_local_set(
+            packet,
+            context=ST0601ValidationContext(
+                field_expectations={
+                    13: ST0601FieldExpectation(41.0, absolute_tolerance=0.01)
+                }
+            ),
+        )
+    with pytest.raises(DecodeError, match=r"tag 14.*not present"):
+        decode_uas_local_set(
+            packet,
+            context=ST0601ValidationContext(
+                field_expectations={14: ST0601FieldExpectation(-75.0)}
+            ),
+        )
+    with pytest.raises(DecodeError, match=r"tag 10.*producer-supplied ground truth"):
+        update_uas_local_set(packet, {10: "OTHER"}, context=context)
+    assert update_uas_local_set(packet, {10: "PLATFORM"}, context=context)
+
+
+def test_field_expectation_context_is_immutable_and_validates_entries() -> None:
+    expectations = {10: ST0601FieldExpectation("PLATFORM")}
+    context = ST0601ValidationContext(field_expectations=expectations)
+    expectations[10] = ST0601FieldExpectation("CHANGED")
+    assert context.field_expectations[10].value == "PLATFORM"
+    with pytest.raises(TypeError):
+        context.field_expectations[10] = ST0601FieldExpectation("CHANGED")  # type: ignore[index]
+    with pytest.raises(TypeError, match="field_expectations"):
+        ST0601ValidationContext(field_expectations=[])  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="ST0601FieldExpectation"):
+        ST0601ValidationContext(field_expectations={10: "PLATFORM"})  # type: ignore[dict-item]
+    for tag in (115, 143):
+        with pytest.raises(ValueError, match="known singleton"):
+            ST0601ValidationContext(
+                field_expectations={tag: ST0601FieldExpectation("x")}
+            )
+    with pytest.raises(TypeError, match="absolute_tolerance"):
+        ST0601FieldExpectation(1.0, absolute_tolerance=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="non-negative"):
+        ST0601FieldExpectation(1.0, absolute_tolerance=-1.0)
+    for tolerance in (float("inf"), float("nan")):
+        with pytest.raises(ValueError, match="finite"):
+            ST0601FieldExpectation(1.0, absolute_tolerance=tolerance)
 
 
 def test_metadata_substream_id_is_forbidden_at_root_level() -> None:

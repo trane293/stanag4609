@@ -500,6 +500,48 @@ DELETE = UpdateAction.DELETE
 
 
 @dataclass(frozen=True, slots=True)
+class ST0601FieldExpectation:
+    """Producer-supplied expected value for one decoded ST 0601 field."""
+
+    value: Any
+    absolute_tolerance: Fraction | int | float | None = None
+
+    def __post_init__(self) -> None:
+        tolerance = self.absolute_tolerance
+        if tolerance is None:
+            return
+        if isinstance(tolerance, bool) or not isinstance(
+            tolerance, (Fraction, int, float)
+        ):
+            raise TypeError("absolute_tolerance must be numeric or None")
+        try:
+            normalized = Fraction(tolerance)
+        except (OverflowError, ValueError) as error:
+            raise ValueError("absolute_tolerance must be finite") from error
+        if normalized < 0:
+            raise ValueError("absolute_tolerance must be non-negative")
+        object.__setattr__(self, "absolute_tolerance", normalized)
+
+    def matches(self, observed: object) -> bool:
+        """Return whether a decoded value satisfies this expectation."""
+
+        tolerance = self.absolute_tolerance
+        if tolerance is None:
+            return bool(observed == self.value)
+        if isinstance(observed, bool) or isinstance(self.value, bool):
+            return False
+        if not isinstance(observed, (Fraction, int, float)) or not isinstance(
+            self.value, (Fraction, int, float)
+        ):
+            return False
+        try:
+            difference = abs(Fraction(observed) - Fraction(self.value))
+        except (OverflowError, ValueError):
+            return False
+        return difference <= tolerance
+
+
+@dataclass(frozen=True, slots=True)
 class ST0601ValidationContext:
     """External facts required to validate conditional ST 0601 semantics.
 
@@ -512,7 +554,9 @@ class ST0601ValidationContext:
     variable-length IMAP tags to the producer precision each value must retain.
     ``vmti_context`` supplies facts about the imagery processed by an embedded
     Item 74 VMTI set; its parent timestamp is checked against and then derived
-    from the enclosing ST 0601 Item 2.
+    from the enclosing ST 0601 Item 2. ``field_expectations`` supplies
+    authoritative producer or test-harness values for singleton root fields;
+    explicit tolerances account for mapped-value quantization.
     """
 
     metadata_birth_timestamp: int | datetime | None = None
@@ -520,6 +564,9 @@ class ST0601ValidationContext:
         default_factory=dict
     )
     vmti_context: VMTIValidationContext | None = None
+    field_expectations: Mapping[int, ST0601FieldExpectation] = field(
+        default_factory=dict
+    )
 
     def __post_init__(self) -> None:
         if self.metadata_birth_timestamp is not None:
@@ -533,6 +580,21 @@ class ST0601ValidationContext:
             self.vmti_context, VMTIValidationContext
         ):
             raise TypeError("vmti_context must be a VMTIValidationContext or None")
+        if not isinstance(self.field_expectations, Mapping):
+            raise TypeError("field_expectations must be a mapping")
+        expectations = dict(self.field_expectations)
+        for tag, expectation in expectations.items():
+            if isinstance(tag, bool) or not isinstance(tag, int):
+                raise TypeError("ST 0601 field expectation tag must be an integer")
+            definition = FIELD_DEFINITIONS.get(tag)
+            if definition is None or definition.multiple or tag in {1, 143}:
+                raise ValueError(
+                    f"ST 0601 tag {tag} is not a known singleton field expectation"
+                )
+            if not isinstance(expectation, ST0601FieldExpectation):
+                raise TypeError(
+                    "field_expectations values must be ST0601FieldExpectation instances"
+                )
         precisions = dict(self.imap_system_precisions)
         for tag, precision in precisions.items():
             if isinstance(tag, bool) or not isinstance(tag, int):
@@ -554,6 +616,7 @@ class ST0601ValidationContext:
                     f"allows at most {maximum_length}"
                 )
         object.__setattr__(self, "imap_system_precisions", MappingProxyType(precisions))
+        object.__setattr__(self, "field_expectations", MappingProxyType(expectations))
 
     def required_imap_length(self, tag: int) -> int | None:
         """Return the shortest wire length for one configured IMAP tag."""
@@ -3821,6 +3884,33 @@ def _validate_imap_system_precision(
             )
 
 
+def _validate_field_expectations(
+    uas: UASLocalSet,
+    context: ST0601ValidationContext | None,
+    *,
+    error_type: type[Exception],
+) -> None:
+    if context is None:
+        return
+    for tag, expectation in context.field_expectations.items():
+        field = uas.get(tag)
+        if field is None or field.value is SpecialValue.UNKNOWN:
+            raise error_type(
+                f"ST 0601 tag {tag} is not present with a known value required by "
+                "producer-supplied ground truth"
+            )
+        if not expectation.matches(field.value):
+            tolerance = (
+                ""
+                if expectation.absolute_tolerance is None
+                else f" within absolute tolerance {float(expectation.absolute_tolerance):g}"
+            )
+            raise error_type(
+                f"ST 0601 tag {tag} decoded value {field.value!r} does not match "
+                f"producer-supplied ground truth {expectation.value!r}{tolerance}"
+            )
+
+
 def _embedded_vmti_context(
     parent_timestamp: object,
     context: ST0601ValidationContext | None,
@@ -3914,7 +4004,11 @@ def encode_uas_local_set(
     local_value = b"".join(encoded_items) + b"\x01\x02\x00\x00"
     packet = ST0601_KEY + encode_ber_length(len(local_value)) + local_value
     checksum = running_sum_16(packet[:-2]).to_bytes(2, "big")
-    return packet[:-2] + checksum
+    result = packet[:-2] + checksum
+    if context is not None and context.field_expectations:
+        decoded = decode_uas_local_set(result)
+        _validate_field_expectations(decoded, context, error_type=ValueError)
+    return result
 
 
 def update_uas_local_set(
@@ -4140,4 +4234,5 @@ def decode_uas_local_set(
         context,
         error_type=DecodeError,
     )
+    _validate_field_expectations(result, context, error_type=DecodeError)
     return result

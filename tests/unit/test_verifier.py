@@ -14,6 +14,7 @@ from stanag4609 import (
     MISMMSecurityContext,
     MISMMSPopulationStatus,
     MISPImageContext,
+    ST0601FieldExpectation,
     ST0601ValidationContext,
     VerificationStatus,
     VideoTimestampVerificationSummary,
@@ -948,12 +949,14 @@ def test_verifier_applies_event_aware_st0601_validation_context() -> None:
     assert context_summary.birth_timestamp_validated_packets == 1
     assert context_summary.imap_precision_validated_items == 0
     assert context_summary.vmti_context_validated_packets == 0
+    assert context_summary.ground_truth_validated_items == 0
     serialized_context = valid.to_dict()["st0601_streams"][0]["validation_context"]
     assert serialized_context == {
         "packets_provided": 1,
         "birth_timestamp_validated_packets": 1,
         "imap_precision_validated_items": 0,
         "vmti_context_validated_packets": 0,
+        "ground_truth_validated_items": 0,
     }
     assert "external context: 1/1 packet(s)" in valid.format_text()
 
@@ -991,6 +994,9 @@ def test_verifier_reports_imap_and_vmti_context_assurance() -> None:
         metadata_birth_timestamp=timestamp,
         imap_system_precisions={104: 0.5, 105: 0.5},
         vmti_context=VMTIValidationContext(),
+        field_expectations={
+            104: ST0601FieldExpectation(1_000.0, absolute_tolerance=0.5)
+        },
     )
 
     report = verify_fmv_stream(
@@ -1005,10 +1011,12 @@ def test_verifier_reports_imap_and_vmti_context_assurance() -> None:
     assert stream.birth_timestamp_validated_packets == 1
     assert stream.imap_precision_validated_items == 1
     assert stream.vmti_context_validated_packets == 1
+    assert stream.ground_truth_validated_items == 1
     html = report.to_html()
     assert "External context" in html
     assert "IMAP precision validated" in html
     assert "VMTI context validated" in html
+    assert "Ground truth validated" in html
 
 
 def test_verifier_marks_unconfigured_asynchronous_metadata_std_unverifiable() -> None:

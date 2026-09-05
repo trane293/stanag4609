@@ -288,6 +288,7 @@ class ST0601StreamVerificationSummary:
     birth_timestamp_validated_packets: int = 0
     imap_precision_validated_items: int = 0
     vmti_context_validated_packets: int = 0
+    ground_truth_validated_items: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -329,6 +330,7 @@ class ST0601StreamVerificationSummary:
                 ),
                 "imap_precision_validated_items": self.imap_precision_validated_items,
                 "vmti_context_validated_packets": self.vmti_context_validated_packets,
+                "ground_truth_validated_items": self.ground_truth_validated_items,
             },
             "mismms_coverage": (
                 None
@@ -565,7 +567,8 @@ class FMVVerificationReport:
                 f"{metadata.context_provided_packets}/{metadata.packets} packet(s), "
                 f"birth={metadata.birth_timestamp_validated_packets}, "
                 f"IMAP items={metadata.imap_precision_validated_items}, "
-                f"VMTI={metadata.vmti_context_validated_packets}"
+                f"VMTI={metadata.vmti_context_validated_packets}, "
+                f"ground truth items={metadata.ground_truth_validated_items}"
             )
             if metadata.mismms_coverage is not None:
                 statuses = {
@@ -821,6 +824,7 @@ class _ST0601Stats:
     birth_timestamp_validated_packets: int = 0
     imap_precision_validated_items: int = 0
     vmti_context_validated_packets: int = 0
+    ground_truth_validated_items: int = 0
     versions: set[int] = field(default_factory=set)
     tags: dict[int, _ST0601TagStats] = field(default_factory=dict)
     untracked_item_occurrences: int = 0
@@ -844,6 +848,9 @@ class _ST0601Stats:
                 uas.value(74), VMTILocalSet
             ):
                 self.vmti_context_validated_packets += 1
+            self.ground_truth_validated_items += len(
+                present_tags.intersection(context.field_expectations)
+            )
         timestamp = uas.value(2)
         if isinstance(timestamp, datetime):
             self.timestamped_packets += 1
@@ -973,6 +980,7 @@ class _ST0601Stats:
             birth_timestamp_validated_packets=self.birth_timestamp_validated_packets,
             imap_precision_validated_items=self.imap_precision_validated_items,
             vmti_context_validated_packets=self.vmti_context_validated_packets,
+            ground_truth_validated_items=self.ground_truth_validated_items,
             mismms_coverage=mismms_coverage,
             versions=tuple(sorted(self.versions)),
             tags=tuple(

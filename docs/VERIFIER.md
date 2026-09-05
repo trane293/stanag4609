@@ -279,6 +279,7 @@ from stanag4609 import (
     FMVVerifier,
     MISMMSecurityContext,
     ObjectCountryCodingMethod,
+    ST0601FieldExpectation,
     ST0601ValidationContext,
     SecurityClassification,
 )
@@ -286,6 +287,10 @@ from stanag4609 import (
 def context_for_packet(event, packet):
     return ST0601ValidationContext(
         imap_system_precisions={104: 0.5},
+        field_expectations={
+            13: ST0601FieldExpectation(40.1234, absolute_tolerance=1e-6),
+            14: ST0601FieldExpectation(-75.4321, absolute_tolerance=1e-6),
+        },
     )
 
 verifier = FMVVerifier(
@@ -322,20 +327,23 @@ payload = report.to_dict()
 `st0601_context_provider(event, packet)` is optional and is called for each
 complete ST 0601 KLV packet. It may return an `ST0601ValidationContext` with
 the producer-known metadata time of birth, negotiated variable-IMAP system
-precisions, and embedded-VMTI frame facts, or `None` when those facts are not
-available. Context failures become normal `metadata.decode` findings with the
-program, PID, and source offset. The same option is accepted by
-`verify_fmv_stream` and `verify_fmv_file`.
+precisions, authoritative expected singleton field values, and embedded-VMTI
+frame facts, or `None` when those facts are not available. Use
+`ST0601FieldExpectation.absolute_tolerance` for mapped numeric fields whose wire
+quantization prevents exact equality. Expected fields must be present and
+known in that packet. Context failures become normal `metadata.decode`
+findings with the program, PID, and source offset. The same option is accepted
+by `verify_fmv_stream` and `verify_fmv_file`.
 
 Each ST 0601 service summary records this external assurance separately from
 wire-observable checks. Its `validation_context` object reports the number of
 packets receiving any context, packets whose metadata birth time was checked,
-variable-IMAP items whose encoded precision was checked, and packets whose
-embedded VMTI was checked against external frame facts. The text and HTML
-reports show the same counts. A zero therefore means “not externally proven,”
-not that the sensor fact was inferred from its own KLV value. Decoded
-`KLVMetadataEvent` values retain the exact `validation_context` used for the
-same reason.
+variable-IMAP items whose encoded precision was checked, packets whose embedded
+VMTI was checked against external frame facts, and fields compared with
+producer ground truth. The text and HTML reports show the same counts. A zero
+therefore means “not externally proven,” not that the sensor fact was inferred
+from its own KLV value. Decoded `KLVMetadataEvent` values retain the exact
+`validation_context` used for the same reason.
 
 `ontology_resolver` is optional. When supplied, it is applied to both
 standalone VMTI and ST 0601 Item 74, and failures appear in the report with the

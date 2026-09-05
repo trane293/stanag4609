@@ -50,8 +50,8 @@ important negative-conformance expectations.
    caller-dimension SPRM center defaults, plane subtraction, and reconstruction.
    Every active root item is typed, and
    verifier summaries quantify which packets received birth-time,
-   IMAP-precision, and VMTI frame context; retain lossless unknown-item
-   behavior for future extensions.
+   IMAP-precision, VMTI frame, and exact/tolerance-aware field ground-truth
+   context; retain lossless unknown-item behavior for future extensions.
 3. Expand ST 0903.6 beyond the implemented VMTI/VTarget/VTracker/VMask/VChip,
    ontology, algorithm, and geospatial slices with independent real-stream
    vectors. All 65 active and 78 deprecated identifiers now have
