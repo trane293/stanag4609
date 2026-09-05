@@ -6,20 +6,27 @@ import argparse
 import json
 from collections.abc import Iterator, Sequence
 from contextlib import suppress
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime
 from functools import partial
 from http.server import ThreadingHTTPServer
+from itertools import chain
 from pathlib import Path
 from typing import Any
 
-from stanag4609 import AlgorithmLocalSet, OntologyLocalSet
+from stanag4609 import (
+    PTS_CLOCK_RATE,
+    PTS_MODULUS,
+    AlgorithmLocalSet,
+    OntologyLocalSet,
+)
 from stanag4609.player import extract_overlay_detections
 from stanag4609.player.server import PlayerHTTPRequestHandler, prepare_player_assets
 from stanag4609.sidecar import (
     FrameEnvelope,
     InferenceContext,
     InferenceResult,
+    PyAVFrameSource,
     UltralyticsYOLODetector,
     VMTIMetadataEmitter,
 )
@@ -57,36 +64,37 @@ def _parser() -> argparse.ArgumentParser:
 
 def _sampled_frames(
     media: Path, samples: Sequence[dict[str, Any]]
-) -> Iterator[tuple[int, Any]]:
+) -> Iterator[tuple[int, FrameEnvelope]]:
     try:
-        import cv2
-    except ImportError as error:  # pragma: no cover - optional dependency guidance
-        raise SystemExit(
-            "install the demo dependency: pip install 'stanag4609[ai-ultralytics]'"
-        ) from error
-
-    capture = cv2.VideoCapture(str(media))
-    fps = float(capture.get(cv2.CAP_PROP_FPS))
-    if not capture.isOpened() or fps <= 0:
-        raise SystemExit(f"could not decode prepared video: {media}")
-    sample_index = 0
-    frame_index = 0
+        frames = iter(PyAVFrameSource(media))
+    except RuntimeError as error:  # pragma: no cover - optional dependency guidance
+        raise SystemExit(str(error)) from error
     try:
-        while sample_index < len(samples):
-            ok, frame = capture.read()
-            if not ok:
-                break
-            frame_time = frame_index / fps
+        first = next(frames, None)
+        if first is None:
+            raise SystemExit(f"could not decode prepared video: {media}")
+        origin_pts = first.pts
+        sample_index = 0
+        for frame in chain((first,), frames):
+            frame_time = (
+                (frame.pts - origin_pts) % PTS_MODULUS
+            ) / PTS_CLOCK_RATE
             while (
                 sample_index < len(samples)
-                and float(samples[sample_index]["time_seconds"])
-                <= frame_time + 0.5 / fps
+                and float(samples[sample_index]["time_seconds"]) <= frame_time
             ):
-                yield sample_index, frame.copy()
+                sample = samples[sample_index]
+                yield sample_index, replace(
+                    frame,
+                    sequence_number=sample_index,
+                    pts=int(sample["pts"]),
+                    timestamp_microseconds=_timestamp(sample),
+                )
                 sample_index += 1
-            frame_index += 1
     finally:
-        capture.release()
+        close = getattr(frames, "close", None)
+        if callable(close):
+            close()
 
 
 def _timestamp(sample: dict[str, Any]) -> int:
@@ -145,7 +153,7 @@ def _annotate_with_yolo(
 
     def process(batch: list[tuple[int, Any]]) -> None:
         nonlocal detected_frames, detection_count
-        frames = [frame for _, frame in batch]
+        frames = [frame.pixels for _, frame in batch]
         kwargs: dict[str, Any] = {
             "classes": list(_ROAD_CLASSES),
             "conf": confidence,
@@ -155,17 +163,8 @@ def _annotate_with_yolo(
         if device is not None:
             kwargs["device"] = device
         results = model.predict(frames, **kwargs)
-        for (sample_index, pixels), result in zip(batch, results, strict=True):
-            height, width = pixels.shape[:2]
+        for (sample_index, frame), result in zip(batch, results, strict=True):
             sample = samples[sample_index]
-            frame = FrameEnvelope(
-                sequence_number=sample_index,
-                pts=int(sample["pts"]),
-                width=width,
-                height=height,
-                pixels=pixels,
-                timestamp_microseconds=_timestamp(sample),
-            )
             detector = UltralyticsYOLODetector(
                 _PreparedPrediction(result), algorithm_id=1
             )

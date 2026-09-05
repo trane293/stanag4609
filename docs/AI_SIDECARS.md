@@ -14,6 +14,8 @@ not depend on NumPy, PyTorch, CUDA, or a particular video decoder.
   PTS timelines, rollover-safe exact/latest/nearest policies, a configurable
   sampling offset, and a bounded packet cache. It can derive frame UTC from a
   correlated MISB Precision Time Stamp without floating-point conversion.
+- `PyAVFrameSource` optionally decodes common FFmpeg-supported video into BGR
+  arrays or native frames while preserving transport-clock timing.
 - `AsyncFrameQueue` bounds decoded-frame memory and latency with explicit
   block, drop-oldest, drop-newest, or raise-on-overload policies. Every enqueue
   reports the exact dropped frame and cumulative accepted/drop counters.
@@ -34,7 +36,8 @@ Runnable, dependency-free examples live in
 [`examples/ai_sidecar`](https://github.com/trane293/stanag4609/tree/main/examples/ai_sidecar):
 `pipeline_graph.py` shows
 nested sequential/parallel execution, `correlate_frame.py` joins a decoded
-frame to synchronous KLV, `queue_frames.py` demonstrates low-latency overload
+frame to synchronous KLV, `decode_video.py` turns PyAV output into public frame
+envelopes, `queue_frames.py` demonstrates low-latency overload
 handling, and `ontology_vmti.py` shows a labeled detection becoming Algorithm,
 Ontology, and VObject metadata. `ultralytics_yolo.py` is the optional packaged
 YOLO adapter example; `onnx_runtime.py` demonstrates the model-specific hooks
@@ -42,6 +45,29 @@ used by the packaged ONNX Runtime adapter, `triton_async.py` constructs a
 cancellable remote inference stage, and `http_json.py` adapts an ordinary
 bounded JSON endpoint. `emit_vmti_packet.py` closes the loop from a named
 inference result to timed ST 0601.
+
+## Decode video into frame envelopes
+
+Install the optional backend and iterate a file, URL, or file-like object:
+
+```console
+pip install 'stanag4609[video-pyav]'
+```
+
+```python
+from stanag4609.sidecar import PyAVFrameSource
+
+for frame in PyAVFrameSource("flight.ts", video_pid=0x101):
+    # BGR pixels by default; PTS is always on the 90 kHz transport clock.
+    model_input = frame.pixels
+```
+
+The adapter selects video stream zero by default and accepts `video_stream=N`
+for other tracks. Set `pixel_format=None` to retain native PyAV `VideoFrame`
+objects, or request a different FFmpeg pixel format for model-specific
+preprocessing. Native timestamps are rescaled with exact rational arithmetic
+and wrapped into the unsigned 33-bit MPEG PTS domain. Absolute UTC is not
+guessed from media-relative PTS; correlate synchronous KLV when it is needed.
 
 ## Correlate KLV with decoded frames
 
@@ -570,9 +596,8 @@ producer's lifecycle boundary; otherwise a first observation of `Inactive` or
 
 The graph API already provides bounded branch concurrency, timeouts, immutable
 inputs, deterministic results, a bounded synchronous PTS correlator, an
-explicit-overflow decoded-frame queue, and cross-frame VMTI lifecycle checks.
-The video decoder adapter is not implemented yet. The optional Ultralytics
-adapter currently
+explicit-overflow decoded-frame queue, optional PyAV video decoding, and
+cross-frame VMTI lifecycle checks. The optional Ultralytics adapter currently
 covers object-detection boxes but not segmentation masks,
 pose, oriented boxes, or an integrated tracking invocation. The reference
 player renders synchronized pixel bounding boxes and centroids in both

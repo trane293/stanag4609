@@ -28,6 +28,7 @@ API.
 | ONNX Runtime | Implemented | `ai-onnx` |
 | NVIDIA Triton HTTP or gRPC AsyncIO | Implemented | `ai-triton-http`, `ai-triton-grpc` |
 | Generic JSON-over-HTTP inference | Implemented | Core `HTTPJSONAdapter` |
+| PyAV/FFmpeg video frame decode | Implemented | `video-pyav` |
 | PyAV/FFmpeg audio decode | Implemented | `audio-pyav` |
 | FFmpeg media remux/player preparation | Implemented | External `ffmpeg` executable |
 | GStreamer element/plugin | Planned | Application bridge today |
@@ -50,7 +51,7 @@ from stanag4609.sidecar import (
 )
 
 def detect_trucks(context):
-    model_rows = truck_model(context.frame.frame)
+    model_rows = truck_model(context.frame.pixels)
     return InferenceOutput(
         detections=tuple(
             Detection(
@@ -67,6 +68,28 @@ def detect_trucks(context):
 
 truck_stage = InferenceStage("trucks", detect_trucks, threaded=True)
 ```
+
+## Decode video for any model
+
+Install the optional backend and iterate a file, URL, or file-like object:
+
+```console
+pip install 'stanag4609[video-pyav]'
+```
+
+```python
+from stanag4609.sidecar import PyAVFrameSource
+
+for frame in PyAVFrameSource("flight.ts", video_pid=0x101):
+    # frame.pixels is a BGR NumPy array; frame.pts uses the 90 kHz TS clock.
+    submit_to_model(frame)
+```
+
+Set `pixel_format=None` to retain native PyAV `VideoFrame` objects, or select a
+different FFmpeg pixel format for a model-specific preprocessor. The adapter
+does not guess an absolute UTC time from media-relative PTS. Feed synchronous
+KLV into `FrameMetadataCorrelator` when the model needs the matching ST 0601
+timestamp or platform/sensor context.
 
 For production graphs, timeouts, deterministic merging, frame/KLV correlation,
 queue overload policy, and VMTI encoding are covered in

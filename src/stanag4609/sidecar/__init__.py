@@ -22,6 +22,7 @@ from stanag4609.sidecar.onnx import (
     OnnxRuntimeAdapter,
 )
 from stanag4609.sidecar.pipeline import InferenceStage, Parallel, Sequential
+from stanag4609.sidecar.pyav import PyAVFrameSource
 from stanag4609.sidecar.queue import (
     AsyncFrameQueue,
     FrameOverflowPolicy,
@@ -59,6 +60,7 @@ __all__ = [
     "OnnxRuntimeAdapter",
     "Parallel",
     "PixelBoundingBox",
+    "PyAVFrameSource",
     "Sequential",
     "TritonAsyncAdapter",
     "TritonInputBuilder",

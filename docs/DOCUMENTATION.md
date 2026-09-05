@@ -31,7 +31,7 @@ transform/fan-out. Remaining gaps are tracked below.
 | Demux, process, and remux live video | Replace/inject KLV while preserving media/audio | Complete; timed integration fixture |
 | Bring your own AI model | Convert model output to VMTI | Complete; executable generic example |
 | Compose AI pipelines | Parallel detectors, sequential fusion/tracking | Complete; graph and overload tests |
-| Deploy ONNX, Ultralytics, and Triton | Local and remote inference choices | Examples exist; optional-dependency CI remains |
+| Deploy PyAV, ONNX, Ultralytics, and Triton | Video decode plus local and remote inference choices | Examples exist; PyAV is dependency-gated, other optional runtimes remain |
 | Build a recorded web viewer | Timeline, overlays, metadata panel, map, seeking | Complete; real-FMV browser smoke test |
 | Build a low-latency web viewer | Media gateway plus synchronized side channel | Measured deployment remains |
 | Integrate FFmpeg and GStreamer | Pipes, appsink/appsrc, clocks, EOS, failure | Versioned runtime integration tests remain |

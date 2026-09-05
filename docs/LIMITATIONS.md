@@ -53,9 +53,12 @@
   collision validation.
 - The first-party sidecar package defines frame/detection envelopes, nested
   sequential and bounded-parallel inference graphs, and common detection-to-VMTI
-  conversion and synchronous PTS/KLV correlation. Compressed-frame decoding,
-  asynchronous-metadata association policy and model lifecycle management
-  remain pending. Bounded per-stage runtime counters and latency totals are
+  conversion and synchronous PTS/KLV correlation. The optional PyAV frame
+  source decodes common FFmpeg-supported video into model-neutral frames and
+  rescales native timestamps to the transport PTS clock; hardware selection,
+  asynchronous-metadata association policy, and model lifecycle management
+  remain application-owned. Bounded per-stage runtime counters and latency
+  totals are
   available, but histogram/export backends remain application-owned. The
   bounded generic JSON-over-HTTP,
   ONNX Runtime, and Triton adapters intentionally retain application-owned

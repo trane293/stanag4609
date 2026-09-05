@@ -24,7 +24,7 @@ Install the optional local-model runtime, then run YOLO11 against every
 synchronized metadata sample in the checksum-pinned Esri `Truck.ts` fixture:
 
 ```console
-pip install 'stanag4609[ai-ultralytics]'
+pip install 'stanag4609[ai-ultralytics,video-pyav]'
 ```
 
 ```console
@@ -41,6 +41,9 @@ AI sidecar UI: http://127.0.0.1:8767/ model=yolo11n.pt detected_frames=488 detec
 ```
 
 Counts can change with model-runtime versions and inference hardware.
+The tutorial decodes the prepared player media through the first-party
+`PyAVFrameSource`, which emits 90 kHz `FrameEnvelope` values directly into the
+same model-neutral interface used by custom, ONNX, HTTP, and Triton stages.
 
 Open that URL, start playback, and seek through the video. The player keeps the
 FMV telemetry, map, activity feed, and VMTI overlays synchronized.

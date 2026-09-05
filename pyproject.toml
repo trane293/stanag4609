@@ -74,6 +74,10 @@ audio-pyav = [
   "av>=16,<18; python_version < '3.11'",
   "av>=18.1; python_version >= '3.11'",
 ]
+video-pyav = [
+  "av>=16,<18; python_version < '3.11'",
+  "av>=18.1; python_version >= '3.11'",
+]
 browser-test = [
   "playwright>=1.62,<2",
 ]

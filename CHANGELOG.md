@@ -5,6 +5,10 @@ Versioning, with PEP 440 pre-release identifiers while the API is still alpha.
 
 ## Unreleased
 
+- Add an optional first-party PyAV video source that produces model-neutral
+  `FrameEnvelope` values with exact 90 kHz PTS conversion, BGR or native frame
+  output, deterministic stream selection, and safe container lifecycle; use it
+  in the real YOLO-to-VMTI player tutorial.
 - Resolve ST 0601 Item 42's MSL/HAE datum from receiver-current frame-center
   Items 25 and 78 across sparse Report-on-Change packets; expose the typed
   result through the core API, GeoJSON, and player, and report ambiguous datum
