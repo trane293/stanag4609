@@ -384,6 +384,8 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 - Added a bounded ST 1010.3 SDCC-FLP codec with Mode 1/2 Parse Control,
   IEEE/IMAP values, full and sparse upper-triangle matrices, and ST 0601 Item
   102 Refined Source List ordering for repeated packs.
+- Bound the complete ST 1010.3 population of 11 active and two deprecated
+  requirements to the acquired standard digest and executable Item 102 evidence.
 - Added a typed ST 0806.4 RVT codec for independent CRC-protected packets and
   embedded values, all Items 1-21, repeatable POI/AOI/User Defined subordinate
   sets, and the ST 0601 Item 73 bridge.

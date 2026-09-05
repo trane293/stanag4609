@@ -338,6 +338,28 @@
       ]
     },
     {
+      "id": "MISB-ST-1010.3",
+      "source_sha256": "55a64e2d228c4e3c1aa2a0c952778e282c98d0b90aead27a7af8fa4d3a28d20d",
+      "trace": "docs/requirements/ST1010.3.md",
+      "active_requirements": [
+        "ST 1010.2-09",
+        "ST 1010.1-01",
+        "ST 1010.2-10",
+        "ST 1010.1-02",
+        "ST 1010.2-11",
+        "ST 1010.1-04",
+        "ST 1010.2-12",
+        "ST 1010.1-05",
+        "ST 1010.1-08",
+        "ST 1010.1-06",
+        "ST 1010.2-13"
+      ],
+      "inactive_requirements": [
+        {"id": "ST 1010.1-03", "status": "deprecated"},
+        {"id": "ST 1010.1-07", "status": "deprecated"}
+      ]
+    },
+    {
       "id": "MISB-ST-1601.2",
       "source_sha256": "67a87c54d51d678c05cd84c421f2c71548b049539527b5a53adb5318619df271",
       "trace": "docs/requirements/ST1601.2.md",
