@@ -19,6 +19,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 - Bind all 25 active ST 0806.4 requirements to the checksum-pinned publication
   and add opt-in producer time-of-birth validation for independent or embedded
   RVT Local Sets used by ST 0601 Item 73.
+- Bind all six active ST 1601.2 requirements to the checksum-pinned publication
+  and close the software-verifiable Geo-Registration profile used by ST 0601
+  Item 98.
 
 ## 0.1.0 - 2026-09-05
 

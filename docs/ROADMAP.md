@@ -61,7 +61,8 @@ important negative-conformance expectations.
    accounting and effective-PRF/RCS exploitation helpers;
    Item 98 additionally has parallel Amend/MSID Report-on-Change resolution,
    and rejects Item 9/10 uncertainty arrays that lack their dimensionally
-   compatible Item 4/5/8 source geometry,
+   compatible Item 4/5/8 source geometry, with checksum-bound exact ST 1601.2
+   requirement accounting for its complete software-verifiable profile;
    Item 99 has cross-branch policy validation, and Item 97 includes ST 1002
    caller-dimension SPRM center defaults, plane subtraction, and reconstruction.
    Every active root item is typed, and
