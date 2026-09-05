@@ -318,6 +318,24 @@
       "inactive_requirements": []
     },
     {
+      "id": "MISB-ST-1602.2",
+      "source_sha256": "e070e62088a344f3970ec47d4cfdc02bc1638306379692ad140908ab45eaf24d",
+      "trace": "docs/requirements/ST1602.2.md",
+      "active_requirements": [
+        "ST 1602-01",
+        "ST 1602-02",
+        "ST 1602-03",
+        "ST 1602-04",
+        "ST 1602.1-05",
+        "ST 1602.1-06",
+        "ST 1602.1-07",
+        "ST 1602.1-08",
+        "ST 1602.1-09",
+        "ST 1602.1-10"
+      ],
+      "inactive_requirements": []
+    },
+    {
       "id": "MISB-MISP-2019.1",
       "source_sha256": "3167362ace20746ed13e85522130c2e9f3fc9ecf62a112bd75bdced7b102d5ea",
       "trace": "docs/requirements/MISP-2019.1.md",

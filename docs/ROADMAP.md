@@ -63,7 +63,9 @@ important negative-conformance expectations.
    and rejects Item 9/10 uncertainty arrays that lack their dimensionally
    compatible Item 4/5/8 source geometry, with checksum-bound exact ST 1601.2
    requirement accounting for its complete software-verifiable profile;
-   Item 99 has cross-branch policy validation, and Item 97 includes ST 1002
+   Item 99 has cross-branch policy validation and checksum-bound exact ST 1602.2
+   requirement accounting for its complete software-verifiable profile;
+   Item 97 includes ST 1002
    caller-dimension SPRM center defaults, plane subtraction, and reconstruction.
    Every active root item is typed, and
    verifier summaries quantify which packets received birth-time,

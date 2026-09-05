@@ -92,6 +92,18 @@ ST1601_ACTIVE = {
     "ST 1601-05",
     "ST 1601-06",
 }
+ST1602_ACTIVE = {
+    "ST 1602-01",
+    "ST 1602-02",
+    "ST 1602-03",
+    "ST 1602-04",
+    "ST 1602.1-05",
+    "ST 1602.1-06",
+    "ST 1602.1-07",
+    "ST 1602.1-08",
+    "ST 1602.1-09",
+    "ST 1602.1-10",
+}
 ST0903_ACTIVE = _st_requirement_ids(
     """
     ST_0903.4-01 ST_0903.4-03 ST_0903.4-10 ST_0903.4-13 ST_0903.4-14
@@ -191,6 +203,7 @@ def test_requirement_inventory_names_the_exact_normative_populations() -> None:
         "MISB-ST-0903.6",
         "MISB-ST-1206.1",
         "MISB-ST-1601.2",
+        "MISB-ST-1602.2",
         "MISB-MISP-2019.1",
     }
 
@@ -226,6 +239,11 @@ def test_requirement_inventory_names_the_exact_normative_populations() -> None:
     assert set(st1601["active_requirements"]) == ST1601_ACTIVE
     assert len(st1601["active_requirements"]) == len(ST1601_ACTIVE) == 6
     assert st1601["inactive_requirements"] == []
+
+    st1602 = documents["MISB-ST-1602.2"]
+    assert set(st1602["active_requirements"]) == ST1602_ACTIVE
+    assert len(st1602["active_requirements"]) == len(ST1602_ACTIVE) == 10
+    assert st1602["inactive_requirements"] == []
 
     st0903 = documents["MISB-ST-0903.6"]
     assert set(st0903["active_requirements"]) == ST0903_ACTIVE

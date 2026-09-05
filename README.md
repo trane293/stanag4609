@@ -55,8 +55,8 @@ and send the same timed metadata to independent GIS or analytics consumers.
 - ST 1601.2 geo-registration with source-bound complete requirement accounting,
   typed tie-point arrays, UUID configuration identity, heterogeneous uncertainty
   mappings, and the ST 0601 Item 98 bridge.
-- ST 1602.2 composite imaging with source/AOI/sub-image geometry,
-  transparency, Z-order, the ST 0601 Item 99 bridge, and stateful sibling
+- ST 1602.2 composite imaging with source-bound complete requirement accounting,
+  source/AOI/sub-image geometry, transparency, Z-order, the ST 0601 Item 99 bridge, and stateful sibling
   Z-order, multi-sensor child-identifier validation, and effective parent/child
   timestamp resolution.
 - ST 0903.6 standalone/embedded VMTI, VTarget packs, frame-bounded pixel

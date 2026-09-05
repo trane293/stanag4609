@@ -21,6 +21,9 @@
   ST 0601 Item 98 likewise covers the complete software-verifiable ST 1601.2
   profile; algorithm identity, tie-point truth, and uncertainty quality remain
   producer-owned.
+  ST 0601 Item 99 covers the complete software-verifiable ST 1602.2 profile;
+  source/composite geometry truth, omitted timestamp equality, and visual
+  compositing quality remain producer-owned.
 - Remaining ST 0601 producer-owned truth and measurement-quality semantics,
   additional cross-frame ST 0903 geometric semantics, external provisioning
   of asynchronous metadata STD parameters, dependency-free audio sample

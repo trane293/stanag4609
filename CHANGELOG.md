@@ -22,6 +22,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 - Bind all six active ST 1601.2 requirements to the checksum-pinned publication
   and close the software-verifiable Geo-Registration profile used by ST 0601
   Item 98.
+- Bind all ten active ST 1602.2 requirements to the checksum-pinned publication
+  and close the software-verifiable Composite Imaging profile used by ST 0601
+  Item 99.
 
 ## 0.1.0 - 2026-09-05
 
