@@ -840,6 +840,27 @@ def test_verifier_reports_hevc_profile_and_class1_depth_separately() -> None:
     assert "10-bit" in depth_finding.message
 
 
+def test_verifier_rejects_video_codec_outside_misp_class1_profile() -> None:
+    report = _verify(
+        _transport(video_stream_type=0x10, video_payload=b"mpeg4-visual-payload")
+    )
+
+    finding = next(item for item in report.findings if item.code == "misp.video.codec")
+    assert finding.status is VerificationStatus.ERROR
+    assert finding.requirement == "MISP-2019.1 §3.6.3.1"
+    assert finding.pid == 0x101
+    assert "stream_type 0x10" in finding.message
+    assert "H.262, H.264/AVC, and H.265/HEVC" in finding.message
+
+
+def test_verifier_accepts_approved_misp_class1_video_codec() -> None:
+    report = _verify(_transport(video_stream_type=0x1B))
+
+    finding = next(item for item in report.findings if item.code == "misp.video.codec")
+    assert finding.status is VerificationStatus.PASS
+    assert "H.264/AVC" in finding.message
+
+
 def test_verifier_fails_when_recognized_video_frames_lack_st0604_timestamps() -> None:
     payload = b"".join(
         (

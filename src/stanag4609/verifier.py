@@ -2482,6 +2482,26 @@ class FMVVerifier:
                 else "no recognized motion-imagery elementary stream was discovered"
             ),
         )
+        approved_video_codecs = {
+            0x02: "H.262/MPEG-2 Video",
+            0x1B: "H.264/AVC",
+            0x24: "H.265/HEVC",
+        }
+        for stream in sorted(video_streams, key=lambda item: (item.program_number, item.pid)):
+            codec = approved_video_codecs.get(stream.stream_type)
+            self._add(
+                VerificationStatus.PASS if codec is not None else VerificationStatus.ERROR,
+                "misp.video.codec",
+                (
+                    f"declared {codec} video is approved for MISP Class 1"
+                    if codec is not None
+                    else f"video stream_type 0x{stream.stream_type:02X} is outside the "
+                    "MISP Class 1 approved codecs H.262, H.264/AVC, and H.265/HEVC"
+                ),
+                requirement="MISP-2019.1 §3.6.3.1",
+                program_number=stream.program_number,
+                pid=stream.pid,
+            )
         for key, video in sorted(self._video_timestamps.items()):
             if video.access_units == 0:
                 self._add(

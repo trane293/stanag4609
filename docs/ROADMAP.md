@@ -29,6 +29,8 @@ important negative-conformance expectations.
 
 1. Complete MISP-2019.1 software-verifiable image-profile checks. Embedded
    ST 0604 timestamps are now parsed and count-audited for H.262/AVC/HEVC;
+   every declared video stream is checked against the three approved Class 1
+   codec families while non-profile stream types remain losslessly preservable;
    H.262/AVC/HEVC dimensions, display/timing fields, scan signalling, and codec
    profile/level and the Class 1 eight-bit-per-band limit are now inspected
    across every observed sequence property set, so an early profile, scan, or

@@ -160,7 +160,7 @@ errors, carriage errors, and the other structural checks still fail.
 | ST 0903 | Successful standalone or embedded VMTI decode, optional OWL/entity/exact-label resolution, target observations/unique-ID inventory, cross-frame state transitions, dropped-ID reuse, and missing-status diagnostics |
 | ST 1001 | Permitted audio stream types, optional application-required audio, complete MP2/AAC-LC frame parsing, PTS anchoring, sample rate, channel count, sample/frame totals, cumulative duration, malformed headers, and trailing truncation |
 | ST 0604 | Incremental H.262 user-data and AVC/HEVC unregistered-SEI parsing, Time Status validation, micro/nanosecond inventory, timestamp-to-access-unit association, and missing/duplicate/unassociated diagnostics |
-| MISP video profile | H.262/AVC/HEVC coded dimensions, available display ratio/frame rate, scan signalling, chroma/bit depth, profile/level, property changes, stream-wide adopted MISP profile/scan checks across every observed sequence property set, the Class 1 eight-bit-per-band limit, and explicit producer source-aspect/scan context |
+| MISP video profile | Approved Class 1 codec declaration (H.262/AVC/HEVC), coded dimensions, available display ratio/frame rate, scan signalling, chroma/bit depth, profile/level, property changes, stream-wide adopted MISP profile/scan checks across every observed sequence property set, the Class 1 eight-bit-per-band limit, and explicit producer source-aspect/scan context |
 
 VMTI identities are scoped by program, metadata PID, and metadata service ID.
 Reusing an identifier after `Dropped` or taking an impossible state-machine
@@ -168,6 +168,11 @@ transition is an error. Because Item 23 is optional, a missing detection status
 is a warning: the packet is still structurally valid, but lifecycle verification
 for that target is incomplete. A finite recording can begin mid-lifecycle, so
 the verifier does not assume the first observed state is target creation.
+
+The transport demuxer remains capable of preserving other registered MPEG-TS
+video stream types. The `misp.video.codec` result is specifically a MISP Class
+1 conformance check; it does not claim that those other codecs cannot be
+carried or processed by an application-specific pipeline.
 
 Control Command history is scoped by the same program/PID/service identity.
 The verifier reports non-increasing new command IDs, changed command text or
