@@ -10,6 +10,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
   a bounded grouped activity feed, and a pixel-binned interactive detection
   timeline with hover summaries and synchronized seeking to the reference
   player.
+- Add a sparse server-side full-mission detection summary with bounded
+  heavy-hitter label memory and exact totals, keep incremental browser detail
+  at 512 samples, and make paused scrubbing fetch the effective metadata sample.
 
 ## 0.1.0 - 2026-09-05
 

@@ -15,7 +15,13 @@ from threading import Thread
 
 import pytest
 
-from stanag4609.player import MetadataTimeline, scan_transport_timeline
+from stanag4609.player import (
+    MetadataSample,
+    MetadataTimeline,
+    OverlayDetection,
+    scan_transport_timeline,
+    summarize_detection_timeline,
+)
 from stanag4609.player.server import (
     PlayerHTTPRequestHandler,
     _iter_timeline_sse,
@@ -368,6 +374,117 @@ def test_overlay_extraction_requires_dimensions_and_typed_input() -> None:
         extract_overlay_detections(vmti, frame_corners=((1.0, 2.0),))
 
 
+def test_detection_timeline_summary_is_sparse_exact_and_label_bounded() -> None:
+    def detection(identifier: int, label: str) -> OverlayDetection:
+        return OverlayDetection(
+            identifier,
+            None,
+            None,
+            label,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
+    timeline = MetadataTimeline(
+        90_000,
+        (
+            MetadataSample(0.0, 90_000, 1, 258, {}, detections=(detection(1, "truck"),)),
+            MetadataSample(
+                5.0,
+                540_000,
+                1,
+                258,
+                {},
+                detections=tuple(
+                    detection(index + 2, "truck" if index < 5 else f"class-{index}")
+                    for index in range(10)
+                ),
+            ),
+        ),
+    )
+
+    summary = summarize_detection_timeline(
+        timeline,
+        bin_count=10,
+        duration_seconds=10,
+        max_labels_per_bin=2,
+    )
+
+    assert summary.duration_seconds == 10
+    assert summary.sample_count == 2
+    assert summary.observation_count == 11
+    assert summary.bin_count == 10
+    assert [item.index for item in summary.bins] == [0, 5]
+    assert summary.bins[0].count == 1
+    assert [(item.label, item.count) for item in summary.bins[0].labels] == [
+        ("truck", 1)
+    ]
+    assert summary.bins[0].other_count == 0
+    assert summary.bins[1].count == 10
+    assert len(summary.bins[1].labels) <= 2
+    assert sum(item.count for item in summary.bins[1].labels) + summary.bins[1].other_count == 10
+    assert json.loads(summary.to_json())["observation_count"] == 11
+
+
+def test_detection_timeline_summary_bounds_adversarial_label_cardinality() -> None:
+    detections = tuple(
+        OverlayDetection(
+            index,
+            None,
+            None,
+            f"unique-{index}",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        for index in range(10_000)
+    )
+    timeline = MetadataTimeline(
+        0,
+        (MetadataSample(0.0, 0, 1, 258, {}, detections=detections),),
+    )
+
+    summary = summarize_detection_timeline(
+        timeline,
+        bin_count=1,
+        max_labels_per_bin=4,
+    )
+
+    assert summary.observation_count == 10_000
+    assert len(summary.bins) == 1
+    assert len(summary.bins[0].labels) <= 4
+    represented = sum(item.count for item in summary.bins[0].labels)
+    assert represented + summary.bins[0].other_count == 10_000
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"bin_count": 0}, "bin_count"),
+        ({"bin_count": 2049}, "bin_count"),
+        ({"bin_count": 10, "duration_seconds": float("nan")}, "duration_seconds"),
+        ({"bin_count": 10, "duration_seconds": -1}, "duration_seconds"),
+        ({"bin_count": 10, "max_labels_per_bin": 0}, "max_labels_per_bin"),
+    ],
+)
+def test_detection_timeline_summary_validates_bounds(
+    kwargs: dict[str, object], message: str
+) -> None:
+    with pytest.raises((TypeError, ValueError), match=message):
+        summarize_detection_timeline(MetadataTimeline(None, ()), **kwargs)  # type: ignore[arg-type]
+
+
 def test_contour_only_detection_derives_overlay_center() -> None:
     vmti = decode_vmti_local_set(
         encode_vmti_local_set(
@@ -574,6 +691,27 @@ def test_reference_player_serves_timed_metadata_events(tmp_path: Path) -> None:
         assert b"event: sample\nid: 0\n" in body
         assert body.endswith(b'event: end\ndata: {"samples":1}\n\n')
 
+        summary_connection = HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+        summary_connection.request("GET", "/metadata/summary?bins=16&duration=10")
+        summary_response = summary_connection.getresponse()
+        summary = json.loads(summary_response.read())
+        summary_connection.close()
+        assert summary_response.status == 200
+        assert summary_response.getheader("Content-Type") == "application/json; charset=utf-8"
+        assert summary_response.getheader("Cache-Control") == "private, max-age=60"
+        assert summary["duration_seconds"] == 10
+        assert summary["sample_count"] == 1
+        assert summary["observation_count"] == 1
+        assert summary["bin_count"] == 16
+        assert summary["bins"] == [
+            {
+                "index": 0,
+                "count": 1,
+                "labels": [{"label": "target 7", "count": 1}],
+                "other_count": 0,
+            }
+        ]
+
         for query in (
             "start=-1",
             "start=nan",
@@ -585,6 +723,14 @@ def test_reference_player_serves_timed_metadata_events(tmp_path: Path) -> None:
         ):
             invalid = HTTPConnection("127.0.0.1", server.server_port, timeout=2)
             invalid.request("GET", f"/metadata/events?{query}")
+            invalid_response = invalid.getresponse()
+            assert invalid_response.status == 400
+            invalid_response.read()
+            invalid.close()
+
+        for query in ("bins=0", "bins=2049", "bins=wat", "duration=-1", "duration=nan"):
+            invalid = HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+            invalid.request("GET", f"/metadata/summary?{query}")
             invalid_response = invalid.getresponse()
             assert invalid_response.status == 400
             invalid_response.read()
@@ -664,6 +810,10 @@ def test_prepare_player_assets_writes_timeline_ui_and_transcode(
     assert "render(findSample(video.currentTime))" in html
     assert "new EventSource" in html
     assert "metadata/events?start=" in html
+    assert "metadata/summary?bins=2048&duration=" in html
+    assert "loading full-mission overview" in html
+    assert "timelineOverview.observation_count" in html
+    assert "if (!liveMode && video.paused) stopMetadataStream()" in html
     assert "video.playbackRate" in html
     assert "video.addEventListener('waiting', () => { if (!liveMode)" in html
     assert "SSE live · " in html

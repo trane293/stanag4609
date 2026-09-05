@@ -308,14 +308,19 @@ def test_reference_player_renders_and_resynchronizes_in_chromium(player_url: str
 @pytest.mark.browser
 def test_reference_player_restarts_sse_from_current_media_time(player_url: str) -> None:
     event_requests: list[str] = []
+    summary_requests: list[str] = []
     with playwright.sync_playwright() as runtime:
         browser = runtime.chromium.launch()
         page = browser.new_page()
         page.on(
             "request",
-            lambda request: event_requests.append(request.url)
-            if "/metadata/events?" in request.url
-            else None,
+            lambda request: (
+                event_requests.append(request.url)
+                if "/metadata/events?" in request.url
+                else summary_requests.append(request.url)
+                if "/metadata/summary?" in request.url
+                else None
+            ),
         )
         page.goto(
             f"{player_url}?metadata=sse&basemap=off",
@@ -338,8 +343,17 @@ def test_reference_player_restarts_sse_from_current_media_time(player_url: str) 
             "SSE live · t=0.000s",
             timeout=5_000,
         )
+        playwright.expect(page.locator("#timeline-summary")).to_contain_text(
+            "3 observations",
+            timeout=5_000,
+        )
+        assert len(summary_requests) == 1
+        summary_query = parse_qs(urlsplit(summary_requests[0]).query)
+        assert summary_query["bins"] == ["2048"]
+        assert float(summary_query["duration"][0]) == pytest.approx(2.0, abs=0.1)
 
-        video.evaluate("video => { video.currentTime = 0.75; }")
+        video.evaluate("video => video.pause()")
+        page.locator("#detection-scrubber").fill("0.75")
         playwright.expect(page.locator("#status")).to_contain_text(
             "SSE live · t=0.500s",
             timeout=5_000,

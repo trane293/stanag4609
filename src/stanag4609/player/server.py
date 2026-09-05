@@ -28,7 +28,12 @@ from stanag4609.player.live import (
     FragmentedMP4Buffer,
     LivePlayerGateway,
 )
-from stanag4609.player.timeline import MetadataSample, MetadataTimeline, scan_transport_file
+from stanag4609.player.timeline import (
+    MetadataSample,
+    MetadataTimeline,
+    scan_transport_file,
+    summarize_detection_timeline,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +151,9 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
         if request.path == "/metadata/live":
             self._serve_live_metadata(request.query)
             return
+        if request.path == "/metadata/summary":
+            self._serve_metadata_summary(request.query)
+            return
         if request.path != "/metadata/events":
             super().do_GET()
             return
@@ -179,6 +187,37 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
             ):
                 self.wfile.write(chunk)
                 self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            return
+
+    def _serve_metadata_summary(self, query_string: str) -> None:
+        if self.timeline is None:
+            self.send_error(HTTPStatus.NOT_FOUND, "Metadata timeline unavailable")
+            return
+        query = parse_qs(query_string, keep_blank_values=True)
+        try:
+            bin_count = self._query_int(query, "bins", default=2048)
+            duration = (
+                None
+                if "duration" not in query
+                else self._query_float(query, "duration", default=0.0)
+            )
+            summary = summarize_detection_timeline(
+                self.timeline,
+                bin_count=bin_count,
+                duration_seconds=duration,
+            )
+        except (TypeError, ValueError) as error:
+            self.send_error(HTTPStatus.BAD_REQUEST, str(error))
+            return
+        body = summary.to_json().encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "private, max-age=60")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError):
             return
 

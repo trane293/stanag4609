@@ -231,6 +231,40 @@ class OverlayDetection:
 
 
 @dataclass(frozen=True, slots=True)
+class DetectionTimelineLabel:
+    """One exact heavy-hitter label count in a detection-density bin."""
+
+    label: str
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class DetectionTimelineBin:
+    """One non-empty bin in a sparse full-mission detection summary."""
+
+    index: int
+    count: int
+    labels: tuple[DetectionTimelineLabel, ...]
+    other_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class DetectionTimelineSummary:
+    """Bounded, JSON-ready detection overview for a recorded mission."""
+
+    duration_seconds: float
+    sample_count: int
+    observation_count: int
+    bin_count: int
+    bins: tuple[DetectionTimelineBin, ...]
+
+    def to_json(self) -> str:
+        """Serialize the sparse summary without whitespace."""
+
+        return json.dumps(_json_value(self), separators=(",", ":"))
+
+
+@dataclass(frozen=True, slots=True)
 class MetadataTimeline:
     video_start_pts: int | None
     samples: tuple[MetadataSample, ...]
@@ -239,6 +273,122 @@ class MetadataTimeline:
     def to_json(self, *, indent: int | None = None) -> str:
         separators = None if indent else (",", ":")
         return json.dumps(_json_value(self), indent=indent, separators=separators)
+
+
+def _timeline_label(detection: OverlayDetection) -> str:
+    if detection.label:
+        return detection.label
+    if detection.target_id is None:
+        return "unlabelled target"
+    return f"target {detection.target_id}"
+
+
+def summarize_detection_timeline(
+    timeline: MetadataTimeline,
+    *,
+    bin_count: int,
+    duration_seconds: float | int | None = None,
+    max_labels_per_bin: int = 4,
+) -> DetectionTimelineSummary:
+    """Build a sparse, bounded-memory overview of recorded detections.
+
+    Label candidates use the Misra-Gries heavy-hitter algorithm followed by an
+    exact second pass. ``other_count`` preserves complete accounting without
+    retaining an unbounded label vocabulary per bin.
+    """
+
+    if not isinstance(timeline, MetadataTimeline):
+        raise TypeError("timeline must be a MetadataTimeline")
+    if isinstance(bin_count, bool) or not isinstance(bin_count, int):
+        raise TypeError("bin_count must be an integer")
+    if not 1 <= bin_count <= 2048:
+        raise ValueError("bin_count must be between 1 and 2048")
+    if isinstance(max_labels_per_bin, bool) or not isinstance(max_labels_per_bin, int):
+        raise TypeError("max_labels_per_bin must be an integer")
+    if not 1 <= max_labels_per_bin <= 32:
+        raise ValueError("max_labels_per_bin must be between 1 and 32")
+
+    observed_end = 0.0
+    previous = -math.inf
+    for sample in timeline.samples:
+        if not math.isfinite(sample.time_seconds) or sample.time_seconds < 0:
+            raise ValueError("timeline sample times must be finite and non-negative")
+        if sample.time_seconds < previous:
+            raise ValueError("timeline samples must be ordered by time_seconds")
+        previous = sample.time_seconds
+        observed_end = max(observed_end, sample.time_seconds)
+    if duration_seconds is None:
+        duration = observed_end
+    else:
+        if isinstance(duration_seconds, bool) or not isinstance(duration_seconds, (int, float)):
+            raise TypeError("duration_seconds must be a finite number")
+        duration = float(duration_seconds)
+        if not math.isfinite(duration):
+            raise ValueError("duration_seconds must be finite")
+        if duration < 0:
+            raise ValueError("duration_seconds must be non-negative")
+        duration = max(duration, observed_end)
+
+    totals = [0] * bin_count
+    candidates: list[dict[str, int]] = [{} for _ in range(bin_count)]
+
+    def index_for(sample: MetadataSample) -> int:
+        if duration <= 0:
+            return 0
+        return min(bin_count - 1, int(sample.time_seconds / duration * bin_count))
+
+    for sample in timeline.samples:
+        index = index_for(sample)
+        totals[index] += len(sample.detections)
+        candidate = candidates[index]
+        for detection in sample.detections:
+            label = _timeline_label(detection)
+            if label in candidate:
+                candidate[label] += 1
+            elif len(candidate) < max_labels_per_bin:
+                candidate[label] = 1
+            else:
+                for existing in tuple(candidate):
+                    candidate[existing] -= 1
+                    if candidate[existing] == 0:
+                        del candidate[existing]
+
+    exact = [{label: 0 for label in candidate} for candidate in candidates]
+    for sample in timeline.samples:
+        index = index_for(sample)
+        counts = exact[index]
+        for detection in sample.detections:
+            label = _timeline_label(detection)
+            if label in counts:
+                counts[label] += 1
+
+    bins: list[DetectionTimelineBin] = []
+    for index, total in enumerate(totals):
+        if not total:
+            continue
+        labels = tuple(
+            DetectionTimelineLabel(label, count)
+            for label, count in sorted(
+                exact[index].items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+            if count
+        )
+        bins.append(
+            DetectionTimelineBin(
+                index,
+                total,
+                labels,
+                total - sum(item.count for item in labels),
+            )
+        )
+    return DetectionTimelineSummary(
+        duration,
+        len(timeline.samples),
+        sum(totals),
+        bin_count,
+        tuple(bins),
+    )
 
 
 def _chunks(path: Path, chunk_size: int) -> Iterator[bytes]:

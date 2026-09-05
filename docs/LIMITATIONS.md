@@ -73,15 +73,18 @@
   backpressure through the FFmpeg pipe, retains a configurable late-join
   window, and supports one or more polling clients; it is not an adaptive-
   bitrate, authenticated, horizontally scaled, or sub-second WebRTC service.
-  Tiled basemaps and geospatial projection of VMTI pixel masks remain pending. ST 0601 geospatial points,
-  frame footprints, and resolved absolute or parent-offset VMTI target locations appear
-  in a dependency-free local map; pixel bounding boxes,
-  centroids, contours, and run masks from typed ST 0903 VMTI are rendered over
-  recorded video.
+  An attributed OpenStreetMap baselayer has an offline-grid fallback. ST 0601
+  points, frame footprints, resolved absolute or parent-offset VMTI locations,
+  and footprint-interpolated VMTI bounding boxes appear on the map; the
+  interpolation is not terrain-aware geolocation. Pixel bounding boxes,
+  centroids, contours, and run masks are rendered over recorded video, but
+  VMTI pixel masks are not projected onto the map. Incremental recorded mode
+  retains 512 detailed samples plus a sparse 2,048-bin full-mission detection
+  overview; the server still retains the decoded source timeline in memory.
 - The GeoJSON sequence exporter covers ST 0601 sensor, frame-center, target,
   footprint geometry, and resolved ST 0903 absolute/parent-offset target points.
-  It does not yet project VMTI pixel geometry to the
-  earth, emit track-history geometries, or manage a long-lived spatial store.
+  It does not emit footprint-interpolated VMTI boxes, project VMTI masks, emit
+  track-history geometries, or manage a long-lived spatial store.
 - The supplied `Raw_Video.mpeg` is an MPEG Program Stream with MPEG-2 video and
   MP2 audio but no embedded KLV. Its companion 866-row `Raw_Metadata.csv` is
   an end-to-end producer fixture, not an independent known-good STANAG 4609

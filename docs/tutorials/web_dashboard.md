@@ -61,10 +61,11 @@ print(assets.media, assets.timeline, assets.root)
 
 Serve the returned files with normal HTTP range support. A FastAPI, Django,
 Flask, Starlette, Node, or Rust service can use the same stable JSON boundary.
-For long recordings, page or index the timeline by time instead of returning it
-as one response. Preserve aggregate counts when paging so the client can render
-the full-mission density overview before fetching individual detections around
-the playhead.
+For long recordings, use the included incremental mode or page/index the
+timeline by time instead of returning it as one response. The reference server's
+`/metadata/summary` endpoint returns a sparse full-mission overview with exact
+totals and bounded heavy-hitter labels; `/metadata/events` then supplies the
+detailed samples around the playhead.
 
 The bundled reference player also exposes the same samples incrementally:
 
@@ -74,9 +75,11 @@ stanag4609-player mission.ts --stream-metadata
 
 Its `/metadata/events` SSE endpoint sends current state at the requested
 playhead and then paces future samples against media time. The browser holds at
-most 512 samples, restarts from the playhead after seeking, and accounts for
-playback-rate changes. This is directly useful as a side-channel protocol
-example even though the prepared MP4 is not a live media gateway.
+most 512 samples, restarts from the playhead after seeking, fetches one effective
+sample for paused scrubs, and accounts for playback-rate changes. A sparse
+2,048-bin overview keeps the full recording visible while detailed memory stays
+bounded. This is directly useful as a side-channel protocol example even though
+the prepared MP4 is not a live media gateway.
 
 ## Move from recorded to live
 

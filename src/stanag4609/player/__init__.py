@@ -11,6 +11,9 @@ from stanag4609.player.live import (
     ffmpeg_live_player_command,
 )
 from stanag4609.player.timeline import (
+    DetectionTimelineBin,
+    DetectionTimelineLabel,
+    DetectionTimelineSummary,
     MetadataSample,
     MetadataTimeline,
     OverlayDetection,
@@ -18,11 +21,15 @@ from stanag4609.player.timeline import (
     extract_overlay_detections,
     scan_transport_file,
     scan_transport_timeline,
+    summarize_detection_timeline,
 )
 
 __all__ = [
     "BoundedBroadcast",
     "BroadcastPoll",
+    "DetectionTimelineBin",
+    "DetectionTimelineLabel",
+    "DetectionTimelineSummary",
     "FragmentedMP4Buffer",
     "LiveMetadataDecoder",
     "LivePlayerGateway",
@@ -36,4 +43,5 @@ __all__ = [
     "ffmpeg_live_player_command",
     "scan_transport_file",
     "scan_transport_timeline",
+    "summarize_detection_timeline",
 ]

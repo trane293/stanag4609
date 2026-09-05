@@ -93,7 +93,18 @@ keepalives bound idle periods to five seconds. The browser stops the connection
 on pause, buffering, stall, or completion; it reconnects from the current
 playhead after a seek and restarts when playback speed changes. Its retained
 sample window is capped at 512 entries, so a long mission cannot grow browser
-memory without bound. Bad, repeated, non-finite, negative, or unsupported query
+memory without bound. A paused seek opens the stream only long enough to obtain
+the effective sample, so scrubbing does not require playback.
+
+`GET /metadata/summary?bins=<1..2048>&duration=<seconds>` supplies the complete
+recording's detection density without sending every sample to the browser. The
+response contains only non-empty bins, an exact observation total, and at most
+four exact heavy-hitter label counts per bin; `other_count` preserves complete
+accounting for an arbitrarily large or adversarial label vocabulary. The
+aggregator uses bounded Misra-Gries candidate state and a second exact pass.
+The incremental player fetches a 2,048-bin mission overview once, resamples it
+to the rendered canvas width, and continues to retain only 512 detailed samples
+around the playhead. Bad, repeated, non-finite, negative, or unsupported query
 values receive HTTP 400 rather than changing replay semantics silently.
 
 ![Running FMV dashboard synchronized to the Esri Truck fixture](assets/screenshots/fmv-operations-dashboard.jpg)
@@ -178,6 +189,8 @@ original compact `OverlayMaskRun` values and parent dimensions for custom
 renderers. It also exposes `ground_polygon` and `ground_polygon_source` when a
 box can be projected into an ST 0601 frame footprint. Each timeline sample
 exposes its current geometry as GeoJSON features for a custom map UI.
+`summarize_detection_timeline()` exposes the same sparse, bounded-label overview
+used by `/metadata/summary` for custom services and offline indexing jobs.
 
 The default basemap behavior follows the
 [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/).

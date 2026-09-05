@@ -790,7 +790,10 @@ decode/state diagnostics appear in a visible warning panel. See
 browser incrementally over Server-Sent Events. The feed replays the effective
 sample at the current media time, follows future samples at the selected
 playback rate, emits bounded keepalives, and reconnects from the playhead after
-seeks or playback stalls. `--live` is the complete low-latency reference path:
+seeks or playback stalls. A sparse server-generated 2,048-bin summary preserves
+the complete detection overview while the browser retains at most 512 detailed
+samples; paused timeline scrubs fetch only the newly selected effective sample.
+`--live` is the complete low-latency reference path:
 it reads MPEG-TS from a file or stdin as bytes arrive, decodes KLV incrementally,
 transcodes video/audio through FFmpeg into one-second fragmented MP4 units, and
 feeds those units to the bundled Media Source Extensions client without waiting
