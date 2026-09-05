@@ -7,6 +7,8 @@ import pytest
 
 from stanag4609.errors import ChecksumError, DecodeError
 from stanag4609.st0102 import (
+    CountryCodingMethod,
+    ObjectCountryCodingMethod,
     SecurityClassification,
     SecuritySpecialValue,
     decode_security_local_set,
@@ -386,11 +388,16 @@ def test_security_context_makes_only_applicable_markings_required() -> None:
 def test_security_context_enforces_caller_supplied_marking_policy() -> None:
     context = MISMMSecurityContext(
         expected_classification=SecurityClassification.SECRET,
+        expected_country_coding_method=CountryCodingMethod.ISO_3166_THREE_LETTER,
         expected_classifying_country="USA",
         expected_sci_shi="SI/TK//",
         expected_caveats="FOUO",
         required_releasing_countries=frozenset({"USA", "CAN"}),
         required_object_countries=frozenset({"USA"}),
+        expected_object_country_coding_method=(
+            ObjectCountryCodingMethod.ISO_3166_THREE_LETTER
+        ),
+        minimum_security_metadata_version=12,
     )
     security = decode_security_local_set(
         encode_security_local_set(
@@ -403,7 +410,7 @@ def test_security_context_enforces_caller_supplied_marking_policy() -> None:
                 6: "USA GBR",
                 12: 14,
                 13: "CAN;GBR",
-                22: 12,
+                22: 11,
             },
             standalone=False,
         ),
@@ -421,22 +428,30 @@ def test_security_context_enforces_caller_supplied_marking_policy() -> None:
         if issue.code == "security_policy"
     } == {
         ("security_policy", "security_classification", (1,)),
+        ("security_policy", "security_country_coding_method", (2,)),
         ("security_policy", "security_classifying_country", (3,)),
         ("security_policy", "security_sci_shi_information", (4,)),
         ("security_policy", "security_caveats", (5,)),
         ("security_policy", "security_releasing_instructions", (6,)),
         ("security_policy", "security_object_country_codes", (13,)),
+        ("security_policy", "security_object_country_coding_method", (12,)),
+        ("security_policy", "security_metadata_version", (22,)),
     }
 
 
 def test_current_state_accepts_matching_caller_supplied_marking_policy() -> None:
     context = MISMMSecurityContext(
         expected_classification=SecurityClassification.SECRET,
+        expected_country_coding_method=CountryCodingMethod.GENC_THREE_LETTER,
         expected_classifying_country="USA",
         expected_sci_shi="SI/TK//",
         expected_caveats="FOUO",
         required_releasing_countries=frozenset({"USA", "CAN"}),
         required_object_countries=frozenset({"USA"}),
+        expected_object_country_coding_method=(
+            ObjectCountryCodingMethod.GENC_THREE_LETTER
+        ),
+        minimum_security_metadata_version=12,
     )
     security = decode_security_local_set(
         encode_security_local_set(
@@ -531,6 +546,14 @@ def test_validator_rejects_invalid_policy_configuration() -> None:
         MISMMSValidator(field_decoding="preserve")  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="expected_classification"):
         MISMMSecurityContext(expected_classification=4)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="expected_country_coding_method"):
+        MISMMSecurityContext(expected_country_coding_method=14)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="expected_object_country_coding_method"):
+        MISMMSecurityContext(expected_object_country_coding_method=14)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="minimum_security_metadata_version"):
+        MISMMSecurityContext(minimum_security_metadata_version=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="minimum_security_metadata_version"):
+        MISMMSecurityContext(minimum_security_metadata_version=0)
     with pytest.raises(TypeError, match="expected_classifying_country"):
         MISMMSecurityContext(expected_classifying_country="")
     with pytest.raises(TypeError, match="required_releasing_countries"):

@@ -10,7 +10,12 @@ from types import MappingProxyType
 
 from stanag4609.errors import DecodeError
 from stanag4609.klv.model import KLVPacket
-from stanag4609.st0102 import SecurityClassification, SecurityLocalSet
+from stanag4609.st0102 import (
+    CountryCodingMethod,
+    ObjectCountryCodingMethod,
+    SecurityClassification,
+    SecurityLocalSet,
+)
 from stanag4609.st0601 import (
     DecodedField,
     FieldDecodingIssue,
@@ -84,11 +89,14 @@ class MISMMSecurityContext:
     caveats: bool = False
     releasing_instructions: bool = False
     expected_classification: SecurityClassification | None = None
+    expected_country_coding_method: CountryCodingMethod | None = None
     expected_classifying_country: str | None = None
     expected_sci_shi: str | None = None
     expected_caveats: str | None = None
     required_releasing_countries: frozenset[str] = frozenset()
+    expected_object_country_coding_method: ObjectCountryCodingMethod | None = None
     required_object_countries: frozenset[str] = frozenset()
+    minimum_security_metadata_version: int | None = None
 
     def __post_init__(self) -> None:
         if not all(
@@ -100,6 +108,30 @@ class MISMMSecurityContext:
             self.expected_classification, SecurityClassification
         ):
             raise TypeError("expected_classification must be a SecurityClassification or None")
+        if self.expected_country_coding_method is not None and not isinstance(
+            self.expected_country_coding_method, CountryCodingMethod
+        ):
+            raise TypeError(
+                "expected_country_coding_method must be a CountryCodingMethod or None"
+            )
+        if self.expected_object_country_coding_method is not None and not isinstance(
+            self.expected_object_country_coding_method, ObjectCountryCodingMethod
+        ):
+            raise TypeError(
+                "expected_object_country_coding_method must be an "
+                "ObjectCountryCodingMethod or None"
+            )
+        if self.minimum_security_metadata_version is not None:
+            if isinstance(self.minimum_security_metadata_version, bool) or not isinstance(
+                self.minimum_security_metadata_version, int
+            ):
+                raise TypeError(
+                    "minimum_security_metadata_version must be an integer or None"
+                )
+            if not 1 <= self.minimum_security_metadata_version <= 0xFFFF:
+                raise ValueError(
+                    "minimum_security_metadata_version must be between 1 and 65535"
+                )
         for name in ("expected_sci_shi", "expected_caveats"):
             value = getattr(self, name)
             if value is not None and (not isinstance(value, str) or not value):
@@ -151,8 +183,11 @@ class MISMMSecurityContext:
             (
                 self.required_tags,
                 self.expected_classification is not None,
+                self.expected_country_coding_method is not None,
                 self.expected_classifying_country is not None,
+                self.expected_object_country_coding_method is not None,
                 bool(self.required_object_countries),
+                self.minimum_security_metadata_version is not None,
             )
         )
 
@@ -256,6 +291,20 @@ def _security_policy_issues(
             f"policy: expected {context.expected_classification.name}",
         )
 
+    country_method = _security_value(fields, 2)
+    if (
+        isinstance(country_method, int)
+        and context.expected_country_coding_method is not None
+        and country_method != context.expected_country_coding_method
+    ):
+        mismatch(
+            "security_country_coding_method",
+            2,
+            "ST 0102 Classifying Country/Releasing Instructions coding method "
+            "does not match caller-supplied policy: expected "
+            f"{context.expected_country_coding_method.name}",
+        )
+
     classifying_country = _security_value(fields, 3)
     if (
         isinstance(classifying_country, str)
@@ -307,6 +356,18 @@ def _security_policy_issues(
         )
 
     object_countries = _security_value(fields, 13)
+    object_country_method = _security_value(fields, 12)
+    if (
+        isinstance(object_country_method, int)
+        and context.expected_object_country_coding_method is not None
+        and object_country_method != context.expected_object_country_coding_method
+    ):
+        mismatch(
+            "security_object_country_coding_method",
+            12,
+            "ST 0102 Object Country coding method does not match caller-supplied "
+            f"policy: expected {context.expected_object_country_coding_method.name}",
+        )
     if isinstance(
         object_countries, str
     ) and not context.required_object_countries.issubset(object_countries.split(";")):
@@ -318,6 +379,18 @@ def _security_policy_issues(
             13,
             "ST 0102 Object Country Codes omit caller-required countries: "
             + ", ".join(missing),
+        )
+    metadata_version = _security_value(fields, 22)
+    if (
+        isinstance(metadata_version, int)
+        and context.minimum_security_metadata_version is not None
+        and metadata_version < context.minimum_security_metadata_version
+    ):
+        mismatch(
+            "security_metadata_version",
+            22,
+            "ST 0102 Security Metadata Version is below caller-supplied policy "
+            f"minimum {context.minimum_security_metadata_version}",
         )
     return tuple(issues)
 

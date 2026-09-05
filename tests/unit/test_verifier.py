@@ -1346,8 +1346,14 @@ def test_verifier_cli_accepts_explicit_security_policy(tmp_path, capsys) -> None
             "--no-require-miis",
             "--security-classification",
             "secret",
+            "--country-coding-method",
+            "iso-3166-three-letter",
             "--require-release-country",
             "CAN",
+            "--object-country-coding-method",
+            "iso-3166-three-letter",
+            "--minimum-security-metadata-version",
+            "13",
         ]
     )
 
@@ -1357,7 +1363,13 @@ def test_verifier_cli_accepts_explicit_security_policy(tmp_path, capsys) -> None
         finding["requirement"]
         for finding in findings
         if finding["code"] == "st0902.security_policy"
-    } == {"security_classification", "security_releasing_instructions"}
+    } == {
+        "security_classification",
+        "security_country_coding_method",
+        "security_releasing_instructions",
+        "security_object_country_coding_method",
+        "security_metadata_version",
+    }
 
 
 def test_verifier_inventory_explains_st0601_field_coverage() -> None:

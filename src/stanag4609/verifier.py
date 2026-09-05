@@ -15,7 +15,11 @@ from typing import Any, BinaryIO
 
 from stanag4609.audio.timing import AudioPESFrameParser, TimedCompressedAudioFrame
 from stanag4609.errors import Stanag4609Error
-from stanag4609.st0102 import SecurityClassification
+from stanag4609.st0102 import (
+    CountryCodingMethod,
+    ObjectCountryCodingMethod,
+    SecurityClassification,
+)
 from stanag4609.st0601 import (
     FIELD_DEFINITIONS,
     FieldDecodingMode,
@@ -2987,6 +2991,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="require this ST 0102 classifying country code (without //)",
     )
     parser.add_argument(
+        "--country-coding-method",
+        choices=tuple(method.name.lower().replace("_", "-") for method in CountryCodingMethod),
+        help="require this ST 0102 classifying/releasing country-code vocabulary",
+    )
+    parser.add_argument(
         "--security-sci-shi",
         help="require this exact ST 0102 SCI/SHI marking",
     )
@@ -3007,6 +3016,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=[],
         metavar="CODE",
         help="require a country in ST 0102 object country codes; repeatable",
+    )
+    parser.add_argument(
+        "--object-country-coding-method",
+        choices=tuple(
+            method.name.lower().replace("_", "-")
+            for method in ObjectCountryCodingMethod
+        ),
+        help="require this ST 0102 object-country code vocabulary",
+    )
+    parser.add_argument(
+        "--minimum-security-metadata-version",
+        type=int,
+        metavar="VERSION",
+        help="require at least this ST 0102 Security Metadata version",
     )
     parser.add_argument("--chunk-size", type=int, default=1024 * 1024)
     parser.add_argument("--max-findings", type=int, default=10_000)
@@ -3036,11 +3059,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                     args.security_classification.upper().replace("-", "_")
                 ]
             ),
+            expected_country_coding_method=(
+                None
+                if args.country_coding_method is None
+                else CountryCodingMethod[
+                    args.country_coding_method.upper().replace("-", "_")
+                ]
+            ),
             expected_classifying_country=args.classifying_country,
             expected_sci_shi=args.security_sci_shi,
             expected_caveats=args.security_caveats,
             required_releasing_countries=frozenset(args.require_release_country),
+            expected_object_country_coding_method=(
+                None
+                if args.object_country_coding_method is None
+                else ObjectCountryCodingMethod[
+                    args.object_country_coding_method.upper().replace("-", "_")
+                ]
+            ),
             required_object_countries=frozenset(args.require_object_country),
+            minimum_security_metadata_version=args.minimum_security_metadata_version,
         )
         report = verify_fmv_file(
             args.source,

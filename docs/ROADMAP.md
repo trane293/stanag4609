@@ -57,8 +57,9 @@ important negative-conformance expectations.
    checksum-bound exact accounting; remaining limitations are explicit
    contextual, producer-owned, or interoperability-evidence boundaries.
 4. Broaden independently reviewed ST 0902.8 policy profiles beyond the now
-   implemented caller-supplied classification, country, and handling checks;
-   policy authorship and authoritative code-list selection remain external.
+   implemented caller-supplied classification, country, handling,
+   country-code-vocabulary, and minimum-version checks; policy authorship and
+   authoritative dated code-list selection remain external.
 5. Broaden ST 1001.1-labelled audio conformance fixtures while keeping codec
    scope focused on common Layer II and AAC profiles.
 6. Add a redistributable real ST 0903/VMTI FMV fixture. Current VMTI coverage is

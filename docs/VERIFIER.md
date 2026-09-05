@@ -105,19 +105,24 @@ instead of accepting any structurally valid ST 0102 value:
 ```console
 stanag4609-verify mission.ts \
   --security-classification secret \
+  --country-coding-method genc-three-letter \
   --classifying-country USA \
   --security-sci-shi 'SI/TK//' \
   --security-caveats 'FOUO' \
   --require-release-country USA \
   --require-release-country CAN \
-  --require-object-country USA
+  --require-object-country USA \
+  --object-country-coding-method genc-three-letter \
+  --minimum-security-metadata-version 12
 ```
 
 Country options are repeatable uppercase codes without wire separators. Exact
-SCI/SHI values retain ST 0102 slash framing. A mismatch is an error finding
-with code `security_policy`; omitted policy fields continue to receive
-structural, population, and cadence checks without the library guessing a
-mission classification.
+SCI/SHI values retain ST 0102 slash framing. Coding-method options use the
+lowercase, hyphenated `CountryCodingMethod` and `ObjectCountryCodingMethod`
+member names. A mismatch, including an older-than-required Security Metadata
+version, is an error finding with code `security_policy`; omitted policy fields
+continue to receive structural, population, and cadence checks without the
+library guessing a mission classification or code-list authority.
 
 The default `mismms` profile applies ST 0902 minimum-metadata and cadence
 requirements. For ST 1607 metadata trees, it reconstructs Report-on-Change
@@ -264,8 +269,10 @@ field inventory.
 from pathlib import Path
 
 from stanag4609 import (
+    CountryCodingMethod,
     FMVVerifier,
     MISMMSecurityContext,
+    ObjectCountryCodingMethod,
     ST0601ValidationContext,
     SecurityClassification,
 )
@@ -282,8 +289,13 @@ verifier = FMVVerifier(
     validate_mismms=True,
     security_context=MISMMSecurityContext(
         expected_classification=SecurityClassification.SECRET,
+        expected_country_coding_method=CountryCodingMethod.GENC_THREE_LETTER,
         expected_classifying_country="USA",
         required_releasing_countries=frozenset({"USA", "CAN"}),
+        expected_object_country_coding_method=(
+            ObjectCountryCodingMethod.GENC_THREE_LETTER
+        ),
+        minimum_security_metadata_version=12,
     ),
     st0601_context_provider=context_for_packet,
     asynchronous_std_descriptors=known_async_std_by_program_and_pid,
