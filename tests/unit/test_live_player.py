@@ -410,6 +410,7 @@ def test_live_player_http_reports_fragment_history_gap_and_bad_queries(
     try:
         for path, expected in (
             ("/media/fragment?after=-1&wait=0", 409),
+            ("/media/fragment?after=50&wait=0", 409),
             ("/media/fragment?after=wat", 400),
             ("/media/fragment?after=-2", 400),
             ("/media/init.mp4?wait=31", 400),
@@ -428,6 +429,22 @@ def test_live_player_http_reports_fragment_history_gap_and_bad_queries(
         assert response.status == 200
         assert b'event: reset\ndata: {"dropped":1,"oldest_id":1}\n\n' in body
         assert b"event: sample\nid: 1\n" in body
+        connection.close()
+
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+        connection.request(
+            "GET",
+            "/metadata/live?after=-1",
+            headers={"Last-Event-ID": "50"},
+        )
+        response = connection.getresponse()
+        restarted = response.read()
+        assert response.status == 200
+        assert (
+            b'event: reset\ndata: {"dropped":0,"oldest_id":1,'
+            b'"reason":"cursor_ahead"}\n\n'
+        ) in restarted
+        assert b"event: sample\nid: 1\n" in restarted
         connection.close()
 
         ended = FragmentedMP4Buffer()

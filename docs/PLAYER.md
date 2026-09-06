@@ -47,6 +47,12 @@ corrupt delta frames. SSE clients receive numbered samples, an explicit reset
 event when history was lost, keepalives, and an end or error event. Browser
 SourceBuffer history is trimmed to 30 seconds.
 
+After a gateway restart, an SSE `Last-Event-ID` from the prior numbering epoch
+may be ahead of the new stream. The server emits an immediate `cursor_ahead`
+reset and replays its retained metadata window. A future media-fragment cursor
+fails immediately with HTTP 409 so the client can reinitialize its Media Source
+instead of long-polling for an ID from the previous epoch.
+
 Single-program TS is selected automatically. For MPTS, pass
 `--program-number N`; the same program selector is applied to FFmpeg video/audio
 mapping and the Python metadata demuxer. Ambiguous MPTS is rejected rather than

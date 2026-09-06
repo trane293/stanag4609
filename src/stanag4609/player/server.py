@@ -265,6 +265,22 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
                 raise ValueError("after must be at least -1")
             if not 0 <= wait <= 30:
                 raise ValueError("wait must be between 0 and 30")
+            next_fragment_id = self.live_media.next_fragment_id
+            if after >= 0 and after >= next_fragment_id:
+                body = json.dumps(
+                    {
+                        "error": "fragment cursor is ahead of the current stream",
+                        "next_id": next_fragment_id,
+                    },
+                    separators=(",", ":"),
+                ).encode("ascii")
+                self.send_response(HTTPStatus.CONFLICT)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+                return
             result = self.live_media.poll(after_id=after, timeout=wait)
         except (TypeError, ValueError) as error:
             self.send_error(HTTPStatus.BAD_REQUEST, str(error))
@@ -321,6 +337,10 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
         except (TypeError, ValueError) as error:
             self.send_error(HTTPStatus.BAD_REQUEST, str(error))
             return
+        next_event_id = self.live_metadata.next_id
+        cursor_ahead = after >= 0 and after >= next_event_id
+        if cursor_ahead:
+            after = max(-1, next_event_id - self.live_metadata.max_items - 1)
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/event-stream; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -329,6 +349,19 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.close_connection = True
         try:
+            if cursor_ahead:
+                oldest_id = max(0, next_event_id - self.live_metadata.max_items)
+                reset = json.dumps(
+                    {
+                        "dropped": 0,
+                        "oldest_id": oldest_id,
+                        "reason": "cursor_ahead",
+                    },
+                    separators=(",", ":"),
+                )
+                self.wfile.write(
+                    b"event: reset\ndata: " + reset.encode("ascii") + b"\n\n"
+                )
             while True:
                 result = self.live_metadata.poll(after_id=after, timeout=5.0)
                 if result.dropped:

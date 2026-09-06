@@ -157,6 +157,12 @@ class FragmentedMP4Buffer:
         with self._condition:
             return self._error
 
+    @property
+    def next_fragment_id(self) -> int:
+        """Return the ID that the next complete media fragment will receive."""
+
+        return self._fragments.next_id
+
     def feed(self, data: bytes | bytearray | memoryview) -> int:
         if not isinstance(data, (bytes, bytearray, memoryview)):
             raise TypeError("fragmented MP4 input must be bytes-like")

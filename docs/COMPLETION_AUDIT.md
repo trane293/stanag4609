@@ -67,8 +67,9 @@ unqualified “complete STANAG 4609 implementation” or stable `1.0` claim:
    deployment concerns beyond this localhost reference gateway.
 5. The live gateway now has reproducible JSON measurements across all three
    pinned 148–371-second FMV recordings plus 100,000-event/10,000-fragment
-   retention stress tests. Multi-hour paced runs, repeated reconnect epochs,
-   concurrent viewers, and prolonged loss/reorder/backpressure campaigns remain
+   retention stress tests, and prior-epoch SSE/media cursors recover or fail
+   immediately. Multi-hour paced runs, repeated reconnect epochs, concurrent
+   viewers, and prolonged loss/reorder/backpressure campaigns remain
    necessary before a production stability claim.
 
 The detailed next actions live in the [continuation roadmap](ROADMAP.md). This

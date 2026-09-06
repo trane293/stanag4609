@@ -126,7 +126,9 @@ important negative-conformance expectations.
   complete 148–371-second real-FMV runs to multi-hour paced input, repeated
   reconnect epochs, and concurrent viewers. The first-party JSON benchmark now
   proves bounded late-join histories and 8.44–17.68× finite-file headroom on
-  three pinned fixtures; sub-second targets, multi-viewer fan-out, adaptive
+  three pinned fixtures; prior-epoch SSE cursors reset into retained metadata
+  immediately and prior-epoch media cursors fail without long-polling.
+  Sub-second targets, multi-viewer fan-out, adaptive
   bitrate, and WebRTC/HLS remain production deployment profiles.
 - Extend the published live-player performance and memory method to sustained
   UDP, file demux, mux, verifier, and sidecar workloads.
