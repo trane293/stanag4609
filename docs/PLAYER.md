@@ -95,12 +95,23 @@ FFmpeg for the container remux but keeps KLV creation and MPEG-TS injection in
 the dependency-free Python package.
 
 The command binds only to `127.0.0.1:8765` by default and opens the system
-browser. Use `--no-open`, `--host`, `--port`, or `--ffmpeg` to override those
-choices. Stop it with Ctrl-C. FFmpeg must be installed separately; it is not a
-Python dependency and the protocol library remains pure Python. The local
-server supports single HTTP byte ranges for efficient seeking and treats an
-abandoned media response during a seek or tab closure as normal client
-behavior.
+browser. Use `--no-open`, `--port`, or `--ffmpeg` to override those choices.
+A non-loopback `--host` additionally requires `--allow-remote` and at least one
+explicit `--allowed-host`; requests with any other HTTP Host value receive 421.
+This blocks accidental public binding and the common localhost DNS-rebinding
+path, but it is not authentication. Stop the player with Ctrl-C. FFmpeg must be
+installed separately; it is not a Python dependency and the protocol library
+remains pure Python. The local server supports single HTTP byte ranges for
+efficient seeking and treats an abandoned media response during a seek or tab
+closure as normal client behavior.
+
+Every response carries a same-origin resource policy, MIME sniffing and framing
+protections, a no-referrer policy, a restrictive browser-permissions policy,
+and a Content Security Policy limited to the application origin, blob media,
+inline packaged UI code/styles, and OpenStreetMap's tile host. These are
+defense-in-depth for the reference tool. Keep it on loopback or place it behind
+an authenticated, authorized, TLS-terminating gateway with request, connection,
+bandwidth, and process limits before handling sensitive or multi-user FMV.
 
 In streaming mode, `GET /metadata/events?start=<seconds>&rate=<rate>` returns
 `text/event-stream`. It immediately sends the effective sample at the requested

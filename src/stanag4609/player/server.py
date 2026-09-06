@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import math
 import shutil
@@ -42,6 +43,86 @@ class PlayerAssets:
     media: Path
     timeline: Path
     metadata: MetadataTimeline
+
+
+_PLAYER_CONTENT_SECURITY_POLICY = "; ".join(
+    (
+        "default-src 'self'",
+        "base-uri 'none'",
+        "connect-src 'self'",
+        "font-src 'self'",
+        "frame-ancestors 'none'",
+        "img-src 'self' data: https://tile.openstreetmap.org",
+        "media-src 'self' blob:",
+        "object-src 'none'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline'",
+    )
+)
+
+
+def _normalize_allowed_host(value: str) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise ValueError("allowed host must be a non-empty value without whitespace")
+    host = value[1:-1] if value.startswith("[") and value.endswith("]") else value
+    try:
+        return ipaddress.ip_address(host).compressed
+    except ValueError:
+        if any(character in host for character in "/@:"):
+            raise ValueError(f"invalid allowed host {value!r}") from None
+        try:
+            normalized = host.rstrip(".").encode("idna").decode("ascii").lower()
+        except UnicodeError as error:
+            raise ValueError(f"invalid allowed host {value!r}") from error
+        if not normalized:
+            raise ValueError(f"invalid allowed host {value!r}") from None
+        return normalized
+
+
+def _request_hostname(value: str | None) -> str | None:
+    if value is None or any(character.isspace() for character in value) or any(
+        character in value for character in "/@?#\\"
+    ):
+        return None
+    try:
+        parsed = urlsplit(f"//{value}")
+        if parsed.hostname is None or parsed.username is not None or parsed.path:
+            return None
+        if parsed.port is not None and not 1 <= parsed.port <= 65_535:
+            return None
+        return _normalize_allowed_host(parsed.hostname)
+    except ValueError:
+        return None
+
+
+def _is_loopback_host(value: str) -> bool:
+    try:
+        return ipaddress.ip_address(value).is_loopback
+    except ValueError:
+        return value.rstrip(".").lower() == "localhost"
+
+
+def _cli_allowed_hosts(args: argparse.Namespace) -> tuple[str, ...]:
+    if _is_loopback_host(args.host):
+        return tuple(
+            dict.fromkeys(
+                (_normalize_allowed_host(args.host), "127.0.0.1", "::1", "localhost")
+            )
+        )
+    if not args.allow_remote:
+        raise SystemExit("non-loopback --host requires --allow-remote")
+    if not args.allowed_host:
+        raise SystemExit("non-loopback --host requires at least one --allowed-host")
+    try:
+        return tuple(_normalize_allowed_host(value) for value in args.allowed_host)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+
+def _player_url_host(bind_host: str, allowed_hosts: tuple[str, ...]) -> str:
+    host = bind_host if _is_loopback_host(bind_host) else allowed_hosts[0]
+    normalized = _normalize_allowed_host(host)
+    return f"[{normalized}]" if ":" in normalized else normalized
 
 
 def _iter_timeline_sse(
@@ -132,15 +213,25 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
         timeline: MetadataTimeline | None = None,
         live_media: FragmentedMP4Buffer | None = None,
         live_metadata: BoundedBroadcast[MetadataSample] | None = None,
+        allowed_hosts: Sequence[str] | None = None,
         **kwargs: Any,
     ) -> None:
         self.timeline = timeline
         self.live_media = live_media
         self.live_metadata = live_metadata
+        if isinstance(allowed_hosts, (str, bytes)):
+            raise TypeError("allowed_hosts must be a sequence of host names, not a string")
+        self.allowed_hosts = (
+            None
+            if allowed_hosts is None
+            else frozenset(_normalize_allowed_host(value) for value in allowed_hosts)
+        )
         super().__init__(*args, **kwargs)
 
     def do_GET(self) -> None:
         """Serve static assets or a media-timed metadata event stream."""
+        if self._reject_untrusted_host():
+            return
         request = urlsplit(self.path)
         if request.path == "/media/init.mp4":
             self._serve_live_initialization(request.query)
@@ -189,6 +280,21 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):
             return
+
+    def do_HEAD(self) -> None:
+        """Apply the same trusted-Host boundary to metadata-bearing assets."""
+        if self._reject_untrusted_host():
+            return
+        super().do_HEAD()
+
+    def _reject_untrusted_host(self) -> bool:
+        if self.allowed_hosts is None:
+            return False
+        hostname = _request_hostname(self.headers.get("Host"))
+        if hostname in self.allowed_hosts:
+            return False
+        self.send_error(HTTPStatus.MISDIRECTED_REQUEST, "Untrusted Host header")
+        return True
 
     def _serve_metadata_summary(self, query_string: str) -> None:
         if self.timeline is None:
@@ -437,6 +543,12 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def end_headers(self) -> None:
         self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Security-Policy", _PLAYER_CONTENT_SECURITY_POLICY)
+        self.send_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.send_header("Permissions-Policy", "camera=(), geolocation=(), microphone=()")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
         super().end_headers()
 
     def send_head(self) -> BinaryIO | None:
@@ -570,6 +682,17 @@ def _parser() -> argparse.ArgumentParser:
         help="MPEG-2 transport-stream input; use - for stdin with --live",
     )
     parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help="Permit binding outside loopback; also requires --allowed-host",
+    )
+    parser.add_argument(
+        "--allowed-host",
+        action="append",
+        default=[],
+        help="Trusted HTTP Host name/IP for remote mode; may be repeated",
+    )
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--ffmpeg", default="ffmpeg", help="FFmpeg executable")
     parser.add_argument(
@@ -640,7 +763,12 @@ def _ingest_live_source(
         print(f"Live player input stopped: {error}", file=sys.stderr, flush=True)
 
 
-def _run_live_player(args: argparse.Namespace, root: Path) -> int:
+def _run_live_player(
+    args: argparse.Namespace,
+    root: Path,
+    *,
+    allowed_hosts: tuple[str, ...],
+) -> int:
     if args.live_chunk_size < 188:
         raise SystemExit("--live-chunk-size must be at least 188 bytes")
     if args.live_media_fragments < 2:
@@ -664,9 +792,11 @@ def _run_live_player(args: argparse.Namespace, root: Path) -> int:
         directory=str(root),
         live_media=gateway.media,
         live_metadata=gateway.metadata,
+        allowed_hosts=allowed_hosts,
     )
     with ThreadingHTTPServer((args.host, args.port), handler) as server:
-        url = f"http://{args.host}:{server.server_port}/?live=1"
+        url_host = _player_url_host(args.host, allowed_hosts)
+        url = f"http://{url_host}:{server.server_port}/?live=1"
         print(f"STANAG 4609 live player: {url}")
         print("Reading bounded live MPEG-TS input; stop with Ctrl-C.", flush=True)
         if not args.no_open:
@@ -695,22 +825,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise SystemExit("--program-number must be between 1 and 65535")
         if not args.live:
             raise SystemExit("--program-number currently requires --live")
+    allowed_hosts = _cli_allowed_hosts(args)
     if shutil.which(args.ffmpeg) is None:
         raise SystemExit(f"FFmpeg executable not found: {args.ffmpeg}")
     with tempfile.TemporaryDirectory(prefix="stanag4609-player-") as temporary:
         root = Path(temporary)
         if args.live:
-            return _run_live_player(args, root)
+            return _run_live_player(args, root, allowed_hosts=allowed_hosts)
         print("Preparing synchronized metadata and browser media...", flush=True)
         assets = prepare_player_assets(args.source, root, ffmpeg=args.ffmpeg)
         handler = partial(
             PlayerHTTPRequestHandler,
             directory=str(assets.root),
             timeline=assets.metadata,
+            allowed_hosts=allowed_hosts,
         )
         with ThreadingHTTPServer((args.host, args.port), handler) as server:
             suffix = "?metadata=sse" if args.stream_metadata else ""
-            url = f"http://{args.host}:{server.server_port}/{suffix}"
+            url_host = _player_url_host(args.host, allowed_hosts)
+            url = f"http://{url_host}:{server.server_port}/{suffix}"
             print(f"STANAG 4609 player: {url}")
             if not args.no_open:
                 webbrowser.open(url)

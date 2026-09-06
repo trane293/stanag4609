@@ -355,6 +355,65 @@ def test_live_player_cli_validates_program_selection() -> None:
         player_main(["-", "--live", "--program-number", "0", "--no-open"])
 
 
+def test_live_player_cli_requires_explicit_remote_exposure() -> None:
+    with pytest.raises(SystemExit, match="--allow-remote"):
+        player_main(["missing.ts", "--host", "0.0.0.0", "--no-open"])
+    with pytest.raises(SystemExit, match="--allowed-host"):
+        player_main(
+            ["missing.ts", "--host", "0.0.0.0", "--allow-remote", "--no-open"]
+        )
+
+
+def test_player_http_rejects_untrusted_hosts_and_sets_browser_security_headers(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "index.html").write_text("player", encoding="utf-8")
+    handler = partial(
+        PlayerHTTPRequestHandler,
+        directory=str(tmp_path),
+        allowed_hosts=("127.0.0.1", "localhost"),
+    )
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        rejected = HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+        rejected.putrequest("GET", "/", skip_host=True)
+        rejected.putheader("Host", "attacker.example")
+        rejected.endheaders()
+        response = rejected.getresponse()
+        assert response.status == 421
+        response.read()
+        rejected.close()
+
+        accepted = HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+        accepted.request("GET", "/", headers={"Host": f"127.0.0.1:{server.server_port}"})
+        response = accepted.getresponse()
+        assert response.status == 200
+        assert response.getheader("X-Content-Type-Options") == "nosniff"
+        assert response.getheader("X-Frame-Options") == "DENY"
+        assert response.getheader("Referrer-Policy") == "no-referrer"
+        assert response.getheader("Cross-Origin-Resource-Policy") == "same-origin"
+        assert response.getheader("Permissions-Policy") == (
+            "camera=(), geolocation=(), microphone=()"
+        )
+        content_security_policy = response.getheader("Content-Security-Policy")
+        assert content_security_policy is not None
+        assert "frame-ancestors 'none'" in content_security_policy
+        assert "https://tile.openstreetmap.org" in content_security_policy
+        assert "media-src 'self' blob:" in content_security_policy
+        assert response.read() == b"player"
+        accepted.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+    invalid_handler = partial(PlayerHTTPRequestHandler, allowed_hosts="localhost")
+    with pytest.raises(TypeError, match="sequence of host names"):
+        invalid_handler(None, None, None)
+
+
 def test_live_player_http_endpoints_deliver_numbered_media_and_metadata(
     tmp_path: Path,
 ) -> None:

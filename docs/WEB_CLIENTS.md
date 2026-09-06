@@ -12,6 +12,9 @@ stanag4609-player mission.ts
 The bundled player is a working integration example: it serves prepared or
 live fragmented H.264/AAC media, synchronized metadata, canvas VMTI overlays,
 an engineering-values panel, and a local map. It binds to localhost by default.
+Its CLI enforces an explicit remote-binding opt-in and trusted HTTP Host list,
+and responses include browser hardening headers. Those controls do not provide
+identity, permissions, encryption, audit logging, or tenant isolation.
 See [reference player](PLAYER.md) for its exact capabilities and limitations.
 
 Application backends can call `scan_transport_file()` or

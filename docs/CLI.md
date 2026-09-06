@@ -40,6 +40,18 @@ stanag4609-player mission.ts --no-open --host 127.0.0.1 --port 9000
 stanag4609-player - --live --no-open
 ```
 
+Non-loopback binding is deliberately two-step and still does not add
+authentication or TLS:
+
+```console
+stanag4609-player mission.ts --no-open --host 0.0.0.0 \
+  --allow-remote --allowed-host fmv.example.internal
+```
+
+Repeat `--allowed-host` for every hostname or IP that a trusted reverse proxy
+or client will send in the HTTP `Host` header. Prefer keeping the player on
+loopback behind an authenticated application gateway.
+
 The player requires an FFmpeg executable. Use `--ffmpeg /path/to/ffmpeg` when
 it is not on `PATH`. `--live` accepts a growing TS file or `-` for a TS byte
 stream on stdin and begins browser playback before end-of-input. See
