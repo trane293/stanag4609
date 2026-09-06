@@ -62,6 +62,12 @@ relabel the current API as stable.
 7. Verify the PyPI page, installation, package provenance, documentation link,
    and Read the Docs version.
 
+Before calling a release production-ready for its documented profiles, also
+confirm that the public-API baseline changed only intentionally, CodeQL and all
+optional-runtime jobs are green, secret scanning and push protection are on,
+the protected `pypi` environment still requires the maintainer, and
+`SECURITY.md`, the conformance matrix, and limitations match the shipped code.
+
 PyPI files and versions cannot be replaced. If a released artifact is wrong,
 yank it and publish a new version; never try to reuse its version number.
 

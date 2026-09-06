@@ -5,6 +5,10 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Guard the documented public import surfaces against accidental compatibility
+  breaks, publish a security policy, and add pinned CodeQL and Dependabot
+  configuration as final production-readiness audit gates.
+
 - Add a module-level architecture guide with end-to-end transport, live
   transformation, AI sidecar, player, verification, timing, and backpressure
   diagrams plus entry-point guidance.

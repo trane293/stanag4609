@@ -9,12 +9,14 @@ remultiplex, visualize, or fan out FMV without hiding timing or wire behavior.
 The dependency-free core works on arbitrary stream chunks; codec and inference
 runtimes stay behind optional adapters.
 
-!!! warning "Current maturity"
+!!! info "Current maturity"
 
-    The project is alpha. Implemented slices are tested and documented, but
-    the project does not yet claim complete STANAG 4609/MISP, ST 0601.19,
-    ST 0903.6, or ST 1001.1 conformance. Start with the
-    [conformance matrix](CONFORMANCE.md) and [known limitations](LIMITATIONS.md).
+    The library is production-ready for the documented complete profiles while
+    its public API remains pre-1.0. This is not a claim of universal STANAG
+    certification or complete STANAG 4609/MISP, ST 0601.19, ST 0903.6, or
+    ST 1001.1 conformance. Start with the
+    [production-readiness audit](PRODUCTION_READINESS.md),
+    [conformance matrix](CONFORMANCE.md), and [known limitations](LIMITATIONS.md).
 
 ## Standards support at a glance
 

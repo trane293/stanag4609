@@ -107,6 +107,7 @@ nav:
       - Ecosystem interoperability: ECOSYSTEM.md
   - API reference:
       - Overview: api/index.md
+      - Stability policy: API_STABILITY.md
       - KLV and IMAP: api/klv.md
       - ST 0601 metadata: api/st0601.md
       - ST 0902 MISMMS: api/st0902.md
@@ -120,7 +121,9 @@ nav:
       - Audio and geospatial exports: api/media.md
       - Reference player: api/player.md
   - Standards and assurance:
+      - Production readiness: PRODUCTION_READINESS.md
       - Verify and debug FMV: VERIFIER.md
+      - Security policy: https://github.com/trane293/stanag4609/security/policy
       - Standards provenance: STANDARDS.md
       - Conformance: CONFORMANCE.md
       - Objective completion audit: COMPLETION_AUDIT.md

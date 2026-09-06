@@ -38,4 +38,5 @@ from stanag4609.transport import LiveTransportTransformer, TransportDemuxer
 
 The [conformance matrix](../CONFORMANCE.md) records which behavior has
 normative and executable evidence. API availability alone is not a conformance
-claim.
+claim. The [API stability policy](../API_STABILITY.md) defines compatibility
+guarantees and the machine-checked public-surface baseline.

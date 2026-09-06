@@ -117,6 +117,7 @@ include = [
   "/DEMO_DATA_LICENSE.md",
   "/LICENSE",
   "/README.md",
+  "/SECURITY.md",
   "/mkdocs.yml",
   "/pyproject.toml",
 ]

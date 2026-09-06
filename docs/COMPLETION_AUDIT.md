@@ -25,10 +25,11 @@ Last audited: 5 September 2026, release version `0.3.0`.
 | Decode video into AI sidecars | Optional `PyAVFrameSource`, exact native-time-base to transport-PTS conversion, model-neutral BGR/native frames, and real YOLO tutorial integration | Proven at the adapter boundary; FFmpeg codec and hardware behavior remains in the optional backend |
 | Publish installable packages and documentation | Production PyPI release history, owner-gated release workflow, wheel/sdist install checks, strict MkDocs/Read the Docs configuration | Proven for the release process through `0.3.0` |
 
-## Why the overall objective remains open
+## Remaining non-claims
 
-The repository has strong alpha evidence, but it does not yet justify an
-unqualified “complete STANAG 4609 implementation” or stable `1.0` claim:
+The narrowed production-readiness objective is complete for the documented
+profiles. The evidence does not justify an unqualified “complete STANAG 4609
+implementation” or stable `1.0` API claim:
 
 1. NATO STANAG 4609 and the adopted MISP contain broader system and deployment
    clauses than the implemented receiver/writer library profile. All 86 active
@@ -82,7 +83,10 @@ unqualified “complete STANAG 4609 implementation” or stable `1.0` claim:
    and preserves the first runtime failure in versioned JSON. A published
    multi-hour run, larger fan-out, and prolonged
    wall-clock network impairment campaigns remain
-   necessary before a production stability claim.
+   useful before making production-scale hosted-service claims; it is not a
+   blocker for the bounded library profile.
 
-The detailed next actions live in the [continuation roadmap](ROADMAP.md). This
-audit must be updated whenever a release changes a proof or closes a limitation.
+The detailed next actions live in the [continuation roadmap](ROADMAP.md). The
+[production-readiness audit](PRODUCTION_READINESS.md) records the scoped
+verdict. Both audits must be updated whenever a release changes a proof or
+closes a limitation.

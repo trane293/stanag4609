@@ -5,7 +5,9 @@ It separates verified capability from future scope so another developer or agent
 can resume without reconstructing project history.
 
 The [objective completion audit](COMPLETION_AUDIT.md) maps the original release
-goal to current evidence and explains why the overall goal remains open.
+goal to current evidence. The narrowed library-readiness scope is complete; the
+[production-readiness audit](PRODUCTION_READINESS.md) states the exact verdict
+and the items below are extensions or deployment-specific evidence.
 
 ## Proven release baseline
 
@@ -143,7 +145,8 @@ important negative-conformance expectations.
   Sub-second targets, multi-viewer fan-out, adaptive
   bitrate, and WebRTC/HLS remain production deployment profiles.
 - Extend the published live-player performance and memory method to sustained
-  UDP, file demux, mux, verifier, and sidecar workloads.
+  UDP, file demux, mux, verifier, and sidecar workloads when representative
+  deployment data is available. This is not a blocker for bounded library APIs.
 - The verifier PMT-validation cache is now proven bounded to one active
   identity per program across 128 changing revisions; extend the same
   measurement discipline to end-to-end throughput and resident memory.
@@ -180,9 +183,8 @@ important negative-conformance expectations.
   without downloading weights.
 - Add verified, version-specific interoperability results for Esri and other FMV
   consumers instead of predicting compatibility.
-- Expand the first real UI/CLI tutorial captures with upgrade guides, benchmark
-  methodology, and production security/deployment guidance before a stable
-  `1.0` claim.
+- Expand the first real UI/CLI tutorial captures with upgrade guides and
+  deployment-specific benchmark results before a stable `1.0` API claim.
 
 ## How to resume
 

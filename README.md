@@ -8,9 +8,11 @@ to inspect FMV, visualize live geospatial metadata, preserve audio and unknown
 streams, add or modify KLV in transit, encode AI detections as ST 0903 VMTI,
 and send the same timed metadata to independent GIS or analytics consumers.
 
-> **Status: alpha.** The implemented protocol slices are strict, typed,
-> lossless, and tested, but this release does not yet claim complete STANAG
-> 4609/MISP, ST 0601.19, ST 0903.6, or ST 1001.1 conformance. See
+> **Status: production-ready for the documented complete profiles; pre-1.0 API.**
+> The implemented protocol slices are strict, typed, lossless, and tested, but
+> this project does not claim universal STANAG certification or complete
+> STANAG 4609/MISP, ST 0601.19, ST 0903.6, or ST 1001.1 conformance. See the
+> [production-readiness audit](https://stanag4609.readthedocs.io/en/latest/PRODUCTION_READINESS/),
 > [conformance](https://stanag4609.readthedocs.io/en/latest/CONFORMANCE/) and
 > [known limitations](https://stanag4609.readthedocs.io/en/latest/LIMITATIONS/).
 
