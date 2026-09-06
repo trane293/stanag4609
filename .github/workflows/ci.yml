@@ -88,6 +88,36 @@ jobs:
       - name: Execute a real ONNX inference session through the adapter
         run: pytest -q tests/integration/test_optional_ai_runtimes.py
 
+  optional-triton:
+    name: Optional Triton ${{ matrix.transport }} AsyncIO adapter
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - transport: HTTP
+            extra: ai-triton-http
+            selector: triton_http
+          - transport: gRPC
+            extra: ai-triton-grpc
+            selector: triton_grpc
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install Triton client adapter and test dependencies
+        run: >-
+          python -m pip install --upgrade pip &&
+          python -m pip install -e ".[test,${{ matrix.extra }}]"
+      - name: Exercise official AsyncIO client objects through the adapter
+        run: >-
+          pytest -q tests/integration/test_optional_ai_runtimes.py
+          -k ${{ matrix.selector }}
+
   vmti-interoperability:
     name: Independent VMTI vectors
     runs-on: ubuntu-latest

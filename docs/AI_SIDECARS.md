@@ -264,12 +264,14 @@ adapter = TritonAsyncAdapter(
 triton_stage = InferenceStage("triton-vehicles", adapter, timeout_seconds=0.150)
 ```
 
-Reserved request fields are first-class adapter arguments; transport-specific
-options such as `client_timeout`, headers, compression, sequence flags, and
-parameters pass through `infer_kwargs`. Stage timeout cancellation propagates
-through the awaited Triton request. NVIDIA's official clients provide HTTP and
-gRPC APIs plus shared-memory transports; those objects remain on the adapter
-side of the boundary. See the
+Reserved request fields are first-class adapter arguments. The shared Triton
+request timeout is `timeout`; gRPC additionally accepts `client_timeout`.
+Headers, transport-specific compression, sequence flags, and parameters pass
+through `infer_kwargs`. Unsupported options are deliberately left for the
+installed client to reject rather than silently translated. Stage timeout
+cancellation propagates through the awaited Triton request. NVIDIA's official
+clients provide HTTP and gRPC APIs plus shared-memory transports; those objects
+remain on the adapter side of the boundary. See the
 [Triton client documentation](https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/client/README.html).
 
 ## Sequential and parallel models

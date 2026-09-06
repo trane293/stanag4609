@@ -33,11 +33,14 @@ API.
 | FFmpeg media remux/player preparation | Implemented | External `ffmpeg` executable |
 | GStreamer element/plugin | Planned | Application bridge today |
 
-“Implemented” means the repository has a public adapter and tests. PyAV and
-ONNX Runtime also have dependency-installed CI jobs; the ONNX job constructs a
-real graph and executes it through `InferenceSession` and the first-party
-adapter. It does not claim that every model architecture, execution provider,
-server configuration, or downstream application has been certified.
+“Implemented” means the repository has a public adapter and tests. PyAV, ONNX
+Runtime, and both Triton AsyncIO transports also have dependency-installed CI
+jobs. The ONNX job constructs a real graph and executes it through
+`InferenceSession`; the Triton jobs construct the official HTTP/gRPC input and
+output objects and exercise the complete adapter request against subclassed
+official clients without contacting a server. This does not claim that every
+model architecture, execution provider, server configuration, or downstream
+application has been certified.
 
 ## Bring any Python model
 
