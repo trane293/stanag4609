@@ -297,6 +297,62 @@ def test_rtp_reorder_buffer_handles_sequence_wrap_and_session_reset() -> None:
     assert reorder.push(changed).packets == (changed,)
 
 
+def test_rtp_reorder_buffer_survives_sustained_loss_reorder_and_wrap() -> None:
+    start = 65_000
+    packet_count = 20_000
+    reorder = RTPPacketReorderBuffer(max_reorder_packets=16)
+    dropped_offsets = {
+        offset for offset in range(1, packet_count) if offset % 97 == 0
+    }
+    duplicate_offsets = {
+        offset
+        for offset in range(1, packet_count)
+        if offset % 211 == 0 and offset not in dropped_offsets
+    }
+    released_offsets: list[int] = []
+    issues = []
+    maximum_buffered = 0
+
+    def packet(offset: int) -> RTPPacket:
+        return parse_rtp_mpeg2_transport(_rtp((start + offset) % 65_536))
+
+    first = reorder.push(packet(0))
+    released_offsets.extend(
+        (item.sequence_number - start) % 65_536 for item in first.packets
+    )
+    for batch_start in range(1, packet_count, 8):
+        batch = [
+            offset
+            for offset in range(batch_start, min(batch_start + 8, packet_count))
+            if offset not in dropped_offsets
+        ]
+        for offset in reversed(batch):
+            result = reorder.push(packet(offset))
+            released_offsets.extend(
+                (item.sequence_number - start) % 65_536 for item in result.packets
+            )
+            issues.extend(result.issues)
+            if offset in duplicate_offsets:
+                issues.extend(reorder.push(packet(offset)).issues)
+            maximum_buffered = max(maximum_buffered, reorder.buffered_packets)
+
+    final = reorder.flush()
+    released_offsets.extend(
+        (item.sequence_number - start) % 65_536 for item in final.packets
+    )
+    issues.extend(final.issues)
+
+    assert released_offsets == [
+        offset for offset in range(packet_count) if offset not in dropped_offsets
+    ]
+    assert sum(issue.lost_packets for issue in issues) == len(dropped_offsets)
+    assert sum(issue.kind == "late_or_duplicate" for issue in issues) == len(
+        duplicate_offsets
+    )
+    assert maximum_buffered <= reorder.max_reorder_packets
+    assert reorder.buffered_packets == 0
+
+
 def test_rtp_reorder_buffer_validates_configuration_and_packet_type() -> None:
     with pytest.raises(ValueError, match="max_reorder_packets"):
         RTPPacketReorderBuffer(max_reorder_packets=32768)

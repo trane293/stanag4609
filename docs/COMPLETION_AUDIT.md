@@ -13,7 +13,7 @@ Last audited: 5 September 2026, release version `0.1.0`.
 | --- | --- | --- |
 | Fully open source under the MIT License | `LICENSE`; PEP 621 `license = "MIT"`; OSI classifier; public source repository | Proven |
 | Pure-Python library core | Empty runtime `dependencies`; universal `py3-none-any` wheel; Python 3.10–3.14 CI | Proven for the core; FFmpeg, PyAV, and AI runtimes are explicit optional boundaries |
-| Read recorded and arbitrarily chunked live MPEG-2 TS | `TransportDemuxer`, incremental TS/PSI/PES/KLV parsers, complete bounded adaptation-field structure codecs, source-bound exact ST 1402.2 requirement accounting, bounded RTP reorder/receiver path, UDP receivers, real-fixture tests, randomized chunk tests | Proven for the ST 1402.2 metadata-carriage profile and implemented H.222.0 structures plus ST 0804 multiplexed-TS RTP carriage; broader ISO Systems certification remains external |
+| Read recorded and arbitrarily chunked live MPEG-2 TS | `TransportDemuxer`, incremental TS/PSI/PES/KLV parsers, complete bounded adaptation-field structure codecs, source-bound exact ST 1402.2 requirement accounting, bounded RTP reorder/receiver path, UDP receivers, real-fixture tests, randomized chunk tests, and a 20,000-packet wrap/loss/reorder/duplicate campaign | Proven for the ST 1402.2 metadata-carriage profile and implemented H.222.0 structures plus ST 0804 multiplexed-TS RTP carriage; broader ISO Systems certification remains external |
 | Write and modify STANAG 4609 transport | `TransportMuxer`, `LiveTransportTransformer`, typed packet/adaptation encoders and safe packet rebuilds, CSV/KLV muxer, byte-preserving media tests, generated real-media acceptance | Proven for selected-program SPTS output and canonical packet/adaptation construction; whole-MPTS rewriting remains outside this API |
 | Read, validate, write, and losslessly update ST 0601.19 | Complete active-item registry, strict/preserve decoders, canonical encoder, lossless updater, source-bound complete ST 0107.5 KLV/Report-on-Change, ST 1201.5 IMAP, and ST 1303.2 MDAP baselines, and source-bound complete ST 0102.12, ST 0806.4, ST 1002.3, ST 1010.3, ST 1204.3, ST 1206.1, ST 1601.2, ST 1602.2, and ST 1607.2 child profiles for Items 48/73/94/95/97/98/99/100/101/102, and [requirement trace](requirements/ST0601.19.md) | Every active item and active requirement identifier has structural or contextual evidence; the whole-standard claim remains conditional on producer facts and separately invoked profiles |
 | Enforce ST 0902.8 MISMMS | Packet/current-state validators, inclusive 30-second cadence, nested Security cadence and policy contexts, ST 1607 hierarchy checks, verifier integration, and [requirement trace](requirements/ST0902.8.md) | Proven for all active requirements when caller-owned security policy and applicability facts are supplied |
@@ -74,9 +74,11 @@ unqualified “complete STANAG 4609 implementation” or stable `1.0` claim:
    retention stress tests, and prior-epoch SSE/media cursors recover or fail
    immediately with three consecutive Chromium-proven automatic media rejoins.
    Eight simultaneous HTTP viewers receive identical numbered fragments and
-   SSE samples during concurrent publication. Multi-hour paced runs, repeated
+   SSE samples during concurrent publication. A controlled 2,000-write campaign
+   proves that downstream pipe pressure stops the sole producer without an
+   unbounded intermediary queue. Multi-hour paced runs, repeated
    full-process reconnect epochs, larger fan-out, and prolonged
-   loss/reorder/backpressure campaigns remain
+   wall-clock network impairment campaigns remain
    necessary before a production stability claim.
 
 The detailed next actions live in the [continuation roadmap](ROADMAP.md). This

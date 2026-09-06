@@ -143,8 +143,14 @@ important negative-conformance expectations.
 - The verifier PMT-validation cache is now proven bounded to one active
   identity per program across 128 changing revisions; extend the same
   measurement discipline to end-to-end throughput and resident memory.
-- Add failure-injection tests for prolonged loss, reorder, jitter, and output
-  backpressure. Explicit reconnect boundaries now discard and report every
+- Extend deterministic fault injection into wall-clock network and subprocess
+  campaigns. The unit suite now drives 20,000 RTP packets across sequence wrap
+  with repeated loss, bounded reordering, and duplicates while proving exact
+  output/accounting and the configured memory ceiling. A controlled 2,000-write
+  gateway campaign proves that downstream pipe pressure reaches and stops the
+  sole producer without a hidden queue. Real socket jitter, operating-system
+  buffer pressure, FFmpeg stalls, and multi-hour impairment remain deployment
+  evidence. Explicit reconnect boundaries already discard and report every
   partial TS/PSI/PES/KLV structure before rediscovery.
 
 ## Developer experience and assurance

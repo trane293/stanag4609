@@ -309,6 +309,45 @@ def test_live_gateway_propagates_writer_backpressure_to_feed_caller(
     gateway.close()
 
 
+def test_live_gateway_sustained_input_cannot_bypass_writer_backpressure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    blocked = Event()
+    release = Event()
+
+    class GatedInput:
+        def __init__(self) -> None:
+            self.write_calls = 0
+
+        def write(self, data: bytes) -> int:
+            self.write_calls += 1
+            if self.write_calls == 250:
+                blocked.set()
+                assert release.wait(timeout=2)
+            return len(data)
+
+    input_pipe = GatedInput()
+    gateway = LivePlayerGateway()
+    monkeypatch.setattr(gateway, "start", lambda: None)
+    monkeypatch.setattr(gateway._metadata_decoder, "feed", lambda _data: ())
+    gateway._process = SimpleNamespace(stdin=input_pipe)  # type: ignore[assignment]
+    producer = Thread(target=lambda: [gateway.feed(b"x") for _ in range(2_000)])
+
+    producer.start()
+    assert blocked.wait(timeout=1)
+    assert producer.is_alive()
+    assert input_pipe.write_calls == 250
+    assert gateway.stats.input_bytes == 249
+    release.set()
+    producer.join(timeout=2)
+
+    assert not producer.is_alive()
+    assert input_pipe.write_calls == 2_000
+    assert gateway.stats.input_bytes == 2_000
+    gateway._process = None
+    gateway.close()
+
+
 def test_live_player_cli_validates_program_selection() -> None:
     with pytest.raises(SystemExit, match="requires --live"):
         player_main(["missing.ts", "--program-number", "7", "--no-open"])

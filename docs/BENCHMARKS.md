@@ -68,6 +68,15 @@ forced media-epoch conflicts by disposing and recreating its MediaSource. These
 are deterministic correctness checks; they are not throughput or maximum-client
 benchmarks.
 
+Transport fault tests additionally drive 20,000 RTP packets across the 16-bit
+sequence wrap while injecting deterministic losses, eight-packet delivery
+permutations, and duplicates. They require exact ordered recovery of every
+surviving packet, exact loss/duplicate accounting, and a hard 16-packet reorder
+ceiling. A separate 2,000-write gateway campaign blocks the downstream media
+pipe and verifies that the producer stops at that write with no hidden input
+queue or premature byte accounting. These tests prove bounded control-flow
+semantics, not the timing behavior of a real impaired network or FFmpeg process.
+
 ## Interpreting a deployment run
 
 A useful acceptance run should record:
