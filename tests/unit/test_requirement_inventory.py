@@ -118,6 +118,19 @@ ST1206_ACTIVE = {
     "ST 1206-04",
     "ST 1206-05",
 }
+ST1204_ACTIVE = {
+    *(f"ST 1204.1-{index:02d}" for index in range(1, 33)),
+    "ST 1204.1-34",
+    *(f"ST 1204.1-{index:02d}" for index in range(39, 45)),
+    "ST 1204.2-45",
+}
+ST1204_DEPRECATED = {
+    "ST 1204.1-33",
+    "ST 1204.1-35",
+    "ST 1204.1-36",
+    "ST 1204.1-37",
+    "ST 1204.1-38",
+}
 ST1601_ACTIVE = {
     "ST 1601-01",
     "ST 1601-02",
@@ -237,6 +250,7 @@ def test_requirement_inventory_names_the_exact_normative_populations() -> None:
         "MISB-ST-0903.6",
         "MISB-ST-1002.3",
         "MISB-ST-1010.3",
+        "MISB-ST-1204.3",
         "MISB-ST-1206.1",
         "MISB-ST-1601.2",
         "MISB-ST-1602.2",
@@ -290,6 +304,12 @@ def test_requirement_inventory_names_the_exact_normative_populations() -> None:
     assert st1206["inactive_requirements"] == [
         {"id": "ST 1206-02", "status": "deprecated"}
     ]
+
+    st1204 = documents["MISB-ST-1204.3"]
+    assert set(st1204["active_requirements"]) == ST1204_ACTIVE
+    assert len(st1204["active_requirements"]) == len(ST1204_ACTIVE) == 40
+    assert {entry["id"] for entry in st1204["inactive_requirements"]} == ST1204_DEPRECATED
+    assert {entry["status"] for entry in st1204["inactive_requirements"]} == {"deprecated"}
 
     st1601 = documents["MISB-ST-1601.2"]
     assert set(st1601["active_requirements"]) == ST1601_ACTIVE

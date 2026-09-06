@@ -57,6 +57,9 @@ important negative-conformance expectations.
    standards embedded by Items 73, 95, 98, and 99 now have typed bridges;
    Item 73 has checksum-bound exact ST 0806.4 requirement accounting and
    producer-supplied time-of-birth validation;
+   Item 94 has checksum-bound exact ST 1204.3 requirement accounting plus
+   standalone KLV, checked text, XML, multi-sensor, and window-derivation
+   support for its complete software-verifiable profile;
    Item 95 additionally has checksum-bound exact ST 1206.1 requirement
    accounting and effective-PRF/RCS exploitation helpers;
    Item 98 additionally has parallel Amend/MSID Report-on-Change resolution,

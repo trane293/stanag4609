@@ -3,13 +3,27 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterable
+import re
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import IntEnum
 from uuid import RFC_4122, UUID, uuid1, uuid4, uuid5
+from xml.etree import ElementTree
 
 from stanag4609.errors import DecodeError, NeedMoreData
-from stanag4609.klv.ber import decode_ber_oid, encode_ber_oid
+from stanag4609.klv.ber import decode_ber_oid, encode_ber_length, encode_ber_oid
+from stanag4609.klv.model import KLVPacket
+from stanag4609.klv.stream import KLVStreamParser
+
+MIIS_CORE_IDENTIFIER_KEY = bytes.fromhex("060E2B34010101010E01040503000000")
+MIIS_XML_NAMESPACE = "http://www.nga.gov/MiisSchema/"
+_MIIS_XML_ROOT = f"{{{MIIS_XML_NAMESPACE}}}MiisCoreId"
+_TEXT_UUID = r"[0-9A-Fa-f]{4}(?:-[0-9A-Fa-f]{4}){7}"
+_TEXT_PATTERN = re.compile(
+    rf"^(?P<header>[0-9A-Fa-f]{{4}}):"
+    rf"(?P<identifiers>{_TEXT_UUID}(?:/{_TEXT_UUID}){{0,2}}):"
+    rf"(?P<check>[0-9A-Fa-f]{{2}})$"
+)
 
 
 class IdentifierQuality(IntEnum):
@@ -103,6 +117,75 @@ def combine_miis_uuids(identifiers: Iterable[UUID]) -> UUID:
     return identifier
 
 
+def combine_miis_sensor_identifiers(
+    components: Iterable[tuple[UUID, IdentifierQuality]],
+) -> tuple[UUID, IdentifierQuality]:
+    """Combine sensor UUIDs and apply ST 1204.1-19's lowest-quality rule."""
+
+    if not isinstance(components, Iterable):
+        raise TypeError("components must be an iterable of identifier/quality pairs")
+    values = tuple(components)
+    if len(values) < 2:
+        raise ValueError("at least two sensor identifier components are required")
+    identifiers: list[UUID] = []
+    qualities: list[IdentifierQuality] = []
+    for identifier, quality in values:
+        validate_miis_uuid(identifier)
+        if not isinstance(quality, IdentifierQuality):
+            raise TypeError("sensor identifier quality must be an IdentifierQuality")
+        if quality is IdentifierQuality.NONE:
+            raise ValueError("combined sensor identifiers must have a non-NONE quality")
+        identifiers.append(identifier)
+        qualities.append(quality)
+    return combine_miis_uuids(identifiers), min(qualities)
+
+
+def _p_map(value: int) -> int:
+    a, b, c, d = ((value >> shift) & 1 for shift in (3, 2, 1, 0))
+    return ((a ^ b) << 3) | (c << 2) | (d << 1) | a
+
+
+def _q_map(value: int) -> int:
+    a, b, c, d = ((value >> shift) & 1 for shift in (3, 2, 1, 0))
+    return (d << 3) | ((a ^ d) << 2) | (b << 1) | c
+
+
+def _permutation_table(mapper: Callable[[int], int]) -> tuple[tuple[int, ...], ...]:
+    rows = [tuple(range(16))]
+    for _ in range(14):
+        previous = rows[-1]
+        rows.append(tuple(mapper(value) for value in previous))
+    return tuple(rows)
+
+
+_P_PERMUTATIONS = _permutation_table(_p_map)
+_Q_PERMUTATIONS = _permutation_table(_q_map)
+
+
+def miis_text_check_value(value: str) -> int:
+    """Compute the ST 1204.3 Appendix B two-digit hexadecimal check value.
+
+    The check covers hexadecimal digits only. The standard text separators
+    ``:``, ``-``, and ``/`` may be present and are ignored.
+    """
+
+    if not isinstance(value, str):
+        raise TypeError("MIIS check-value input must be a string")
+    if not value or any(character not in "0123456789abcdefABCDEF:-/" for character in value):
+        raise ValueError("MIIS check-value input must contain hexadecimal digits and separators")
+    digits = "".join(character for character in value if character not in ":-/")
+    if not digits:
+        raise ValueError("MIIS check-value input must contain at least one hexadecimal digit")
+    p_check = 0
+    q_check = 0
+    for index, character in enumerate(digits, start=1):
+        digit = int(character, 16)
+        row = index % 15
+        p_check ^= _P_PERMUTATIONS[row][digit]
+        q_check ^= _Q_PERMUTATIONS[row][digit]
+    return p_check << 4 | q_check
+
+
 @dataclass(frozen=True, slots=True)
 class MIISCoreIdentifier:
     """A typed ST 1204.3 binary Core Identifier value."""
@@ -164,6 +247,27 @@ class MIISCoreIdentifier:
 
     def __bytes__(self) -> bytes:
         return encode_miis_core_identifier(self)
+
+
+def with_miis_window_identifier(
+    source: MIISCoreIdentifier,
+    window_id: UUID,
+) -> MIISCoreIdentifier:
+    """Derive a sub-window Core Identifier while preserving its foundation."""
+
+    if not isinstance(source, MIISCoreIdentifier):
+        raise TypeError("source must be an MIISCoreIdentifier")
+    validate_miis_uuid(window_id)
+    if source.minor_id is not None:
+        raise ValueError("a Window Identifier requires a Foundational Core Identifier")
+    return MIISCoreIdentifier(
+        version=source.version,
+        sensor_quality=source.sensor_quality,
+        platform_quality=source.platform_quality,
+        sensor_id=source.sensor_id,
+        platform_id=source.platform_id,
+        window_id=window_id,
+    )
 
 
 def encode_miis_core_identifier(core: MIISCoreIdentifier) -> bytes:
@@ -246,3 +350,112 @@ def decode_miis_core_identifier(data: bytes) -> MIISCoreIdentifier:
         )
     except ValueError as error:
         raise DecodeError(str(error)) from error
+
+
+def encode_miis_core_identifier_klv(core: MIISCoreIdentifier) -> bytes:
+    """Encode a Core Identifier as the standalone ST 1204 Universal KLV pack."""
+
+    value = encode_miis_core_identifier(core)
+    return MIIS_CORE_IDENTIFIER_KEY + encode_ber_length(len(value)) + value
+
+
+def decode_miis_core_identifier_klv(data: bytes | KLVPacket) -> MIISCoreIdentifier:
+    """Decode exactly one standalone ST 1204 Universal KLV pack."""
+
+    if isinstance(data, KLVPacket):
+        packet = data
+    else:
+        if not isinstance(data, bytes):
+            raise TypeError("standalone ST 1204 data must be bytes or a KLVPacket")
+        parser = KLVStreamParser(key_prefix=None, validate_smpte_keys=False)
+        packets = parser.feed(data)
+        packets.extend(parser.finish())
+        if len(packets) != 1:
+            raise DecodeError(f"expected one ST 1204 packet, observed {len(packets)}")
+        packet = packets[0]
+    if packet.key != MIIS_CORE_IDENTIFIER_KEY:
+        raise DecodeError(
+            f"unexpected Universal Key {packet.key.hex(' ')} for ST 1204 Core Identifier"
+        )
+    return decode_miis_core_identifier(packet.value)
+
+
+def _group_miis_uuid(identifier: UUID) -> str:
+    hexadecimal = identifier.hex.upper()
+    return "-".join(hexadecimal[index : index + 4] for index in range(0, 32, 4))
+
+
+def format_miis_core_identifier(core: MIISCoreIdentifier) -> str:
+    """Render the canonical uppercase ST 1204.3 human-readable text form."""
+
+    if not isinstance(core, MIISCoreIdentifier):
+        raise TypeError("core must be an MIISCoreIdentifier")
+    identifiers = (
+        core.sensor_id,
+        core.platform_id,
+        core.window_id,
+        core.minor_id,
+    )
+    body = "/".join(
+        _group_miis_uuid(identifier) for identifier in identifiers if identifier is not None
+    )
+    unchecked = f"{core.version:02X}{core.usage_value:02X}:{body}"
+    return f"{unchecked}:{miis_text_check_value(unchecked):02X}"
+
+
+def parse_miis_core_identifier(value: str) -> MIISCoreIdentifier:
+    """Parse and check one ST 1204.3 human-readable Core Identifier."""
+
+    if not isinstance(value, str):
+        raise TypeError("ST 1204 text Core Identifier must be a string")
+    match = _TEXT_PATTERN.fullmatch(value)
+    if match is None:
+        raise DecodeError("invalid ST 1204 Core Identifier text format")
+    unchecked, _, supplied_check = value.rpartition(":")
+    expected_check = miis_text_check_value(unchecked)
+    if int(supplied_check, 16) != expected_check:
+        raise DecodeError(
+            f"ST 1204 text check value is {supplied_check.upper()}; expected {expected_check:02X}"
+        )
+    header = bytes.fromhex(match.group("header"))
+    identifier_text = match.group("identifiers").replace("-", "").replace("/", "")
+    identifier_bytes = bytes.fromhex(identifier_text)
+    return decode_miis_core_identifier(header + identifier_bytes)
+
+
+def encode_miis_core_identifier_xml(core: MIISCoreIdentifier) -> bytes:
+    """Encode the ST 1204.3 XML Core Identifier format as UTF-8."""
+
+    text = format_miis_core_identifier(core)
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+        f'<MiisCoreId xmlns="{MIIS_XML_NAMESPACE}">{text}</MiisCoreId>'
+    ).encode()
+
+
+def decode_miis_core_identifier_xml(data: str | bytes) -> MIISCoreIdentifier:
+    """Decode a bounded ST 1204.3 XML Core Identifier document."""
+
+    if not isinstance(data, (str, bytes)):
+        raise TypeError("ST 1204 XML Core Identifier must be str or bytes")
+    if len(data) > 64 * 1024:
+        raise DecodeError("ST 1204 XML document exceeds the 64 KiB safety limit")
+    if isinstance(data, str):
+        forbidden_markup = "<!doctype" in data.lower() or "<!entity" in data.lower()
+    else:
+        forbidden_markup = b"<!doctype" in data.lower() or b"<!entity" in data.lower()
+    if forbidden_markup:
+        raise DecodeError("ST 1204 XML DTD and entity declarations are forbidden")
+    try:
+        root = ElementTree.fromstring(data)
+    except (ElementTree.ParseError, UnicodeError) as error:
+        raise DecodeError(f"invalid ST 1204 XML document: {error}") from error
+    if root.tag != _MIIS_XML_ROOT:
+        raise DecodeError("invalid ST 1204 XML root element or namespace")
+    if root.attrib:
+        raise DecodeError("ST 1204 XML root element must not have attributes")
+    if len(root):
+        raise DecodeError("ST 1204 XML Core Identifier must not contain child elements")
+    if root.text is None:
+        raise DecodeError("ST 1204 XML Core Identifier has no text value")
+    return parse_miis_core_identifier(root.text.strip())

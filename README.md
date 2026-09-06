@@ -59,6 +59,10 @@ and send the same timed metadata to independent GIS or analytics consumers.
   source/AOI/sub-image geometry, transparency, Z-order, the ST 0601 Item 99 bridge, and stateful sibling
   Z-order, multi-sensor child-identifier validation, and effective parent/child
   timestamp resolution.
+- ST 1204.3 MIIS Core Identifiers with source-bound complete requirement
+  accounting, binary and standalone Universal KLV, checked human-readable text,
+  bounded XML, UUID generation, multi-sensor combination, window derivation,
+  and the ST 0601 Item 94 bridge.
 - ST 0903.6 standalone/embedded VMTI, VTarget packs, frame-bounded pixel
   centroids and bounding boxes,
   lifecycle status, and packet-scoped Algorithm/Ontology/VObject/VFeature

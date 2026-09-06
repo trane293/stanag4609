@@ -8,7 +8,7 @@ Their exact provenance and SHA-256 digests are recorded in
 their redistribution terms have been reviewed.
 
 The exact active and inactive normative-requirement populations for ST 0601.19,
-ST 0806.4, ST 0902.8, ST 0903.6, ST 1002.3, ST 1010.3, ST 1206.1,
+ST 0806.4, ST 0902.8, ST 0903.6, ST 1002.3, ST 1010.3, ST 1204.3, ST 1206.1,
 ST 1601.2, ST 1602.2, and MISP-2019.1 are also recorded in the machine-readable
 `references/requirements.json`. Tests bind that inventory to the acquired
 source digests, require every active identifier to appear in its human-readable
@@ -39,7 +39,7 @@ omitting a requirement or minimum metadata group.
 | ITU-T H.265 / ISO/IEC 23008-2 | 02/2018 | HEVC sequence syntax | Downloaded from ITU |
 | ITU-T H.222.0 / ISO/IEC 13818-1 | 10/2014 | MPEG-2 Systems and metadata AU syntax | Downloaded from ITU |
 | MISB ST 0603 / 0604 / 0607 | Current registry versions | Time and transport compliance | Downloaded from official registry |
-| MISB ST 0102 / 1204 | Current registry versions | Nested and referenced metadata | Downloaded from official registry |
+| MISB ST 0102 / 1204 | ST 0102.12 / ST 1204.3 | Nested Security metadata and MIIS identity | Downloaded from official registry |
 | MISB ST 0807 | 0807.27 | KLV registry | Downloaded from official registry |
 | ITU-T X.690 / ISO/IEC 8825-1 | 11/2008 | BER Length and Object Identifier encoding used by ST 336 | Downloaded from ITU |
 | SMPTE ST 298 | 2009 edition cited by ST 336:2017 | Universal Label structure and encoding | Downloaded from official SMPTE publication archive |

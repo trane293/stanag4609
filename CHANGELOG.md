@@ -13,6 +13,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 - Add a sparse server-side full-mission detection summary with bounded
   heavy-hitter label memory and exact totals, keep incremental browser detail
   at 512 samples, and make paused scrubbing fetch the effective metadata sample.
+- Bind all 40 active and five deprecated ST 1204.3 requirements to the
+  checksum-pinned publication; add standalone KLV, checked text, bounded XML,
+  lowest-quality multi-sensor combination, and window-derivation support.
 - Bind the complete ST 1206.1 active/deprecated requirement population to its
   checksum-pinned source and add validated effective-PRF and target-RCS
   exploitation helpers for ST 0601 Item 95 SAR metadata.

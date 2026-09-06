@@ -43,6 +43,11 @@
   ST 0601 Item 95 covers the complete software-verifiable ST 1206.1 profile,
   including effective-PRF and radiometric RCS calculations; radar calibration,
   collection geometry, and measurement truth remain producer-owned.
+  ST 0601 Item 94 covers the complete software-verifiable ST 1204.3 profile,
+  including binary, standalone KLV, checked text, XML, UUID generation,
+  multi-sensor combination, window derivation, and cadence. Physical identity,
+  provisioning uniqueness, device lifecycle, insertion topology, and derived-
+  product retention remain producer/application responsibilities.
   Embedded VChip payloads are checked for their declared JPEG or PNG signature;
   full image decoding and externally referenced IRI content are application concerns.
 - The live transformer is pull-driven and emits one explicitly selected program
