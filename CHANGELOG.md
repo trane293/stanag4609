@@ -5,6 +5,11 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Add `stanag4609-soak-live`, a versioned JSON stability harness that replays
+  identified FMV at a controlled average media rate across isolated
+  gateway/FFmpeg process epochs, preserves runtime-failure evidence, and
+  reports pacing lag, bounded histories, throughput counts, and memory
+  high-water marks; publish a two-epoch Esri Truck result.
 - Recover live metadata immediately when an SSE reconnect presents an event ID
   from a prior server epoch, reject future media-fragment cursors without a
   pointless long poll, and make the browser automatically build a fresh

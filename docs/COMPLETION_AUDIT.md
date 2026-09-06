@@ -76,8 +76,11 @@ unqualified “complete STANAG 4609 implementation” or stable `1.0` claim:
    Eight simultaneous HTTP viewers receive identical numbered fragments and
    SSE samples during concurrent publication. A controlled 2,000-write campaign
    proves that downstream pipe pressure stops the sole producer without an
-   unbounded intermediary queue. Multi-hour paced runs, repeated
-   full-process reconnect epochs, larger fan-out, and prolonged
+   unbounded intermediary queue. The installed soak command now replays an
+   identified source at a controlled average media rate across fresh gateway
+   and FFmpeg process epochs, reports pacing lag and bounded history for each,
+   and preserves the first runtime failure in versioned JSON. A published
+   multi-hour run, larger fan-out, and prolonged
    wall-clock network impairment campaigns remain
    necessary before a production stability claim.
 

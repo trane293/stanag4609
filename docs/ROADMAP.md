@@ -127,11 +127,15 @@ important negative-conformance expectations.
   separate whole-multiplex rewriting API if deployments require unrelated
   programs to remain in the same output transport.
 - Extend the measured low-latency fragmented-MP4/MSE reference gateway from
-  complete 148–371-second real-FMV runs to multi-hour paced input, repeated
-  full-process reconnect epochs, and production-scale concurrent viewers. The
+  complete 148–371-second real-FMV runs to a published multi-hour paced
+  campaign and production-scale concurrent viewers. The
   first-party JSON benchmark now
   proves bounded late-join histories and 8.44–17.68× finite-file headroom on
-  three pinned fixtures; prior-epoch SSE cursors reset into retained metadata
+  three pinned fixtures. A separate first-party soak command performs
+  average-bitrate-paced replay through isolated gateway/FFmpeg process epochs,
+  preserves a failed epoch in its versioned JSON, and returns a failing status;
+  a multi-hour published result remains outstanding. Prior-epoch SSE cursors
+  reset into retained metadata
   immediately, while the Chromium-proven client rebuilds its MediaSource after
   prior-epoch media cursors fail without long-polling. Eight simultaneous HTTP
   viewers and three consecutive browser media rejoins are deterministic CI

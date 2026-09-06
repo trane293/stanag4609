@@ -36,6 +36,58 @@ include interpreter/FFmpeg baseline memory. RSS units are normalized to bytes
 on macOS and Linux. Compare runs on the same OS, architecture, Python, and
 FFmpeg version.
 
+## Paced reconnect soak
+
+`stanag4609-soak-live` complements the headroom benchmark by replaying the
+identified source at a controlled wall-clock rate and constructing a completely
+new `LivePlayerGateway`, FFmpeg process, metadata decoder, media buffer, and
+broadcast history for every epoch:
+
+```console
+stanag4609-soak-live \
+  "samples/private/esri-fmv/Truck.ts" \
+  --epochs 20 \
+  --rate 1 \
+  --output truck-soak.json
+```
+
+Pacing uses source byte progress and the `ffprobe` media duration, so it follows
+the file's average transport bitrate rather than individual PCR arrival times.
+Pass `--source-duration` only when a trusted duration is available but
+`ffprobe` cannot determine it. `--rate 1` models that average rate in real time;
+`--rate 2` targets twice real time. The report records maximum positive pacing
+lag, which reveals when processing could not sustain the requested rate.
+
+Each completed epoch must consume the full source and produce complete media.
+An exception closes that epoch, records its type and message, stops subsequent
+epochs, marks the report `passed: false`, and makes the CLI return status 1.
+The report is still printed and written to `--output`, preserving failure
+evidence for unattended runs. Interrupts remain interrupts and are not reported
+as library failures.
+
+Histories remain bounded independently within every epoch. Aggregate byte,
+chunk, metadata, and media counts expose incomplete ingestion or inconsistent
+restarts; per-epoch retained and evicted counts expose changing output. Python
+heap and Python/child-process RSS high-water marks cover the complete campaign.
+Child RSS is process-accounting evidence, not a sampled per-epoch time series.
+Use an external process monitor when a deployment needs leak slopes or
+instantaneous resident-memory attribution.
+
+The initial implementation check replayed the 148.181-second Esri Truck fixture
+twice at an 8× target on the pinned-baseline machine. Both fresh process epochs
+consumed all 103,211,436 bytes and independently produced 711 metadata samples
+and 149 media fragments. Worst positive pacing lag was 41 ms. The
+[machine-readable soak result](assets/benchmarks/live-player-soak-esri-truck.json)
+records the exact source hash and environment. This 37-second accelerated check
+proves the mechanism and restart repeatability; it is not the outstanding
+multi-hour real-time campaign.
+
+This harness proves paced file replay and repeated clean process lifecycle. It
+does not emulate packet loss, socket jitter, kernel-buffer pressure, a producer
+that disappears mid-PES, or recovery policy in the source adapter. Pair it with
+the RTP/UDP fault tests and a deployment-specific capture campaign before making
+a network stability claim.
+
 ## Pinned baseline
 
 Measured 5 September 2026 on Apple Silicon, macOS 26.5.2, Python 3.10.13, and
@@ -86,7 +138,8 @@ A useful acceptance run should record:
 3. throughput greater than the incoming transport rate with adequate margin;
 4. retained counts no larger than the configured windows;
 5. whether evictions were expected because no consumer advanced its cursor;
-6. process RSS across repeated or multi-hour epochs; and
+6. process RSS across repeated or multi-hour epochs (use
+   `stanag4609-soak-live` for reproducible file replay); and
 7. receiver continuity, loss, reorder, and reconnect findings alongside these
    gateway measurements.
 

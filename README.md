@@ -779,6 +779,7 @@ stanag4609-player "/path/to/Truck.ts"
 stanag4609-player "/path/to/Truck.ts" --stream-metadata
 stanag4609-player - --live
 stanag4609-benchmark-live "/path/to/Truck.ts"
+stanag4609-soak-live "/path/to/Truck.ts" --epochs 20 --rate 1
 ```
 
 For separate video and CSV inputs, run `stanag4609-mux-esri` first and pass its

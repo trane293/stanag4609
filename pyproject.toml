@@ -55,6 +55,7 @@ stanag4609-export-esri = "stanag4609.csvexport:main"
 stanag4609-export-geojson = "stanag4609.geojson:main"
 stanag4609-mux-esri = "stanag4609.csvmux:main"
 stanag4609-player = "stanag4609.player.server:main"
+stanag4609-soak-live = "stanag4609.player.soak:main"
 stanag4609-verify = "stanag4609.verifier:main"
 
 [project.optional-dependencies]

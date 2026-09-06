@@ -70,6 +70,20 @@ traced Python heap, process RSS, and runtime identities. Read
 [performance benchmarks](BENCHMARKS.md) before comparing machines or treating
 finite-file throughput as live latency.
 
+For a wall-clock stability campaign, run fresh gateway and FFmpeg process
+epochs against the same identified source:
+
+```console
+stanag4609-soak-live mission.ts --epochs 20 --rate 1 \
+  --output live-soak.json
+```
+
+`--rate 1` follows the source's average media rate; larger values accelerate a
+campaign while reporting any accumulated pacing lag. A runtime failure is
+written into the JSON report and makes the command exit with status 1. See the
+[benchmark methodology](BENCHMARKS.md) before treating a replay as capture- or
+network-layer evidence.
+
 ## Add an ArcGIS-style CSV sidecar to video
 
 ```console
@@ -101,6 +115,7 @@ footprint geometry. See [GeoJSON streams](GEOJSON.md).
 ```console
 stanag4609-player --help
 stanag4609-benchmark-live --help
+stanag4609-soak-live --help
 stanag4609-verify --help
 stanag4609-mux-esri --help
 stanag4609-export-esri --help
