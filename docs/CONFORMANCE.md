@@ -15,6 +15,7 @@ test. It does not imply conformance outside that narrow row.
 | Variable integer shortest length (ST 0107.3-10) | `st0601` encoder/decoder | every variable integer family plus leading zero/sign-extension rejection | Verified |
 | UTF-8 trimming/control rules (ST 0107.3-12/-13) | `st0601` | every text item in the active root registry | Verified registry-wide |
 | ZLI decoded as Unknown (ST 0107.4-17) | `st0601` | every optional singleton in the active root registry | Verified registry-wide |
+| ST 0107.5 complete baseline profile | `klv`, `st0601`, `st0601_state`, `st0902`, `st1010`, `st1201`, `st1202`, `st1303` | checksum-bound exact 20-active/zero-inactive inventory; strict KLV/value encodings; UTF-8 and Report-on-Change/ZLI tests | Complete software-verifiable profile; arbitrary optional Known-state cadence remains producer-owned |
 | Incremental bounded 16-byte Universal KLV | `klv.key`, `klv.stream` | `test_universal_label.py`, `test_klv_stream.py` | ST 336:2017 applicable subset traced and verified |
 | Lossless Local Set TLV parsing | `klv.local_set` | `test_local_set.py` | Tested |
 | Timestamp first (ST 0601.8-09) | `st0601` | `test_st0601.py` | Verified |

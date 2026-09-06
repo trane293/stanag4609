@@ -7,7 +7,7 @@ Their exact provenance and SHA-256 digests are recorded in
 `references/standards/manifest.json`; the files themselves are gitignored until
 their redistribution terms have been reviewed.
 
-The exact active and inactive normative-requirement populations for ST 0102.12,
+The exact active and inactive normative-requirement populations for ST 0102.12, ST 0107.5,
 ST 0601.19, ST 0806.4, ST 0902.8, ST 0903.6, ST 1002.3, ST 1010.3, ST 1204.3, ST 1206.1,
 ST 1601.2, ST 1602.2, ST 1607.2, and MISP-2019.1 are also recorded in the machine-readable
 `references/requirements.json`. Tests bind that inventory to the acquired

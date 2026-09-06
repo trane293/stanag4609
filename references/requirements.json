@@ -134,6 +134,34 @@
       ]
     },
     {
+      "id": "MISB-ST-0107.5",
+      "source_sha256": "88932f7aa3ccf5ef46db029a902b678ae2e94403722448ac65abb344d00c4b4f",
+      "trace": "docs/requirements/ST0107.5.md",
+      "active_requirements": [
+        "ST 0107.2-01",
+        "ST 0107.2-02",
+        "ST 0107.3-03",
+        "ST 0107.3-04",
+        "ST 0107.3-05",
+        "ST 0107.3-06",
+        "ST 0107.3-07",
+        "ST 0107.3-08",
+        "ST 0107.3-09",
+        "ST 0107.3-10",
+        "ST 0107.3-11",
+        "ST 0107.3-12",
+        "ST 0107.3-13",
+        "ST 0107.4-14",
+        "ST 0107.4-15",
+        "ST 0107.4-16",
+        "ST 0107.4-17",
+        "ST 0107.4-18",
+        "ST 0107.4-19",
+        "ST 0107.5-20"
+      ],
+      "inactive_requirements": []
+    },
+    {
       "id": "MISB-ST-0806.4",
       "source_sha256": "58de4265d377d88b922df111aab49e52209fe4a4d54870aba53b310ad6e01037",
       "trace": "docs/requirements/ST0806.4.md",

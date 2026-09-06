@@ -22,6 +22,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 - Bind all eight active and one retired ST 1607.2 requirements to the
   checksum-pinned publication and diagnose absent root security in Segment and
   Amend hierarchies.
+- Bind all 20 active ST 0107.5 baseline KLV requirements to the checksum-pinned
+  publication, with explicit producer-context limits for generic optional-item
+  cadence.
 - Bind the complete ST 1206.1 active/deprecated requirement population to its
   checksum-pinned source and add validated effective-PRF and target-RCS
   exploitation helpers for ST 0601 Item 95 SAR metadata.

@@ -54,6 +54,8 @@ important negative-conformance expectations.
    properties.
 2. Close the remaining contextual and cross-item ST 0601.19 conformance gaps,
    especially producer-supplied time-of-birth/precision facts. The child
+   standards share a checksum-bound complete ST 0107.5 baseline for KLV,
+   value encoding, UTF-8, and Report-on-Change semantics. The child
    standards embedded by Items 48, 73, 94, 95, 97, 98, 99, and 102 now have
    typed bridges;
    Item 48 has checksum-bound exact ST 0102.12 accounting plus complete
