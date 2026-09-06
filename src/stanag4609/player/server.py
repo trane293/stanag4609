@@ -968,6 +968,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise SystemExit("--program-number must be between 1 and 65535")
         if not (args.live or args.simulate_live):
             raise SystemExit("--program-number currently requires --live or --simulate-live")
+    if args.simulate_live:
+        assert args.source is not None
+        if str(args.source) == "-":
+            raise SystemExit("--simulate-live requires a complete disk input")
+        if not math.isfinite(args.playback_rate) or not 0.1 <= args.playback_rate <= 16:
+            raise SystemExit("--playback-rate must be between 0.1 and 16")
     allowed_hosts = _cli_allowed_hosts(args)
     if shutil.which(args.ffmpeg) is None:
         raise SystemExit(f"FFmpeg executable not found: {args.ffmpeg}")
