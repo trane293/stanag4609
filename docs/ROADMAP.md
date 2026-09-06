@@ -98,12 +98,16 @@ important negative-conformance expectations.
    authoritative dated code-list selection remain external.
 5. Broaden ST 1001.1-labelled audio conformance fixtures while keeping codec
    scope focused on common Layer II and AAC profiles.
-6. Add a redistributable real ST 0903/VMTI FMV fixture. Current VMTI coverage is
-   synthetic and standards-vector driven; it is not yet independently sourced
-   recorded-media interoperability evidence. The public ImpleoTV negative
-   corpus and OpenSensorHub sample stream were inspected and contain no VMTI;
-   OpenSensorHub's upstream VMTI test permits zero targets, so neither closes
-   this requirement.
+6. Add a redistributable real ST 0903/VMTI FMV fixture. Current positive VMTI
+   coverage is synthetic and standards-vector driven; it is not yet
+   independently sourced recorded-media interoperability evidence. Three
+   checksum-pinned `libmisbklv` vectors now prove strict rejection of independent
+   packets with contradictory target counts or missing mandatory standalone
+   context, but those hand-authored negative vectors do not close this gap. The
+   public ImpleoTV negative corpus and OpenSensorHub sample stream were inspected
+   and contain no VMTI. OGC Testbed-16 identifies JSIL `S05.ts` and `S06.ts` as
+   ST 0903.3 VMTI recordings, but its published download location requires OGC
+   member access; seek a lawful public mirror or contributor-provided stream.
 
 ## Transport and live deployment
 

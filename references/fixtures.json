@@ -243,6 +243,54 @@
         "mpegts-pcr-pts-drift.ts"
       ],
       "notes": "Public negative-conformance corpus published with ImpleoTV STANAG4609 Inspector. The integration suite pins and exercises fault-specific diagnostics independently of the proprietary application. The sole unasserted PCR/PTS drift member remains inside ST 1402's published H.264 lead bound; no non-normative drift threshold is invented."
+    },
+    {
+      "id": "libmisbklv-vmti-nested",
+      "kind": "vmti-vector",
+      "path": "libmisbklv/vmti_nested.klv",
+      "filename": "vmti_nested.klv",
+      "url": "https://raw.githubusercontent.com/nitsuga/libmisbklv/4da3023c95bc45ef78bf6a1895939e6b043a5eac/test/fixtures/vmti_nested.klv",
+      "source_page": "https://github.com/nitsuga/libmisbklv/blob/4da3023c95bc45ef78bf6a1895939e6b043a5eac/test/fixtures/make_vmti_fixture.py",
+      "source_commit": "4da3023c95bc45ef78bf6a1895939e6b043a5eac",
+      "source_license": "Apache-2.0",
+      "sha256": "e8c5d249eb5c60989fd0654e1a990cba7f939f9cd069887663ee0b39270ec040",
+      "size": 60,
+      "container": "ST 0601 Universal KLV packet with embedded ST 0903.6 Item 74",
+      "decode_as": "st0601-item74",
+      "expected_error": "ST 0903 numTargetsReported reports 2, but vTargetSeries contains 0",
+      "notes": "Independently hand-authored vector. Its outer checksum is valid, but it declares two reported targets without carrying Item 101; strict decoding must reject that cross-item contradiction."
+    },
+    {
+      "id": "libmisbklv-vmti-standalone",
+      "kind": "vmti-vector",
+      "path": "libmisbklv/vmti_standalone.klv",
+      "filename": "vmti_standalone.klv",
+      "url": "https://raw.githubusercontent.com/nitsuga/libmisbklv/4da3023c95bc45ef78bf6a1895939e6b043a5eac/test/fixtures/vmti_standalone.klv",
+      "source_page": "https://github.com/nitsuga/libmisbklv/blob/4da3023c95bc45ef78bf6a1895939e6b043a5eac/test/fixtures/make_vmti_standalone.py",
+      "source_commit": "4da3023c95bc45ef78bf6a1895939e6b043a5eac",
+      "source_license": "Apache-2.0",
+      "sha256": "f9e66f083387cdf821dd64666da67a32d3163f46391b6423506c3b782194e2ca",
+      "size": 48,
+      "container": "standalone ST 0903.6 Universal KLV packet",
+      "decode_as": "st0903-standalone",
+      "expected_error": "standalone ST 0903 miisId is required",
+      "notes": "Independently hand-authored vector with a valid packet checksum. It omits mandatory standalone Item 13, so strict decoding must reject it rather than accepting checksum validity as conformance."
+    },
+    {
+      "id": "libmisbklv-vmti-vtarget",
+      "kind": "vmti-vector",
+      "path": "libmisbklv/vmti_vtarget.klv",
+      "filename": "vmti_vtarget.klv",
+      "url": "https://raw.githubusercontent.com/nitsuga/libmisbklv/4da3023c95bc45ef78bf6a1895939e6b043a5eac/test/fixtures/vmti_vtarget.klv",
+      "source_page": "https://github.com/nitsuga/libmisbklv/blob/4da3023c95bc45ef78bf6a1895939e6b043a5eac/test/fixtures/make_vtarget_fixture.py",
+      "source_commit": "4da3023c95bc45ef78bf6a1895939e6b043a5eac",
+      "source_license": "Apache-2.0",
+      "sha256": "156b5b4063f491c287b9e8224161846045ed522f25ba11fa08509c24c150c842",
+      "size": 72,
+      "container": "standalone ST 0903.6 Universal KLV packet with two VTarget Packs",
+      "decode_as": "st0903-standalone",
+      "expected_error": "standalone ST 0903 vmtiHorizontalFov is required",
+      "notes": "Independently hand-authored vector with a valid packet checksum and two target packs. It omits mandatory standalone Items 11, 12, and 13; the decoder reports the first missing field deterministically."
     }
   ]
 }

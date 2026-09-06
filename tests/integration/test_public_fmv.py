@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import zipfile
 from pathlib import Path
@@ -10,8 +11,10 @@ from typing import Any
 import pytest
 
 from stanag4609.audio import AudioPESFrameParser, PyAVAudioDecoder
+from stanag4609.errors import DecodeError
 from stanag4609.player.server import prepare_player_assets
-from stanag4609.st0601 import FieldDecodingMode, UASLocalSet
+from stanag4609.st0601 import FieldDecodingMode, UASLocalSet, decode_uas_local_set
+from stanag4609.st0903 import decode_vmti_local_set
 from stanag4609.transport.demux import (
     PESStreamEvent,
     ProgramClockEvent,
@@ -45,6 +48,15 @@ def _conformance_bundle() -> dict[str, Any]:
         for fixture in document["fixtures"]
         if fixture.get("kind") == "conformance-bundle"
     )
+
+
+def _vmti_vector_cases() -> list[dict[str, Any]]:
+    document = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    return [
+        fixture
+        for fixture in document["fixtures"]
+        if fixture.get("kind") == "vmti-vector"
+    ]
 
 
 def _fixture_path(fixture: dict[str, Any]) -> Path:
@@ -99,6 +111,32 @@ def test_independent_negative_conformance_corpus(tmp_path: Path) -> None:
 
         asserted_names = {member["filename"] for member in fixture["members"]}
         assert asserted_names | set(fixture["unasserted_members"]) == archive_names
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "fixture", _vmti_vector_cases(), ids=lambda item: item["id"]
+)
+def test_independent_vmti_vectors_are_rejected_for_exact_cross_item_defects(
+    fixture: dict[str, Any],
+) -> None:
+    source = _fixture_path(fixture)
+    if not source.is_file():
+        pytest.skip(
+            "run scripts/fetch_public_fixtures.py "
+            f"{fixture['id']} to install the fixture"
+        )
+
+    contents = source.read_bytes()
+    assert len(contents) == fixture["size"]
+    assert hashlib.sha256(contents).hexdigest() == fixture["sha256"]
+    with pytest.raises(DecodeError, match=re.escape(fixture["expected_error"])):
+        if fixture["decode_as"] == "st0601-item74":
+            decode_uas_local_set(contents, require_version=False)
+        elif fixture["decode_as"] == "st0903-standalone":
+            decode_vmti_local_set(contents)
+        else:  # pragma: no cover - manifest schema guard
+            raise AssertionError(f"unknown VMTI vector decoder {fixture['decode_as']!r}")
 
 
 def _essence_fingerprint(path: Path) -> tuple[int, str, tuple[bytes, ...], int]:

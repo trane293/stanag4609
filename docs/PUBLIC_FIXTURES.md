@@ -1,7 +1,8 @@
 # Public FMV integration fixtures
 
-The repository uses three publicly downloadable MPEG-2 Transport Streams and
-one independent negative-conformance bundle for opt-in end-to-end tests:
+The repository uses three publicly downloadable MPEG-2 Transport Streams, one
+independent negative-conformance bundle, and three independently authored VMTI
+vectors for opt-in end-to-end tests:
 
 - `Day Flight.mpg`: 1280x720 H.264 daylight video and asynchronous KLVA.
 - `Night Flight IR.mpg`: 1280x720 H.264 infrared video and asynchronous KLVA.
@@ -9,6 +10,8 @@ one independent negative-conformance bundle for opt-in end-to-end tests:
   and synchronous KLVA carried as fragmented Metadata Access Units.
 - `testfiles.zip`: ImpleoTV STANAG4609 Inspector's public corpus of 21
   deliberately damaged MPEG-2 Transport Streams.
+- `vmti_nested.klv`, `vmti_standalone.klv`, and `vmti_vtarget.klv`: small
+  Apache-2.0 vectors published by the independent `libmisbklv` implementation.
 
 The large media files are installed into the ignored `samples/private/`
 directory rather than committed. The fetcher verifies Esri's source ZIP before
@@ -92,6 +95,17 @@ The corpus contains no ST 0903/VMTI packets. A separately examined
 also contains 277 ST 0601 packets but no nested Item 74 or standalone ST 0903
 Local Set. Although it is used by an upstream `VmtiTest`, that test permits zero
 targets, so it is not accepted as VMTI interoperability evidence here.
+
+The three `libmisbklv` vectors are pinned to an exact upstream commit and
+downloaded rather than redistributed. All have valid outer packet checksums,
+but each contradicts a mandatory ST 0903.6 relationship: a nested packet
+reports two targets without Item 101, one standalone packet omits mandatory
+MIIS Item 13, and the other standalone packet omits mandatory FOV and MIIS
+items. The integration tests assert the exact strict-decoder rejection for each
+case. These independent negative vectors strengthen cross-implementation
+conformance evidence, but they are hand-authored KLV rather than a recorded
+VMTI FMV stream and therefore do not close the real-stream interoperability
+gap.
 
 Additional public fixtures, especially ST 0903 VMTI and ST 1001-labelled audio
 streams, should be added to the manifest when found.

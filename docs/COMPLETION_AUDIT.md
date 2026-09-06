@@ -21,7 +21,7 @@ Last audited: 5 September 2026, release version `0.1.0`.
 | Verify and explain malformed FMV | Incremental `FMVVerifier`, terminal/JSON/HTML CLI reports, embedded ST 0604 timestamp coverage, real deployed-stream defects, 20 hash-pinned fault-specific cases from an independent vendor corpus, stable report-schema tests | Proven for the checks listed in the [verifier guide](VERIFIER.md); the sole unasserted corpus member is within the applicable published timing bound, and this is not a certification authority |
 | Play supplied, public, and live FMV with synchronized metadata | `stanag4609-player`, recorded timeline/range mode, bounded fragmented-MP4/MSE live gateway, media-origin PTS alignment, numbered SSE, sparse server-generated full-mission detection summary plus 512-sample browser detail window, paused-scrub recovery, attributed OSM/offline-grid map, footprint-projected VMTI geometry, capped grouped activity feed, pixel-bounded class-stacked/log-scaled scrubber timeline, eight-viewer concurrent HTTP fan-out, three consecutive automatic Chromium media-epoch rejoins, plus real-Chromium recorded/live playback, pointer/keyboard seek, synchronization, canvas, tile, and telemetry tests | Proven for recorded fixtures and bounded incremental browser delivery; the recorded server retains its decoded source timeline, projected boxes are footprint interpolation rather than terrain-aware geolocation, and production-scale multi-viewer/WebRTC/tile deployment remains application architecture |
 | Show actual requested telemetry | Real Day/Night FMV player acceptance requires MISP timestamp, sensor latitude/longitude/altitude, platform attitude, sensor attitude, frame center, target coordinates, and sensor/frame/target map features on every sample; Item 42 exposes its receiver-current MSL/HAE/unknown datum | Proven against two checksum-pinned independent recordings plus normative datum-state tests |
-| Show VMTI AI detections | Typed ST 0903 VMTI codec, checksum-bound exact accounting for all 65 active and 78 deprecated ST 0903.6 identifiers, real YOLO-derived demo artifact, synthetic standards-vector overlay/geolocation tests; negative inspection of the public ImpleoTV corpus and OpenSensorHub sample | Implemented; neither inspected source contains VMTI, so an independently sourced recorded VMTI FMV fixture is still missing |
+| Show VMTI AI detections | Typed ST 0903 VMTI codec, checksum-bound exact accounting for all 65 active and 78 deprecated ST 0903.6 identifiers, real YOLO-derived demo artifact, synthetic standards-vector overlay/geolocation tests, three checksum-pinned independent negative VMTI vectors; negative inspection of the public ImpleoTV corpus and OpenSensorHub sample | Implemented; the independent vectors prove strict rejection of cross-item contradictions, but no inspected source is recorded VMTI FMV, so positive real-stream interoperability evidence is still missing |
 | Decode video into AI sidecars | Optional `PyAVFrameSource`, exact native-time-base to transport-PTS conversion, model-neutral BGR/native frames, and real YOLO tutorial integration | Proven at the adapter boundary; FFmpeg codec and hardware behavior remains in the optional backend |
 | Publish installable packages and documentation | Production PyPI `0.1.0`, owner-gated release workflow, wheel/sdist install checks, strict MkDocs/Read the Docs configuration | Proven for the initial release process |
 
@@ -57,8 +57,12 @@ unqualified “complete STANAG 4609 implementation” or stable `1.0` claim:
    or tolerance-aware ST 0601 expectations for singleton and every multi-use
    field occurrence, but cannot invent them.
 3. Real recorded VMTI interoperability remains synthetic/derived rather than
-   independently sourced. The ImpleoTV public negative corpus and OpenSensorHub
-   recording were byte-inspected and contain no VMTI. Third-party Esri
+   independently sourced. Three checksum-pinned, independently authored KLV
+   vectors now prove strict negative handling, but they are not recorded
+   streams. The ImpleoTV public negative corpus and OpenSensorHub recording
+   were byte-inspected and contain no VMTI. The OGC Testbed-16 report identifies
+   JSIL `S05.ts` and `S06.ts` recordings with ST 0903.3 VMTI, but their published
+   download location is member-gated. Third-party Esri
    interoperability is tested at file/CSV boundaries rather than claimed from
    a vendor certification suite.
 4. The reference player now proves bounded incremental fragmented-MP4/MSE and
