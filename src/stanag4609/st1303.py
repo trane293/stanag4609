@@ -93,6 +93,8 @@ class MDAP:
     def element_at(self, *indices: int) -> MDAPValue:
         """Return one logical array element without materializing an RLE pack."""
         self._indices(indices)
+        if self.element_size == 0:
+            raise LookupError("MDAP contains no elements")
         if self.algorithm is MDAPAlgorithm.RUN_LENGTH:
             for patch in reversed(self.patches):
                 if all(
@@ -120,6 +122,8 @@ class MDAP:
                 f"MDAP materialization needs {self.element_count} elements; "
                 f"configured maximum is {max_elements}"
             )
+        if self.element_size == 0:
+            return ()
         if self.algorithm is not MDAPAlgorithm.RUN_LENGTH:
             return self.elements
         return tuple(self.element_at(*indices) for indices in product(*map(range, self.dimensions)))
@@ -326,6 +330,22 @@ def decode_mdap(
         raise DecodeError(f"ST 1303 APA value {algorithm_value} is reserved or unknown") from error
     payload = body[offset:]
 
+    if element_size == 0:
+        if payload:
+            raise DecodeError("ST 1303 EBytes zero signal cannot contain APAS or array data")
+        implied_type = {
+            MDAPAlgorithm.IMAP: MDAPElementType.IMAP,
+            MDAPAlgorithm.BOOLEAN: MDAPElementType.BOOLEAN,
+            MDAPAlgorithm.UNSIGNED_INTEGER: MDAPElementType.UNSIGNED_INTEGER,
+        }.get(algorithm, element_type)
+        return MDAP(
+            dimensions,
+            element_size,
+            algorithm,
+            element_type=implied_type,
+            raw=data,
+        )
+
     if algorithm is MDAPAlgorithm.NATURAL:
         if element_type not in _CONTEXTUAL_TYPES:
             raise ValueError("natural MDAP requires a contextual element type")
@@ -337,7 +357,7 @@ def decode_mdap(
         elements = tuple(
             _decode_element(payload[index : index + element_size], element_type)
             for index in range(0, len(payload), element_size)
-        ) if element_size else ()
+        )
         return MDAP(
             dimensions,
             element_size,
@@ -535,13 +555,24 @@ def encode_mdap(
     body.extend(encode_ber_oid(pack.element_size))
     body.extend(encode_ber_oid(pack.algorithm.value))
 
+    if pack.element_size == 0:
+        if (
+            pack.elements
+            or pack.imap_bounds is not None
+            or pack.imap_parameter_size is not None
+            or pack.uint_bias is not None
+            or pack.rle_default is not None
+            or pack.patches
+        ):
+            raise ValueError(
+                "ST 1303 EBytes zero signal cannot contain APAS or array data"
+            )
+        return encode_ber_length(len(body)) + body
+
     if pack.algorithm is MDAPAlgorithm.NATURAL:
         if pack.element_type not in _CONTEXTUAL_TYPES:
             raise ValueError("natural MDAP requires a contextual element type")
-        if pack.element_size == 0:
-            if pack.elements:
-                raise ValueError("ST 1303 empty Natural array cannot contain elements")
-        elif len(pack.elements) != element_count:
+        if len(pack.elements) != element_count:
             raise ValueError(f"ST 1303 Natural array requires {element_count} elements")
         else:
             for value in pack.elements:

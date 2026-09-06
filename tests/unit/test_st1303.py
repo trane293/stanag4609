@@ -176,6 +176,33 @@ def test_empty_natural_array_signal_round_trip() -> None:
         decode_mdap(encoded).element_at(0, 0)
 
 
+@pytest.mark.parametrize(
+    ("algorithm", "element_type"),
+    [
+        (MDAPAlgorithm.NATURAL, MDAPElementType.RAW),
+        (MDAPAlgorithm.IMAP, MDAPElementType.IMAP),
+        (MDAPAlgorithm.BOOLEAN, MDAPElementType.BOOLEAN),
+        (MDAPAlgorithm.UNSIGNED_INTEGER, MDAPElementType.UNSIGNED_INTEGER),
+        (MDAPAlgorithm.RUN_LENGTH, MDAPElementType.RAW),
+    ],
+)
+def test_zero_ebytes_empty_signal_is_supported_for_every_table_3_apa(
+    algorithm: MDAPAlgorithm, element_type: MDAPElementType
+) -> None:
+    pack = MDAP((20, 30), 0, algorithm, element_type=element_type)
+    encoded = encode_mdap(pack)
+    decoded = decode_mdap(encoded)
+    assert decoded.dimensions == pack.dimensions
+    assert decoded.element_size == 0
+    assert decoded.algorithm is algorithm
+    assert decoded.elements == ()
+    assert decoded.patches == ()
+    assert decoded.materialize() == ()
+    assert encode_mdap(decoded) == encoded
+    with pytest.raises(LookupError, match="contains no elements"):
+        decoded.element_at(0, 0)
+
+
 def test_raw_and_fixed_integer_element_types() -> None:
     raw = MDAP(
         (2,),
@@ -207,6 +234,24 @@ def test_raw_and_fixed_integer_element_types() -> None:
     assert decode_mdap(
         encode_mdap(signed), element_type=MDAPElementType.SIGNED_INTEGER
     ).elements == (-32768, 32767)
+
+
+def test_three_dimensional_natural_array_uses_row_major_offsets() -> None:
+    values = tuple(range(2 * 3 * 4))
+    pack = MDAP(
+        (2, 3, 4),
+        1,
+        MDAPAlgorithm.NATURAL,
+        values,
+        element_type=MDAPElementType.UNSIGNED_INTEGER,
+    )
+    decoded = decode_mdap(
+        encode_mdap(pack), element_type=MDAPElementType.UNSIGNED_INTEGER
+    )
+    assert decoded.element_at(0, 0, 0) == 0
+    assert decoded.element_at(0, 2, 3) == 11
+    assert decoded.element_at(1, 0, 0) == 12
+    assert decoded.element_at(1, 2, 3) == 23
 
 
 def test_rle_patch_model_and_row_major_access() -> None:
@@ -276,8 +321,8 @@ def test_decoder_validates_context_and_algorithm_shapes() -> None:
 
 
 def test_decoder_rejects_malformed_imap_arrays() -> None:
-    with pytest.raises(DecodeError, match="positive"):
-        decode_mdap(_pack(bytes.fromhex("01 01 00 02")))
+    with pytest.raises(DecodeError, match="zero signal"):
+        decode_mdap(_pack(bytes.fromhex("01 01 00 02 00")))
     with pytest.raises(DecodeError, match="APAS"):
         decode_mdap(_pack(bytes.fromhex("01 01 01 02 0000")))
     equal_bounds = struct.pack(">ff", 1.0, 1.0)
@@ -296,8 +341,8 @@ def test_decoder_rejects_malformed_compact_arrays() -> None:
         decode_mdap(_pack(bytes.fromhex("01 01 01 04 00 00 00")))
     with pytest.raises(DecodeError, match="bias must equal"):
         decode_mdap(_pack(bytes.fromhex("01 01 01 04 01 01")))
-    with pytest.raises(DecodeError, match="positive EBytes"):
-        decode_mdap(_pack(bytes.fromhex("01 01 00 05")))
+    with pytest.raises(DecodeError, match="zero signal"):
+        decode_mdap(_pack(bytes.fromhex("01 01 00 05 00")))
     with pytest.raises(ValueError, match="contextual"):
         decode_mdap(
             _pack(bytes.fromhex("01 01 01 05 00")),
@@ -324,7 +369,7 @@ def test_decoder_bounds_rle_patches_and_validates_geometry() -> None:
         (MDAP((), 1, MDAPAlgorithm.NATURAL), ValueError, "dimension"),
         (MDAP((1, 0), 1, MDAPAlgorithm.NATURAL), ValueError, "positive"),
         (MDAP((2,), 1, MDAPAlgorithm.NATURAL, (b"x",)), ValueError, "2 elements"),
-        (MDAP((1,), 0, MDAPAlgorithm.NATURAL, (b"",)), ValueError, "empty"),
+        (MDAP((1,), 0, MDAPAlgorithm.NATURAL, (b"",)), ValueError, "zero signal"),
         (
             MDAP(
                 (1,),
@@ -437,6 +482,37 @@ def test_encoder_validates_model_and_resource_limits() -> None:
 )
 def test_encoder_rejects_parameters_for_another_algorithm(pack: MDAP, message: str) -> None:
     with pytest.raises(ValueError, match=message):
+        encode_mdap(pack)
+
+
+@pytest.mark.parametrize(
+    "pack",
+    [
+        MDAP(
+            (1,),
+            0,
+            MDAPAlgorithm.IMAP,
+            element_type=MDAPElementType.IMAP,
+            imap_bounds=(0.0, 1.0),
+            imap_parameter_size=4,
+        ),
+        MDAP(
+            (1,),
+            0,
+            MDAPAlgorithm.UNSIGNED_INTEGER,
+            element_type=MDAPElementType.UNSIGNED_INTEGER,
+            uint_bias=0,
+        ),
+        MDAP(
+            (1,),
+            0,
+            MDAPAlgorithm.RUN_LENGTH,
+            rle_default=b"",
+        ),
+    ],
+)
+def test_zero_ebytes_signal_rejects_algorithm_parameters(pack: MDAP) -> None:
+    with pytest.raises(ValueError, match="zero signal"):
         encode_mdap(pack)
 
 
@@ -555,7 +631,7 @@ def test_encoder_validates_rle_model_details() -> None:
         element_type=MDAPElementType.UNSIGNED_INTEGER,
         rle_default=0,
     )
-    with pytest.raises(ValueError, match="positive EBytes"):
+    with pytest.raises(ValueError, match="zero signal"):
         encode_mdap(MDAP(**{**base, "element_size": 0}))
     with pytest.raises(ValueError, match="contextual"):
         encode_mdap(MDAP(**{**base, "element_type": MDAPElementType.BOOLEAN}))

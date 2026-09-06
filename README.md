@@ -48,8 +48,9 @@ and send the same timed metadata to independent GIS or analytics consumers.
 - ST 1206.1 SAR motion imagery metadata with source-bound requirement accounting,
   typed collection/image geometry, effective PRF and radiometric RCS evaluation,
   and the ST 0601 Item 95 bridge.
-- ST 1303.2 Multi-Dimensional Array Packs with Natural, IMAP, Boolean,
-  BER-OID unsigned, and ordered run-length representations.
+- Source-bound complete ST 1303.2 Multi-Dimensional Array Packs with Natural,
+  IMAP, Boolean, BER-OID unsigned, ordered run-length, and empty-signal
+  representations.
 - ST 1002.3 range imagery with source-bound complete requirement accounting,
   standalone/embedded CRC handling, SPRMs, dimension-aware center defaults for
   omitted SPRM coordinates, sectioned ST 1303 arrays, dependency-free plane

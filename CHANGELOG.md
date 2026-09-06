@@ -5,6 +5,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Bind all ten active and eleven deprecated ST 1303.2 requirements to the
+  checksum-pinned publication and support the EBytes-zero empty-array signal
+  across every defined APA while rejecting contradictory parameters or data.
 - Bind all seven active and eleven deprecated ST 1201.5 requirements to the
   checksum-pinned publication; cover every official Appendix A vector, signed
   quiet NaNs, strict byte-length inputs, and parent-unspecified overflow
