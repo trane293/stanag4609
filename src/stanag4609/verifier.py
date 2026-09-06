@@ -950,8 +950,9 @@ class _ST0601Stats:
                 uas.value(74), VMTILocalSet
             ):
                 self.vmti_context_validated_packets += 1
-            self.ground_truth_validated_items += len(
-                present_tags.intersection(context.field_expectations)
+            self.ground_truth_validated_items += sum(
+                len(uas.getall(tag))
+                for tag in present_tags.intersection(context.field_expectations)
             )
         timestamp = uas.value(2)
         if isinstance(timestamp, datetime):

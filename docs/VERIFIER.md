@@ -355,19 +355,43 @@ payload = report.to_dict()
 `st0601_context_provider(event, packet)` is optional and is called for each
 complete ST 0601 KLV packet. It may return an `ST0601ValidationContext` with
 the producer-known metadata time of birth, negotiated variable-IMAP system
-precisions, authoritative expected singleton field values, and embedded-VMTI
-frame facts, or `None` when those facts are not available. Use
+precisions, authoritative expected singleton or multi-use field values, and
+embedded-VMTI frame facts, or `None` when those facts are not available. Use
 `ST0601FieldExpectation.absolute_tolerance` for mapped numeric fields whose wire
 quantization prevents exact equality. Expected fields must be present and
 known in that packet. Context failures become normal `metadata.decode`
 findings with the program, PID, and source offset. The same option is accepted
 by `verify_fmv_stream` and `verify_fmv_file`.
 
+Multi-use Items 100, 101, 102, and 115 use an explicit repeated expectation.
+Matching is one-to-one and order-independent because ordinary Local Set item
+order is not semantic:
+
+```python
+from stanag4609 import (
+    ControlCommand,
+    ST0601FieldExpectation,
+    ST0601RepeatedFieldExpectation,
+    ST0601ValidationContext,
+)
+
+expected_commands = ST0601ValidationContext(
+    field_expectations={
+        115: ST0601RepeatedFieldExpectation(
+            (
+                ST0601FieldExpectation(ControlCommand(7, "Orbit")),
+                ST0601FieldExpectation(ControlCommand(8, "Return")),
+            )
+        )
+    }
+)
+```
+
 Each ST 0601 service summary records this external assurance separately from
 wire-observable checks. Its `validation_context` object reports the number of
 packets receiving any context, packets whose metadata birth time was checked,
 variable-IMAP items whose encoded precision was checked, packets whose embedded
-VMTI was checked against external frame facts, and fields compared with
+VMTI was checked against external frame facts, and field occurrences compared with
 producer ground truth. The text and HTML reports show the same counts. A zero
 therefore means “not externally proven,” not that the sensor fact was inferred
 from its own KLV value. Decoded `KLVMetadataEvent` values retain the exact

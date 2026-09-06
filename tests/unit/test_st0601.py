@@ -13,6 +13,7 @@ from stanag4609.st0601 import (
     DELETE,
     FIELD_DEFINITIONS,
     ST0601_KEY,
+    ControlCommand,
     FieldDecodingMode,
     GenericFlagData,
     IcingDetected,
@@ -26,6 +27,7 @@ from stanag4609.st0601 import (
     SensorFieldOfViewName,
     SpecialValue,
     ST0601FieldExpectation,
+    ST0601RepeatedFieldExpectation,
     ST0601Semantic,
     ST0601ValidationContext,
     VerticalDatum,
@@ -574,6 +576,77 @@ def test_field_expectations_validate_producer_ground_truth_with_tolerance() -> N
     assert update_uas_local_set(packet, {10: "PLATFORM"}, context=context)
 
 
+def test_repeated_field_expectations_validate_every_occurrence_without_wire_order() -> None:
+    first = ControlCommand(7, "Orbit")
+    second = ControlCommand(8, "Return")
+    packet = encode_uas_local_set(
+        {
+            2: datetime(2025, 1, 2, tzinfo=timezone.utc),
+            65: 19,
+            115: (first, second),
+        }
+    )
+    context = ST0601ValidationContext(
+        field_expectations={
+            115: ST0601RepeatedFieldExpectation(
+                (
+                    ST0601FieldExpectation(second),
+                    ST0601FieldExpectation(first),
+                )
+            )
+        }
+    )
+
+    decoded = decode_uas_local_set(packet, context=context)
+    assert tuple(field.value for field in decoded.getall(115)) == (
+        first,
+        second,
+    )
+    assert encode_uas_local_set(
+        {
+            2: datetime(2025, 1, 2, tzinfo=timezone.utc),
+            65: 19,
+            115: (first, second),
+        },
+        context=context,
+    )
+
+    mismatching = ST0601ValidationContext(
+        field_expectations={
+            115: ST0601RepeatedFieldExpectation(
+                (
+                    ST0601FieldExpectation(first),
+                    ST0601FieldExpectation(ControlCommand(9, "Land")),
+                )
+            )
+        }
+    )
+    with pytest.raises(DecodeError, match=r"tag 115.*occurrences.*ground truth"):
+        decode_uas_local_set(packet, context=mismatching)
+
+
+def test_repeated_field_expectation_supports_absence_and_tolerance_matching() -> None:
+    empty = ST0601ValidationContext(
+        field_expectations={115: ST0601RepeatedFieldExpectation(())}
+    )
+    packet = encode_uas_local_set(
+        {2: datetime(2025, 1, 2, tzinfo=timezone.utc), 65: 19},
+        context=empty,
+    )
+    assert decode_uas_local_set(packet, context=empty)
+
+    overlapping = ST0601RepeatedFieldExpectation(
+        (
+            ST0601FieldExpectation(0.0, absolute_tolerance=1.0),
+            ST0601FieldExpectation(1.0, absolute_tolerance=0.0),
+        )
+    )
+    assert overlapping.matches((1.0, 0.0))
+    assert not overlapping.matches((1.0, 3.0))
+    assert not overlapping.matches((1.0,))
+    assert not overlapping.matches([1.0, 0.0])  # type: ignore[arg-type]
+
+
 def test_field_expectation_context_is_immutable_and_validates_entries() -> None:
     expectations = {10: ST0601FieldExpectation("PLATFORM")}
     context = ST0601ValidationContext(field_expectations=expectations)
@@ -585,11 +658,24 @@ def test_field_expectation_context_is_immutable_and_validates_entries() -> None:
         ST0601ValidationContext(field_expectations=[])  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="ST0601FieldExpectation"):
         ST0601ValidationContext(field_expectations={10: "PLATFORM"})  # type: ignore[dict-item]
-    for tag in (115, 143):
-        with pytest.raises(ValueError, match="known singleton"):
-            ST0601ValidationContext(
-                field_expectations={tag: ST0601FieldExpectation("x")}
-            )
+    with pytest.raises(ValueError, match=r"multi-use.*repeated"):
+        ST0601ValidationContext(
+            field_expectations={115: ST0601FieldExpectation("x")}
+        )
+    with pytest.raises(ValueError, match="singleton"):
+        ST0601ValidationContext(
+            field_expectations={
+                10: ST0601RepeatedFieldExpectation((ST0601FieldExpectation("x"),))
+            }
+        )
+    with pytest.raises(ValueError, match="known root field"):
+        ST0601ValidationContext(
+            field_expectations={143: ST0601FieldExpectation("x")}
+        )
+    with pytest.raises(TypeError, match="tuple"):
+        ST0601RepeatedFieldExpectation([])  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="ST0601FieldExpectation"):
+        ST0601RepeatedFieldExpectation(("x",))  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="absolute_tolerance"):
         ST0601FieldExpectation(1.0, absolute_tolerance=True)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="non-negative"):

@@ -54,7 +54,8 @@ unqualified “complete STANAG 4609 implementation” or stable `1.0` claim:
 2. Some ST 0601 correctness depends on facts unavailable in the bytes—metadata
    time of birth, producer IMAP precision, sensor truth, and security policy.
    The library accepts, enforces, and reports those contexts, including exact
-   or tolerance-aware ST 0601 field expectations, but cannot invent them.
+   or tolerance-aware ST 0601 expectations for singleton and every multi-use
+   field occurrence, but cannot invent them.
 3. Real recorded VMTI interoperability remains synthetic/derived rather than
    independently sourced. The ImpleoTV public negative corpus and OpenSensorHub
    recording were byte-inspected and contain no VMTI. Third-party Esri

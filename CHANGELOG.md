@@ -5,6 +5,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Extend ST 0601 producer-ground-truth validation to all occurrences of
+  multi-use root tags with immutable, order-independent, tolerance-aware
+  matching and occurrence-accurate verifier assurance counts.
 - Bind all 22 active and four deprecated ST 1402.2 requirements to the
   checksum-pinned publication, reject misplaced metadata/registration
   descriptors even when another valid declaration exists, and reject duplicate

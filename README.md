@@ -35,7 +35,8 @@ and send the same timed metadata to independent GIS or analytics consumers.
   requirement accounting, every official vector, and lossless special and
   reserved code words.
 - A growing audited ST 0601 codec with typed common fields, mandatory-structure
-  validation, canonical encoding, and lossless field updates.
+  validation, canonical encoding, lossless field updates, and caller-supplied
+  exact/tolerance ground-truth checks for singleton and multi-use occurrences.
 - ST 1010.3 uncertainty matrices and ST 0601 Item 102, including Mode 2
   IEEE/IMAP values, sparse correlations, and ordered Refined Source Lists.
 - ST 0806.4 independent and embedded RVT Local Sets with source-bound complete

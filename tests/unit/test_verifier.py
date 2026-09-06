@@ -15,6 +15,7 @@ from stanag4609 import (
     MISMMSPopulationStatus,
     MISPImageContext,
     ST0601FieldExpectation,
+    ST0601RepeatedFieldExpectation,
     ST0601ValidationContext,
     VerificationStatus,
     VideoTimestampVerificationSummary,
@@ -1288,6 +1289,28 @@ def test_verifier_reports_imap_and_vmti_context_assurance() -> None:
     assert "IMAP precision validated" in html
     assert "VMTI context validated" in html
     assert "Ground truth validated" in html
+
+
+def test_verifier_counts_ground_truth_for_each_repeated_field_occurrence() -> None:
+    timestamp = 1_700_000_000_000_000
+    commands = (ControlCommand(7, "Orbit"), ControlCommand(8, "Return"))
+    klv = encode_uas_local_set({2: timestamp, 65: 19, 115: commands})
+    context = ST0601ValidationContext(
+        field_expectations={
+            115: ST0601RepeatedFieldExpectation(
+                tuple(ST0601FieldExpectation(command) for command in reversed(commands))
+            )
+        }
+    )
+
+    report = verify_fmv_stream(
+        BytesIO(_transport(klv)),
+        validate_mismms=False,
+        st0601_context_provider=lambda _event, _packet: context,
+    )
+
+    assert report.ok
+    assert report.st0601_streams[0].ground_truth_validated_items == 2
 
 
 def test_verifier_marks_unconfigured_asynchronous_metadata_std_unverifiable() -> None:

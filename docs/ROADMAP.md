@@ -80,7 +80,9 @@ important negative-conformance expectations.
    Every active root item is typed, and
    verifier summaries quantify which packets received birth-time,
    IMAP-precision, VMTI frame, and exact/tolerance-aware field ground-truth
-   context; retain lossless unknown-item behavior for future extensions. The
+   context, including every occurrence of multi-use root tags through
+   order-independent matching; retain lossless unknown-item behavior for future
+   extensions. The
    shared ST 1201.5 IMAP dependency now has checksum-bound exact requirement
    accounting and complete official-vector coverage. The shared ST 1303.2
    multidimensional-array dependency likewise has checksum-bound exact

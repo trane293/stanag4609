@@ -542,6 +542,81 @@ class ST0601FieldExpectation:
 
 
 @dataclass(frozen=True, slots=True)
+class ST0601RepeatedFieldExpectation:
+    """Producer-supplied values for every occurrence of one multi-use field.
+
+    Local Set item order is generally arbitrary, so matching is one-to-one and
+    order-independent. Each expected occurrence can still carry its own mapped
+    value tolerance through :class:`ST0601FieldExpectation`.
+    """
+
+    occurrences: tuple[ST0601FieldExpectation, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.occurrences, tuple):
+            raise TypeError("occurrences must be a tuple")
+        if any(
+            not isinstance(occurrence, ST0601FieldExpectation)
+            for occurrence in self.occurrences
+        ):
+            raise TypeError("occurrences must contain ST0601FieldExpectation instances")
+
+    def matches(self, observed: tuple[object, ...]) -> bool:
+        """Return whether observed values have a one-to-one expectation match."""
+
+        if not isinstance(observed, tuple) or len(observed) != len(self.occurrences):
+            return False
+        adjacency = tuple(
+            tuple(
+                index
+                for index, value in enumerate(observed)
+                if expectation.matches(value)
+            )
+            for expectation in self.occurrences
+        )
+        if not adjacency:
+            return True
+        if any(not candidates for candidates in adjacency):
+            return False
+
+        left_matches = [-1] * len(adjacency)
+        right_matches = [-1] * len(observed)
+        for start in sorted(range(len(adjacency)), key=lambda index: len(adjacency[index])):
+            queue = [start]
+            cursor = 0
+            seen_left = {start}
+            seen_right: set[int] = set()
+            parent_right: dict[int, int] = {}
+            available = -1
+            while cursor < len(queue) and available < 0:
+                left = queue[cursor]
+                cursor += 1
+                for right in adjacency[left]:
+                    if right in seen_right:
+                        continue
+                    seen_right.add(right)
+                    parent_right[right] = left
+                    paired_left = right_matches[right]
+                    if paired_left < 0:
+                        available = right
+                        break
+                    if paired_left not in seen_left:
+                        seen_left.add(paired_left)
+                        queue.append(paired_left)
+            if available < 0:
+                return False
+
+            right = available
+            while right >= 0:
+                left = parent_right[right]
+                previous_right = left_matches[left]
+                left_matches[left] = right
+                right_matches[right] = left
+                right = previous_right
+        return True
+
+
+@dataclass(frozen=True, slots=True)
 class ST0601ValidationContext:
     """External facts required to validate conditional ST 0601 semantics.
 
@@ -555,8 +630,8 @@ class ST0601ValidationContext:
     ``vmti_context`` supplies facts about the imagery processed by an embedded
     Item 74 VMTI set; its parent timestamp is checked against and then derived
     from the enclosing ST 0601 Item 2. ``field_expectations`` supplies
-    authoritative producer or test-harness values for singleton root fields;
-    explicit tolerances account for mapped-value quantization.
+    authoritative producer or test-harness values for singleton or multi-use
+    root fields; explicit tolerances account for mapped-value quantization.
     """
 
     metadata_birth_timestamp: int | datetime | None = None
@@ -564,7 +639,9 @@ class ST0601ValidationContext:
         default_factory=dict
     )
     vmti_context: VMTIValidationContext | None = None
-    field_expectations: Mapping[int, ST0601FieldExpectation] = field(
+    field_expectations: Mapping[
+        int, ST0601FieldExpectation | ST0601RepeatedFieldExpectation
+    ] = field(
         default_factory=dict
     )
 
@@ -587,13 +664,27 @@ class ST0601ValidationContext:
             if isinstance(tag, bool) or not isinstance(tag, int):
                 raise TypeError("ST 0601 field expectation tag must be an integer")
             definition = FIELD_DEFINITIONS.get(tag)
-            if definition is None or definition.multiple or tag in {1, 143}:
+            if definition is None or tag in {1, 143}:
                 raise ValueError(
-                    f"ST 0601 tag {tag} is not a known singleton field expectation"
+                    f"ST 0601 tag {tag} is not a known root field expectation"
                 )
-            if not isinstance(expectation, ST0601FieldExpectation):
+            if definition.multiple and isinstance(expectation, ST0601FieldExpectation):
+                raise ValueError(
+                    f"ST 0601 multi-use tag {tag} requires a repeated field expectation"
+                )
+            if not definition.multiple and isinstance(
+                expectation, ST0601RepeatedFieldExpectation
+            ):
+                raise ValueError(
+                    f"ST 0601 singleton tag {tag} requires a single field expectation"
+                )
+            if not isinstance(
+                expectation,
+                (ST0601FieldExpectation, ST0601RepeatedFieldExpectation),
+            ):
                 raise TypeError(
-                    "field_expectations values must be ST0601FieldExpectation instances"
+                    "field_expectations values must be ST0601FieldExpectation or "
+                    "ST0601RepeatedFieldExpectation instances"
                 )
         precisions = dict(self.imap_system_precisions)
         for tag, precision in precisions.items():
@@ -3893,6 +3984,22 @@ def _validate_field_expectations(
     if context is None:
         return
     for tag, expectation in context.field_expectations.items():
+        definition = FIELD_DEFINITIONS[tag]
+        if definition.multiple:
+            assert isinstance(expectation, ST0601RepeatedFieldExpectation)
+            observed = tuple(field.value for field in uas.getall(tag))
+            if any(value is SpecialValue.UNKNOWN for value in observed):
+                raise error_type(
+                    f"ST 0601 tag {tag} has an unknown occurrence where producer-supplied "
+                    "ground truth requires known values"
+                )
+            if not expectation.matches(observed):
+                raise error_type(
+                    f"ST 0601 tag {tag} decoded occurrences {observed!r} do not match "
+                    f"producer-supplied repeated ground truth {expectation.occurrences!r}"
+                )
+            continue
+        assert isinstance(expectation, ST0601FieldExpectation)
         field = uas.get(tag)
         if field is None or field.value is SpecialValue.UNKNOWN:
             raise error_type(
