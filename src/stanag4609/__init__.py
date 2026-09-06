@@ -1125,4 +1125,4 @@ __all__ = [
     "with_miis_window_identifier",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

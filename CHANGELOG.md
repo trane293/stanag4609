@@ -5,6 +5,12 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+## 0.2.0 - 2026-09-05
+
+- Publish matching full, partial, and future standards-support matrices on the
+  README and documentation landing pages, with explicit claim boundaries and
+  links to requirement-level evidence.
+
 - Add `stanag4609-soak-live`, a versioned JSON stability harness that replays
   identified FMV at a controlled average media rate across isolated
   gateway/FFmpeg process epochs, preserves runtime-failure evidence, and

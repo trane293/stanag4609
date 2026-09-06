@@ -55,6 +55,24 @@ def test_docs_extra_installs_the_api_generator() -> None:
     assert '"mkdocstrings[python]>=1.0,<2"' in project
 
 
+def test_landing_pages_publish_the_same_three_state_standards_matrix() -> None:
+    def support_rows(path: Path) -> tuple[str, ...]:
+        contents = path.read_text(encoding="utf-8")
+        section = contents.split("## Standards support at a glance\n", 1)[1]
+        return tuple(
+            line for line in section.split("\n## ", 1)[0].splitlines() if line.startswith("| **")
+        )
+
+    readme_rows = support_rows(ROOT / "README.md")
+    docs_rows = support_rows(ROOT / "docs" / "index.md")
+
+    assert readme_rows == docs_rows
+    assert len(readme_rows) == 3
+    assert "ST 0902.8 Minimum Metadata" in readme_rows[0]
+    assert "ST 0601.19" in readme_rows[1]
+    assert "ST 0801 / ST 1107" in readme_rows[2]
+
+
 def test_tutorial_screenshot_assets_are_real_jpeg_files() -> None:
     screenshot_directory = ROOT / "docs" / "assets" / "screenshots"
 

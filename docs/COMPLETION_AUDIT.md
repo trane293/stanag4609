@@ -5,7 +5,7 @@ than the feature list: a capability is marked proven only when the repository
 contains a concrete implementation boundary and executable evidence matching
 the breadth of the claim.
 
-Last audited: 5 September 2026, release version `0.1.0`.
+Last audited: 5 September 2026, release version `0.2.0`.
 
 ## Current evidence
 
@@ -23,7 +23,7 @@ Last audited: 5 September 2026, release version `0.1.0`.
 | Show actual requested telemetry | Real Day/Night FMV player acceptance requires MISP timestamp, sensor latitude/longitude/altitude, platform attitude, sensor attitude, frame center, target coordinates, and sensor/frame/target map features on every sample; Item 42 exposes its receiver-current MSL/HAE/unknown datum | Proven against two checksum-pinned independent recordings plus normative datum-state tests |
 | Show VMTI AI detections | Typed ST 0903 VMTI codec, checksum-bound exact accounting for all 65 active and 78 deprecated ST 0903.6 identifiers, real YOLO-derived demo artifact, synthetic standards-vector overlay/geolocation tests, three checksum-pinned independent negative VMTI vectors; negative inspection of the public ImpleoTV corpus and OpenSensorHub sample | Implemented; the independent vectors prove strict rejection of cross-item contradictions, but no inspected source is recorded VMTI FMV, so positive real-stream interoperability evidence is still missing |
 | Decode video into AI sidecars | Optional `PyAVFrameSource`, exact native-time-base to transport-PTS conversion, model-neutral BGR/native frames, and real YOLO tutorial integration | Proven at the adapter boundary; FFmpeg codec and hardware behavior remains in the optional backend |
-| Publish installable packages and documentation | Production PyPI `0.1.0`, owner-gated release workflow, wheel/sdist install checks, strict MkDocs/Read the Docs configuration | Proven for the initial release process |
+| Publish installable packages and documentation | Production PyPI release history, owner-gated release workflow, wheel/sdist install checks, strict MkDocs/Read the Docs configuration | Proven for the release process through `0.2.0` |
 
 ## Why the overall objective remains open
 

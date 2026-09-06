@@ -10,9 +10,27 @@ and send the same timed metadata to independent GIS or analytics consumers.
 
 > **Status: alpha.** The implemented protocol slices are strict, typed,
 > lossless, and tested, but this release does not yet claim complete STANAG
-> 4609, ST 0601.19, ST 0902.8, ST 0903.6, or ST 1001.1 conformance. See
+> 4609/MISP, ST 0601.19, ST 0903.6, or ST 1001.1 conformance. See
 > [conformance](https://stanag4609.readthedocs.io/en/latest/CONFORMANCE/) and
 > [known limitations](https://stanag4609.readthedocs.io/en/latest/LIMITATIONS/).
+
+## Standards support at a glance
+
+“Complete” below means the edition's software-verifiable requirements are
+source-bound, implemented, and exercised by automated tests. It does not claim
+that software can prove a producer's physical measurements, security decisions,
+or geospatial truth, and it is not third-party certification.
+
+| Status | Standards and profiles |
+| --- | --- |
+| **Complete software-verifiable profile** | MISB ST 0102.12 Security; ST 0107.5 KLV baseline; ST 0806.4 RVT; ST 0902.8 Minimum Metadata; ST 1002.3 Range Imagery; ST 1010.3 SDCC-FLP; ST 1201.5 IMAP; ST 1204.3 MIIS Core IDs; ST 1206.1 SAR; ST 1303.2 MDAP; ST 1402.2 MPEG-TS metadata carriage; ST 1601.2 Geo-Registration; ST 1602.2 Composite Imaging; ST 1607.2 Segment/Amend |
+| **Substantial, intentionally partial** | NATO STANAG 4609 Ed. 5 / MISP-2019.1 overall profile; MISB ST 0601.19 (every active root item is typed, but remaining producer-truth semantics prevent a whole-standard claim); ST 0604.6 embedded timestamps; ST 0804.4 RTP/RTCP transport; ST 0903.6 VMTI, tracks, masks, chips, and AI vocabulary; ST 1001.1 common audio; ST 1202.3 image transformations; SMPTE ST 336:2017 KLV subset; SMPTE RP 217:2001 TS branch; common H.222.0/H.262/AVC/HEVC profiles |
+| **Future or separate profiles** | MISB ST 0801 / ST 1107 photogrammetry; native elementary-stream RTP and RTSP; complete MXF/SDI profiles; native GStreamer element; whole-MPTS rewriting; additional uncommon codecs |
+
+See the [requirement-level conformance matrix](https://stanag4609.readthedocs.io/en/latest/CONFORMANCE/),
+[edition and source inventory](https://stanag4609.readthedocs.io/en/latest/STANDARDS/),
+and [known limitations](https://stanag4609.readthedocs.io/en/latest/LIMITATIONS/)
+for the exact boundary behind each label.
 
 ## Why this library
 
