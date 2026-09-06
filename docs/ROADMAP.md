@@ -105,6 +105,11 @@ important negative-conformance expectations.
 
 ## Transport and live deployment
 
+- ST 1402.2 now has checksum-bound exact accounting for all 22 active and four
+  deprecated numbered requirements, including strict descriptor-loop placement
+  and unique synchronous service declarations. Continue the broader ISO Systems
+  audit through the deliberately scoped H.222.0 trace rather than treating the
+  ST 1402 profile as whole-standard MPEG certification.
 - Extend the ST 0804.4 MPEG-2 TS-over-RTP core only where deployments need it.
   Count-bounded sequence reordering plus strict RTCP Sender Report read/write
   and exact RTP/NTP synchronization are implemented. SR/RR-first compound

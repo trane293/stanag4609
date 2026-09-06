@@ -5,6 +5,10 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Bind all 22 active and four deprecated ST 1402.2 requirements to the
+  checksum-pinned publication, reject misplaced metadata/registration
+  descriptors even when another valid declaration exists, and reject duplicate
+  synchronous metadata-service identifiers.
 - Bind all ten active and eleven deprecated ST 1303.2 requirements to the
   checksum-pinned publication and support the EBytes-zero empty-array signal
   across every defined APA while rejecting contradictory parameters or data.

@@ -94,6 +94,73 @@ def test_sync_descriptor_placement_count_and_format_are_validated() -> None:
     }
 
 
+def test_sync_program_loop_descriptor_is_reported_even_with_valid_stream_descriptor() -> None:
+    stream = synchronous_klv_stream(
+        0x102,
+        metadata_input_leak_rate=1_000,
+        metadata_buffer_size=200_000,
+    )
+    misplaced = stream.descriptors[0]
+
+    issues = validate_st1402_metadata_program(
+        _pmt(VIDEO, stream, descriptors=(misplaced,)),
+        expected_carriage={0x102: KLVCarriage.SYNCHRONOUS},
+    )
+
+    assert [(issue.code, issue.requirement) for issue in issues] == [
+        ("metadata_descriptor_location", "ST 1402-16")
+    ]
+
+
+def test_sync_duplicate_metadata_service_descriptors_are_rejected() -> None:
+    stream = synchronous_klv_stream(
+        0x102,
+        metadata_input_leak_rate=1_000,
+        metadata_buffer_size=200_000,
+    )
+    duplicate = ElementaryStreamInfo(
+        stream.stream_type,
+        stream.elementary_pid,
+        (stream.descriptors[0], stream.descriptors[0], stream.descriptors[1]),
+    )
+
+    issues = validate_st1402_metadata_program(
+        _pmt(VIDEO, duplicate),
+        expected_carriage={0x102: KLVCarriage.SYNCHRONOUS},
+    )
+
+    assert [(issue.code, issue.requirement) for issue in issues] == [
+        ("metadata_service_id_duplicate", "ST 1402-15")
+    ]
+
+
+def test_sync_distinct_metadata_service_descriptors_are_accepted() -> None:
+    stream = synchronous_klv_stream(
+        0x102,
+        metadata_service_ids=(4, 9),
+        metadata_input_leak_rate=1_000,
+        metadata_buffer_size=200_000,
+    )
+
+    assert validate_st1402_metadata_program(_pmt(VIDEO, stream)) == ()
+
+
+def test_async_program_loop_registration_is_reported_as_misplaced() -> None:
+    registration = Descriptor(0x05, b"KLVA")
+    stream = ElementaryStreamInfo(0x06, 0x120, ())
+
+    issues = validate_st1402_metadata_program(
+        _pmt(VIDEO, stream, descriptors=(registration,)),
+        expected_carriage={0x120: KLVCarriage.ASYNCHRONOUS},
+    )
+
+    assert {issue.code for issue in issues} == {
+        "registration_descriptor",
+        "registration_descriptor_location",
+        "format_identifier",
+    }
+
+
 def test_wrong_stream_types_and_missing_declared_pid_are_reported() -> None:
     pmt = _pmt(VIDEO, ElementaryStreamInfo(0x06, 0x102, (Descriptor(0x05, b"KLVA"),)))
     sync_issues = validate_st1402_metadata_program(

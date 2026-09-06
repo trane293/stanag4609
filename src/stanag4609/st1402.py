@@ -96,9 +96,7 @@ def _validate_sync(
         for header in metadata_headers
         if header.metadata_format_identifier == b"KLVA"
     )
-    if not metadata_descriptors and any(
-        descriptor.tag == 0x26 for descriptor in pmt.descriptors
-    ):
+    if any(descriptor.tag == 0x26 for descriptor in pmt.descriptors):
         issues.append(
             _issue(
                 pmt,
@@ -127,6 +125,18 @@ def _validate_sync(
                 "metadata_descriptor_format",
                 "ST 1402-15 / ISO/IEC 13818-1",
                 "metadata_descriptor has a malformed identity or service prefix",
+            )
+        )
+    service_ids = tuple(header.metadata_service_id for header in metadata_headers)
+    if len(service_ids) != len(set(service_ids)):
+        issues.append(
+            _issue(
+                pmt,
+                stream,
+                "metadata_service_id_duplicate",
+                "ST 1402-15",
+                "each synchronous metadata service must have a unique "
+                "metadata_service_id descriptor",
             )
         )
     if not klva_descriptors:
@@ -182,6 +192,17 @@ def _validate_async(
             )
         )
     registered = _has_registration(stream.descriptors, b"KLVA")
+    if _has_registration(pmt.descriptors, b"KLVA"):
+        issues.append(
+            _issue(
+                pmt,
+                stream,
+                "registration_descriptor_location",
+                "ST 1402-25",
+                "KLVA registration_descriptor is in the PMT program loop instead "
+                "of the metadata elementary-stream descriptor loop",
+            )
+        )
     if not registered:
         issues.extend(
             (

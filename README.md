@@ -80,7 +80,9 @@ and send the same timed metadata to independent GIS or analytics consumers.
   geometry with VTracker UUIDs, timelines, track history, velocity,
   acceleration, and algorithm attribution, plus bounded cross-frame
   lifecycle/ID-reuse checks.
-- MPEG-2 TS framing; CRC-checked, atomically activated multi-section PAT cycles;
+- Source-bound ST 1402.2 MPEG-2 TS metadata-carriage coverage with exact
+  22-active/four-deprecated requirement accounting; CRC-checked, atomically
+  activated multi-section PAT cycles;
   strict PSI fixed/reserved bits and stuffing; shared PMT-PID discovery; PES and
   PTS/DTS reconstruction; and classified video, audio, KLVA metadata, and other
   stream events.

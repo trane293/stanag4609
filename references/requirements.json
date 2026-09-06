@@ -552,6 +552,41 @@
       ]
     },
     {
+      "id": "MISB-ST-1402.2",
+      "source_sha256": "52a3b32a7314d2884d421c74718b808402f9cc5c852168b0c84f872b773100e0",
+      "trace": "docs/requirements/ST1402.2.md",
+      "active_requirements": [
+        "ST 1402-01",
+        "ST 1402-02",
+        "ST 1402-03",
+        "ST 1402-04",
+        "ST 1402-07",
+        "ST 1402-08",
+        "ST 1402-09",
+        "ST 1402-10",
+        "ST 1402-11",
+        "ST 1402-12",
+        "ST 1402-13",
+        "ST 1402-14",
+        "ST 1402-15",
+        "ST 1402-16",
+        "ST 1402-17",
+        "ST 1402-18",
+        "ST 1402-20",
+        "ST 1402-21",
+        "ST 1402-22",
+        "ST 1402-24",
+        "ST 1402-25",
+        "ST 1402.1-26"
+      ],
+      "inactive_requirements": [
+        {"id": "ST 1402-05", "status": "deprecated"},
+        {"id": "ST 1402-06", "status": "deprecated"},
+        {"id": "ST 1402-19", "status": "deprecated"},
+        {"id": "ST 1402-23", "status": "deprecated"}
+      ]
+    },
+    {
       "id": "MISB-ST-1010.3",
       "source_sha256": "55a64e2d228c4e3c1aa2a0c952778e282c98d0b90aead27a7af8fa4d3a28d20d",
       "trace": "docs/requirements/ST1010.3.md",
