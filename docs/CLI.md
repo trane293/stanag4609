@@ -40,6 +40,7 @@ stanag4609-player mission.ts --no-open --host 127.0.0.1 --port 9000
 stanag4609-player - --live --no-open
 stanag4609-player mission.ts --simulate-live
 stanag4609-player --demo day
+stanag4609-player mission.ts --udp-output 127.0.0.1:5000
 ```
 
 Non-loopback binding is deliberately two-step and still does not add
@@ -58,6 +59,12 @@ The player requires an FFmpeg executable. Use `--ffmpeg /path/to/ffmpeg` when
 it is not on `PATH`. `--live` accepts a growing TS file or `-` for a TS byte
 stream on stdin and begins browser playback before end-of-input. See
 [reference player](PLAYER.md).
+
+With `--udp-output`, the UI can start and stop a paced TS replay to the single
+operator-approved destination. Receive the example in VLC with
+`vlc udp://@:5000`. Live mode tees current input rather than replaying history.
+See [relay the transport stream](PLAYER.md#relay-the-transport-stream-to-another-application)
+for the security boundary and third-party compatibility limits.
 
 Generate both redistributable synthetic demo streams without launching a
 browser:

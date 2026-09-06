@@ -16,6 +16,7 @@ import pytest
 from stanag4609.player.live import LivePlayerGateway
 from stanag4609.player.server import PlayerHTTPRequestHandler
 from stanag4609.player.timeline import MetadataSample, MetadataTimeline, OverlayDetection
+from stanag4609.player.udp_output import UDPOutputStatus
 
 playwright = pytest.importorskip("playwright.sync_api")
 
@@ -91,6 +92,32 @@ def _write_live_transport(destination: Path) -> None:
 class _QuietPlayerHandler(PlayerHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         pass
+
+
+class _BrowserUDPOutput:
+    def __init__(self) -> None:
+        self.enabled = False
+
+    def status(self) -> UDPOutputStatus:
+        return UDPOutputStatus(
+            configured=True,
+            destination="127.0.0.1:5000",
+            mode="recorded replay from start",
+            enabled=self.enabled,
+            active=self.enabled,
+            epochs=int(self.enabled),
+            datagrams=2 if self.enabled else 0,
+            bytes=2632 if self.enabled else 0,
+            error=None,
+        )
+
+    def start(self) -> UDPOutputStatus:
+        self.enabled = True
+        return self.status()
+
+    def stop(self) -> UDPOutputStatus:
+        self.enabled = False
+        return self.status()
 
 
 def _sample(
@@ -194,7 +221,14 @@ def player_url(tmp_path: Path) -> Iterator[str]:
     (tmp_path / "index.html").write_text(static.read_text(encoding="utf-8"), encoding="utf-8")
     (tmp_path / "timeline.json").write_text(timeline.to_json(), encoding="utf-8")
     _write_fixture_media(tmp_path / "media.mp4")
-    handler = partial(_QuietPlayerHandler, directory=str(tmp_path), timeline=timeline)
+    udp_output = _BrowserUDPOutput()
+    handler = partial(
+        _QuietPlayerHandler,
+        directory=str(tmp_path),
+        timeline=timeline,
+        udp_output=udp_output,
+        control_token="browser-fixture-token",
+    )
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -278,6 +312,14 @@ def test_reference_player_renders_and_resynchronizes_in_chromium(player_url: str
         playwright.expect(page.locator("#mode-badge")).to_have_text("Recorded file")
         playwright.expect(page.locator("#class-filters")).to_contain_text("truck")
         playwright.expect(page.locator("#class-filters")).to_contain_text("car")
+        playwright.expect(page.locator("#udp-output")).to_be_visible()
+        playwright.expect(page.locator("#udp-destination")).to_have_text(
+            "MPEG-TS → udp://127.0.0.1:5000"
+        )
+        page.locator("#udp-toggle").click()
+        playwright.expect(page.locator("#udp-status")).to_contain_text("sending")
+        playwright.expect(page.locator("#udp-status")).to_contain_text("2 datagrams")
+        playwright.expect(page.locator("#udp-toggle")).to_have_text("Stop UDP output")
         playwright.expect(page.locator("#map")).to_have_attribute(
             "data-detection-polygons", "1"
         )

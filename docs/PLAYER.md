@@ -97,6 +97,41 @@ service. They bind to loopback by default; add TLS, authentication,
 authorization, origin controls, and deployment-specific resource limits before
 exposing them beyond a trusted host.
 
+## Relay the transport stream to another application
+
+The player can expose a start/stop control for one fixed UDP destination. The
+destination is configured by the operator, not typed into the web page:
+
+```console
+stanag4609-player mission.ts --udp-output 127.0.0.1:5000
+```
+
+The right panel then shows **MPEG-TS → udp://127.0.0.1:5000**. Start the output
+there and open the complete transport, including its original video, audio, and
+KLV PIDs, in VLC:
+
+```console
+vlc udp://@:5000
+```
+
+For a recorded file, each start begins a wall-clock-paced replay from the start
+of the transport. In `--live` and `--simulate-live` modes, the output is a tee
+of the currently arriving transport and does not retain arbitrary past input.
+Datagrams contain seven complete 188-byte TS packets where possible and a
+smaller whole-packet final datagram, following the ST 1402 transport mapping.
+
+The same output can feed an ArcGIS deployment or another FMV receiver when that
+specific product and version accepts MPEG-TS over UDP. This is a standards-level
+transport output, not a claim that every vendor's discovery, network, security,
+or session conventions are interchangeable.
+
+Only an explicit IP literal is accepted. The page cannot redirect output to an
+arbitrary address, and its control calls require a random per-process token plus
+the existing trusted-Host checks. Multicast is possible when the operator
+explicitly configures a multicast address; routing and interface selection remain
+deployment concerns. Treat the reference server as local tooling, not as an
+authenticated public stream gateway.
+
 Use `stanag4609-benchmark-live mission.ts` to measure this exact gateway on a
 deployment host. The [benchmark guide](BENCHMARKS.md) defines the method,
 machine-readable schema, pinned baseline, and the limits of those measurements.

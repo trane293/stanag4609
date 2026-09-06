@@ -468,6 +468,18 @@ for datagram in iter_udp_datagrams(remuxed_chunks):
 The default is seven 188-byte packets per payload, with a smaller integral
 final datagram. See [UDP transport datagrams](https://stanag4609.readthedocs.io/en/latest/UDP_TRANSPORT/).
 
+The reference player can relay the original video/audio/KLV transport to one
+operator-approved UDP destination, with a token-protected start/stop control in
+the UI:
+
+```console
+stanag4609-player mission.ts --udp-output 127.0.0.1:5000
+vlc udp://@:5000
+```
+
+See the [player relay guide](https://stanag4609.readthedocs.io/en/latest/PLAYER/#relay-the-transport-stream-to-another-application)
+for recorded versus live behavior and the security boundary.
+
 For ST 0804 MPEG-2 TS over RTP/UDP, add RFC 2250 headers while retaining the
 same bounded seven-packet payloads:
 

@@ -6,6 +6,7 @@ import argparse
 import ipaddress
 import json
 import math
+import secrets
 import shutil
 import subprocess
 import sys
@@ -36,6 +37,10 @@ from stanag4609.player.timeline import (
     MetadataTimeline,
     scan_transport_file,
     summarize_detection_timeline,
+)
+from stanag4609.player.udp_output import (
+    UDPOutputController,
+    parse_udp_destination,
 )
 
 
@@ -215,12 +220,18 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
         timeline: MetadataTimeline | None = None,
         live_media: FragmentedMP4Buffer | None = None,
         live_metadata: BoundedBroadcast[MetadataSample] | None = None,
+        udp_output: UDPOutputController | None = None,
+        control_token: str | None = None,
         allowed_hosts: Sequence[str] | None = None,
         **kwargs: Any,
     ) -> None:
         self.timeline = timeline
         self.live_media = live_media
         self.live_metadata = live_metadata
+        self.udp_output = udp_output
+        self.control_token = control_token
+        if (udp_output is None) != (control_token is None):
+            raise ValueError("udp_output and control_token must be configured together")
         if isinstance(allowed_hosts, (str, bytes)):
             raise TypeError("allowed_hosts must be a sequence of host names, not a string")
         self.allowed_hosts = (
@@ -235,6 +246,14 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
         if self._reject_untrusted_host():
             return
         request = urlsplit(self.path)
+        if request.path == "/output/udp":
+            status = (
+                {"configured": False}
+                if self.udp_output is None
+                else self.udp_output.status().to_dict() | {"control_token": self.control_token}
+            )
+            self._send_json(HTTPStatus.OK, status)
+            return
         if request.path == "/media/init.mp4":
             self._serve_live_initialization(request.query)
             return
@@ -280,6 +299,49 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
             ):
                 self.wfile.write(chunk)
                 self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            return
+
+    def do_POST(self) -> None:
+        """Control only the one UDP destination explicitly allowed by the CLI."""
+        if self._reject_untrusted_host():
+            return
+        request = urlsplit(self.path)
+        if request.path not in {"/output/udp/start", "/output/udp/stop"}:
+            self.send_error(HTTPStatus.NOT_FOUND, "Unknown control endpoint")
+            return
+        if self.udp_output is None or self.control_token is None:
+            self.send_error(HTTPStatus.NOT_FOUND, "UDP output is not configured")
+            return
+        fetch_site = self.headers.get("Sec-Fetch-Site")
+        supplied = self.headers.get("X-STANAG4609-Control", "")
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            content_length = -1
+        if (
+            fetch_site not in {None, "same-origin", "none"}
+            or content_length != 0
+            or not secrets.compare_digest(supplied, self.control_token)
+        ):
+            self.send_error(HTTPStatus.FORBIDDEN, "Control request rejected")
+            return
+        status = (
+            self.udp_output.start()
+            if request.path.endswith("/start")
+            else self.udp_output.stop()
+        )
+        self._send_json(HTTPStatus.OK, status.to_dict())
+
+    def _send_json(self, status: HTTPStatus, value: object) -> None:
+        body = json.dumps(value, separators=(",", ":")).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError):
             return
 
@@ -721,6 +783,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--ffprobe", default="ffprobe", help="FFprobe executable")
     parser.add_argument(
+        "--udp-output",
+        type=parse_udp_destination,
+        metavar="IP:PORT",
+        help="Allow the player UI to relay the source TS to this fixed UDP destination",
+    )
+    parser.add_argument(
         "--live-chunk-size",
         type=int,
         default=1316,
@@ -770,6 +838,7 @@ def _ingest_live_source(
     playback_rate: float = 1.0,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
+    udp_output: UDPOutputController | None = None,
 ) -> None:
     stream: BinaryIO
     owned = str(source) != "-"
@@ -777,11 +846,15 @@ def _ingest_live_source(
         expanded = source.expanduser()
         stream = expanded.open("rb") if owned else sys.stdin.buffer
         try:
+            if udp_output is not None:
+                udp_output.begin_live()
             source_size = expanded.stat().st_size if source_duration_seconds is not None else 0
             input_bytes = 0
             started = monotonic()
             while chunk := stream.read(chunk_size):
                 gateway.feed(chunk)
+                if udp_output is not None:
+                    udp_output.feed_live(chunk)
                 if source_duration_seconds is not None:
                     input_bytes += len(chunk)
                     target_elapsed = (
@@ -791,10 +864,14 @@ def _ingest_live_source(
                     if remaining > 0:
                         sleep(remaining)
             gateway.finish()
+            if udp_output is not None:
+                udp_output.finish_live()
         finally:
             if owned:
                 stream.close()
     except Exception as error:
+        if udp_output is not None:
+            udp_output.finish_live()
         gateway.close()
         print(f"Live player input stopped: {error}", file=sys.stderr, flush=True)
 
@@ -834,12 +911,20 @@ def _run_live_player(
         program_number=args.program_number,
     )
     gateway.start()
+    udp_output = (
+        None
+        if args.udp_output is None
+        else UDPOutputController(args.udp_output, live=True)
+    )
+    control_token = None if udp_output is None else secrets.token_urlsafe(32)
     handler = partial(
         PlayerHTTPRequestHandler,
         directory=str(root),
         live_media=gateway.media,
         live_metadata=gateway.metadata,
         allowed_hosts=allowed_hosts,
+        udp_output=udp_output,
+        control_token=control_token,
     )
     with ThreadingHTTPServer((args.host, args.port), handler) as server:
         url_host = _player_url_host(args.host, allowed_hosts)
@@ -857,6 +942,7 @@ def _run_live_player(
                 "chunk_size": args.live_chunk_size,
                 "source_duration_seconds": source_duration_seconds,
                 "playback_rate": args.playback_rate,
+                "udp_output": udp_output,
             },
             name="stanag4609-live-input",
             daemon=True,
@@ -865,6 +951,8 @@ def _run_live_player(
         with suppress(KeyboardInterrupt):
             server.serve_forever()
         gateway.close()
+        if udp_output is not None:
+            udp_output.close()
         ingestion.join(timeout=2)
     return 0
 
@@ -901,11 +989,26 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_live_player(args, root, allowed_hosts=allowed_hosts)
         print("Preparing synchronized metadata and browser media...", flush=True)
         assets = prepare_player_assets(args.source, root, ffmpeg=args.ffmpeg)
+        udp_output = None
+        control_token = None
+        if args.udp_output is not None:
+            duration = _source_duration(args.source, ffprobe=args.ffprobe)
+            if duration is None or duration <= 0:
+                raise SystemExit("--udp-output requires FFprobe-readable positive media duration")
+            udp_output = UDPOutputController(
+                args.udp_output,
+                live=False,
+                source=args.source,
+                source_duration_seconds=duration,
+            )
+            control_token = secrets.token_urlsafe(32)
         handler = partial(
             PlayerHTTPRequestHandler,
             directory=str(assets.root),
             timeline=assets.metadata,
             allowed_hosts=allowed_hosts,
+            udp_output=udp_output,
+            control_token=control_token,
         )
         with ThreadingHTTPServer((args.host, args.port), handler) as server:
             suffix = "?metadata=sse" if args.stream_metadata else ""
@@ -916,6 +1019,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 webbrowser.open(url)
             with suppress(KeyboardInterrupt):
                 server.serve_forever()
+        if udp_output is not None:
+            udp_output.close()
     return 0
 
 

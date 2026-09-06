@@ -45,6 +45,14 @@
     .activity-primary { display: flex; justify-content: space-between; gap: 8px; color: #91efb9; }
     .activity-secondary { margin-top: 3px; color: #7894aa; font-size: 10px; }
     .empty-state { margin: 0; color: #6f899d; font-size: 11px; }
+    #udp-output { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #263849; background: #0b1721; }
+    #udp-output[hidden] { display: none; }
+    #udp-output-copy { min-width: 0; color: #9bb2c4; font-size: 10px; line-height: 1.45; }
+    #udp-output-copy strong { display: block; overflow-wrap: anywhere; color: #8ed8ff; font-size: 11px; }
+    #udp-output button { flex: 0 0 auto; padding: 6px 9px; border: 1px solid #4d7d9e; border-radius: 5px; background: #10293a; color: #dbe8f4; cursor: pointer; }
+    #udp-output button:hover, #udp-output button:focus-visible { background: #173d54; outline: 1px solid #8ed8ff; }
+    #udp-output button:disabled { cursor: wait; opacity: .55; }
+    #udp-output.error #udp-output-copy { color: #ff9aab; }
     #status { padding: 12px; position: sticky; top: 0; background: #101c28; color: #7ee2a8; line-height: 1.4; }
     #status.error { color: #ff9aab; }
     #diagnostics { margin: 0; padding: 10px 12px; border-top: 1px solid #69414a; border-bottom: 1px solid #69414a; background: #2a1820; color: #ffd4dc; }
@@ -102,6 +110,10 @@
         <h2 class="section-heading" id="activity-title"><span>AI detection activity</span><span id="activity-count">0 observations</span></h2>
         <ol id="activity-list"><li class="empty-state">No detections at this time</li></ol>
       </section>
+      <section id="udp-output" aria-label="UDP stream output" hidden>
+        <div id="udp-output-copy"><strong id="udp-destination"></strong><span id="udp-status">Output stopped</span></div>
+        <button id="udp-toggle" type="button">Start UDP output</button>
+      </section>
       <div id="status" role="status" aria-live="polite">Loading metadata…</div>
       <section id="diagnostics" aria-live="polite" hidden>
         <h2>Metadata diagnostics</h2>
@@ -135,6 +147,10 @@
     const confidenceValue = document.querySelector('#confidence-value');
     const trackTrails = document.querySelector('#track-trails');
     const classFilters = document.querySelector('#class-filters');
+    const udpOutput = document.querySelector('#udp-output');
+    const udpDestination = document.querySelector('#udp-destination');
+    const udpStatus = document.querySelector('#udp-status');
+    const udpToggle = document.querySelector('#udp-toggle');
     const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6, useGrouping: false });
     const query = new URLSearchParams(window.location.search);
     const liveMode = query.get('live') === '1';
@@ -153,10 +169,47 @@
     const TIMELINE_OTHER_COLOR = '#6f899d';
     let timelineBins = [], timelineBinDuration = 0, timelineDirty = true, timelinePointer = null, timelineLabelGroups = [];
     let activeMapSample = null, activeMapIndex = -1;
+    let udpControlToken = null, udpEnabled = false, udpRequestPending = false;
     const mapView = {longitude: 0, latitude: 0, zoom: 2, follow: true};
     const tileCache = new Map();
     modeBadge.textContent = liveMode ? (query.get('demo') === 'simulated' ? 'Simulated live · disk MPEG-TS' : 'Live MPEG-TS') : (streamMode ? 'Recorded file · simulated metadata stream' : 'Recorded file');
     if (!liveMode) video.src = 'media.mp4';
+    function renderUdpStatus(data) {
+      if (!data || !data.configured) { udpOutput.hidden = true; return; }
+      udpOutput.hidden = false;
+      udpEnabled = Boolean(data.enabled);
+      udpDestination.textContent = `MPEG-TS → udp://${data.destination}`;
+      const counts = `${Number(data.datagrams || 0).toLocaleString()} datagrams · ${Number(data.bytes || 0).toLocaleString()} bytes`;
+      udpStatus.textContent = data.error ? `${data.error} · ${counts}` : `${data.mode} · ${udpEnabled ? 'sending' : 'stopped'} · ${counts}`;
+      udpOutput.classList.toggle('error', Boolean(data.error));
+      udpToggle.textContent = udpEnabled ? 'Stop UDP output' : 'Start UDP output';
+      udpToggle.disabled = udpRequestPending;
+    }
+    async function loadUdpStatus() {
+      try {
+        const response = await fetch('output/udp', {cache: 'no-store'});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (typeof data.control_token === 'string') udpControlToken = data.control_token;
+        renderUdpStatus(data);
+      } catch (error) {
+        if (!udpOutput.hidden) { udpOutput.classList.add('error'); udpStatus.textContent = `Status unavailable: ${error.message || error}`; }
+      }
+    }
+    async function toggleUdpOutput() {
+      if (!udpControlToken || udpRequestPending) return;
+      udpRequestPending = true; udpToggle.disabled = true;
+      try {
+        const action = udpEnabled ? 'stop' : 'start';
+        const response = await fetch(`output/udp/${action}`, {method: 'POST', headers: {'X-STANAG4609-Control': udpControlToken}});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        renderUdpStatus(await response.json());
+      } catch (error) {
+        udpOutput.classList.add('error'); udpStatus.textContent = `Control failed: ${error.message || error}`;
+      } finally {
+        udpRequestPending = false; udpToggle.disabled = false;
+      }
+    }
     function loadTimeline() {
       fetch('timeline.json').then(response => {
         if (!response.ok) throw new Error(`timeline request returned HTTP ${response.status}`);
@@ -980,6 +1033,7 @@
       invalidateDetectionViews();
     });
     trackTrails.addEventListener('change', () => drawDetections(selected >= 0 ? samples[selected] : null));
+    udpToggle.addEventListener('click', toggleUdpOutput);
     video.addEventListener('timeupdate', () => { render(findSample(video.currentTime)); syncPlayhead(); });
     video.addEventListener('playing', () => startMetadataStream());
     video.addEventListener('pause', () => { if (!liveMode) stopMetadataStream(); });
@@ -999,6 +1053,8 @@
     new ResizeObserver(() => { if (selected >= 0) drawMap(samples[selected], {preserveView: true}); }).observe(map);
     new ResizeObserver(invalidateTimeline).observe(timelineCanvas);
     if (video.readyState >= 1) loadTimelineOverview();
+    loadUdpStatus();
+    window.setInterval(() => { if (!udpOutput.hidden) loadUdpStatus(); }, 1000);
   </script>
 </body>
 </html>

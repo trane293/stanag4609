@@ -8,6 +8,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 - Add recorded, simulated-live, and synthetic day/thermal player demos;
   VMTI class/confidence/overlay controls and persistent-ID trails; and native
   Ultralytics `track` mode with ByteTrack or BoT-SORT configuration.
+- Add an operator-allowlisted, token-protected UDP MPEG-TS output control to the
+  player for paced recorded replay or live teeing into VLC and compatible FMV
+  receivers.
 
 ## 0.2.0 - 2026-09-05
 
