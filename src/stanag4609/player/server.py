@@ -24,6 +24,8 @@ from threading import Thread
 from typing import Any, BinaryIO
 from urllib.parse import parse_qs, urlsplit
 
+from stanag4609.player.benchmark import _source_duration
+from stanag4609.player.demo import DEMO_VARIANTS, generate_demo_fmv
 from stanag4609.player.live import (
     BoundedBroadcast,
     FragmentedMP4Buffer,
@@ -80,8 +82,10 @@ def _normalize_allowed_host(value: str) -> str:
 
 
 def _request_hostname(value: str | None) -> str | None:
-    if value is None or any(character.isspace() for character in value) or any(
-        character in value for character in "/@?#\\"
+    if (
+        value is None
+        or any(character.isspace() for character in value)
+        or any(character in value for character in "/@?#\\")
     ):
         return None
     try:
@@ -105,9 +109,7 @@ def _is_loopback_host(value: str) -> bool:
 def _cli_allowed_hosts(args: argparse.Namespace) -> tuple[str, ...]:
     if _is_loopback_host(args.host):
         return tuple(
-            dict.fromkeys(
-                (_normalize_allowed_host(args.host), "127.0.0.1", "::1", "localhost")
-            )
+            dict.fromkeys((_normalize_allowed_host(args.host), "127.0.0.1", "::1", "localhost"))
         )
     if not args.allow_remote:
         raise SystemExit("non-loopback --host requires --allow-remote")
@@ -341,11 +343,7 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
             self.send_error(HTTPStatus.BAD_REQUEST, str(error))
             return
         except TimeoutError as error:
-            status = (
-                HTTPStatus.GONE
-                if self.live_media.closed
-                else HTTPStatus.SERVICE_UNAVAILABLE
-            )
+            status = HTTPStatus.GONE if self.live_media.closed else HTTPStatus.SERVICE_UNAVAILABLE
             self.send_error(status, str(error))
             return
         self.send_response(HTTPStatus.OK)
@@ -395,8 +393,7 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
             self.send_response(HTTPStatus.CONFLICT)
             self.send_header("Content-Type", "application/json")
             body = (
-                '{"error":"fragment history unavailable","dropped":'
-                f"{result.dropped}}}"
+                f'{{"error":"fragment history unavailable","dropped":{result.dropped}}}'
             ).encode("ascii")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
@@ -465,15 +462,13 @@ class PlayerHTTPRequestHandler(SimpleHTTPRequestHandler):
                     },
                     separators=(",", ":"),
                 )
-                self.wfile.write(
-                    b"event: reset\ndata: " + reset.encode("ascii") + b"\n\n"
-                )
+                self.wfile.write(b"event: reset\ndata: " + reset.encode("ascii") + b"\n\n")
             while True:
                 result = self.live_metadata.poll(after_id=after, timeout=5.0)
                 if result.dropped:
                     reset = (
                         '{"dropped":'
-                        f"{result.dropped},\"oldest_id\":"
+                        f'{result.dropped},"oldest_id":'
                         f"{result.items[0][0] if result.items else after + result.dropped + 1}}}"
                     )
                     self.wfile.write(b"event: reset\ndata: " + reset.encode("ascii") + b"\n\n")
@@ -678,8 +673,20 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "source",
+        nargs="?",
         type=Path,
         help="MPEG-2 transport-stream input; use - for stdin with --live",
+    )
+    parser.add_argument(
+        "--demo",
+        choices=DEMO_VARIANTS,
+        help="generate and play an openly redistributable synthetic FMV demo",
+    )
+    parser.add_argument(
+        "--demo-duration",
+        type=float,
+        default=12,
+        help="generated demo duration from 2 to 600 seconds",
     )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument(
@@ -695,11 +702,24 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--ffmpeg", default="ffmpeg", help="FFmpeg executable")
-    parser.add_argument(
+    live_group = parser.add_mutually_exclusive_group()
+    live_group.add_argument(
         "--live",
         action="store_true",
         help="Incrementally ingest a live/growing TS input and stream fragmented MP4",
     )
+    live_group.add_argument(
+        "--simulate-live",
+        action="store_true",
+        help="Pace a complete disk TS through the same live gateway",
+    )
+    parser.add_argument(
+        "--playback-rate",
+        type=float,
+        default=1.0,
+        help="simulated-live wall-clock multiplier (default: 1, real time)",
+    )
+    parser.add_argument("--ffprobe", default="ffprobe", help="FFprobe executable")
     parser.add_argument(
         "--live-chunk-size",
         type=int,
@@ -746,14 +766,30 @@ def _ingest_live_source(
     gateway: LivePlayerGateway,
     *,
     chunk_size: int,
+    source_duration_seconds: float | None = None,
+    playback_rate: float = 1.0,
+    monotonic: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> None:
     stream: BinaryIO
     owned = str(source) != "-"
     try:
-        stream = source.expanduser().open("rb") if owned else sys.stdin.buffer
+        expanded = source.expanduser()
+        stream = expanded.open("rb") if owned else sys.stdin.buffer
         try:
+            source_size = expanded.stat().st_size if source_duration_seconds is not None else 0
+            input_bytes = 0
+            started = monotonic()
             while chunk := stream.read(chunk_size):
                 gateway.feed(chunk)
+                if source_duration_seconds is not None:
+                    input_bytes += len(chunk)
+                    target_elapsed = (
+                        input_bytes / source_size * source_duration_seconds / playback_rate
+                    )
+                    remaining = target_elapsed - (monotonic() - started)
+                    if remaining > 0:
+                        sleep(remaining)
             gateway.finish()
         finally:
             if owned:
@@ -778,6 +814,17 @@ def _run_live_player(
     source = args.source.expanduser()
     if str(source) != "-" and not source.is_file():
         raise SystemExit(f"live input does not exist: {source}")
+    source_duration_seconds = None
+    if args.simulate_live:
+        if str(source) == "-":
+            raise SystemExit("--simulate-live requires a complete disk input")
+        if source.stat().st_size == 0:
+            raise SystemExit("--simulate-live input must not be empty")
+        if not math.isfinite(args.playback_rate) or not 0.1 <= args.playback_rate <= 16:
+            raise SystemExit("--playback-rate must be between 0.1 and 16")
+        source_duration_seconds = _source_duration(source, ffprobe=args.ffprobe)
+        if source_duration_seconds is None or source_duration_seconds <= 0:
+            raise SystemExit("--simulate-live requires FFprobe-readable positive media duration")
     _copy_player_ui(root)
     gateway = LivePlayerGateway(
         ffmpeg=args.ffmpeg,
@@ -796,15 +843,21 @@ def _run_live_player(
     )
     with ThreadingHTTPServer((args.host, args.port), handler) as server:
         url_host = _player_url_host(args.host, allowed_hosts)
-        url = f"http://{url_host}:{server.server_port}/?live=1"
-        print(f"STANAG 4609 live player: {url}")
-        print("Reading bounded live MPEG-TS input; stop with Ctrl-C.", flush=True)
+        demo_query = "&demo=simulated" if args.simulate_live else ""
+        url = f"http://{url_host}:{server.server_port}/?live=1{demo_query}"
+        mode = "simulated-live disk" if args.simulate_live else "live"
+        print(f"STANAG 4609 {mode} player: {url}")
+        print("Reading bounded MPEG-TS input; stop with Ctrl-C.", flush=True)
         if not args.no_open:
             webbrowser.open(url)
         ingestion = Thread(
             target=_ingest_live_source,
             args=(source, gateway),
-            kwargs={"chunk_size": args.live_chunk_size},
+            kwargs={
+                "chunk_size": args.live_chunk_size,
+                "source_duration_seconds": source_duration_seconds,
+                "playback_rate": args.playback_rate,
+            },
             name="stanag4609-live-input",
             daemon=True,
         )
@@ -818,19 +871,33 @@ def _run_live_player(
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if (args.source is None) == (args.demo is None):
+        raise SystemExit("provide exactly one source or --demo")
     if not 1 <= args.port <= 65535:
         raise SystemExit("--port must be between 1 and 65535")
     if args.program_number is not None:
         if not 1 <= args.program_number <= 0xFFFF:
             raise SystemExit("--program-number must be between 1 and 65535")
-        if not args.live:
-            raise SystemExit("--program-number currently requires --live")
+        if not (args.live or args.simulate_live):
+            raise SystemExit("--program-number currently requires --live or --simulate-live")
     allowed_hosts = _cli_allowed_hosts(args)
     if shutil.which(args.ffmpeg) is None:
         raise SystemExit(f"FFmpeg executable not found: {args.ffmpeg}")
     with tempfile.TemporaryDirectory(prefix="stanag4609-player-") as temporary:
         root = Path(temporary)
-        if args.live:
+        if args.demo is not None:
+            args.source = root / f"stanag4609-{args.demo}-demo.ts"
+            print(f"Generating {args.demo} FMV demo...", flush=True)
+            try:
+                generate_demo_fmv(
+                    args.source,
+                    variant=args.demo,
+                    duration_seconds=args.demo_duration,
+                    ffmpeg=args.ffmpeg,
+                )
+            except (ValueError, RuntimeError) as error:
+                raise SystemExit(str(error)) from error
+        if args.live or args.simulate_live:
             return _run_live_player(args, root, allowed_hosts=allowed_hosts)
         print("Preparing synchronized metadata and browser media...", flush=True)
         assets = prepare_player_assets(args.source, root, ffmpeg=args.ffmpeg)

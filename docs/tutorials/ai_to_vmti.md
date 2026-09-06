@@ -30,14 +30,16 @@ pip install 'stanag4609[ai-ultralytics,video-pyav]'
 ```console
 python examples/tutorials/ai_sidecar_ui.py \
   samples/private/esri-fmv/Truck.ts \
-  --weights yolo11n.pt
+  --weights yolo11n.pt \
+  --inference-mode track \
+  --tracker bytetrack.yaml
 ```
 
 The first run downloads the small YOLO11n weights. The server starts after
 inference and prints the browser URL with an observed result summary:
 
 ```text
-AI sidecar UI: http://127.0.0.1:8767/ model=yolo11n.pt detected_frames=488 detections=1155
+AI sidecar UI: http://127.0.0.1:8767/ model=yolo11n.pt mode=track detected_frames=488 detections=1155
 ```
 
 Counts can change with model-runtime versions and inference hardware.
@@ -60,9 +62,12 @@ and decoded again by the production player adapter. The demo uses COCO car,
 motorcycle, bus, and truck classes with a `0.35` confidence threshold. It is an
 integration demonstration, not a claim about model accuracy.*
 
-Use `--confidence`, `--image-size`, and `--device` to tune the demo. Replace the
-weights or adapter for an application model; the VMTI encoding and player
-boundary remain unchanged.
+Tracking is the default and uses Ultralytics ByteTrack with persistent IDs,
+which become positive ST 0903 target IDs. Use `--inference-mode predict` for
+independent batched frames, or `--tracker botsort.yaml` to select Ultralytics'
+BoT-SORT configuration. `--confidence`, `--image-size`, and `--device` tune the
+demo. Replace the weights or adapter for an application model; the VMTI
+encoding and player boundary remain unchanged.
 
 The earlier dependency-free example deliberately uses small deterministic
 functions so the complete data contract is visible. Replace those functions

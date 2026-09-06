@@ -378,9 +378,14 @@ class _YOLO:
     def __init__(self, results: object) -> None:
         self.results = results
         self.calls: list[tuple[object, dict[str, object]]] = []
+        self.track_calls: list[tuple[object, dict[str, object]]] = []
 
     def predict(self, *, source: object, **kwargs: object) -> object:
         self.calls.append((source, kwargs))
+        return self.results
+
+    def track(self, *, source: object, **kwargs: object) -> object:
+        self.track_calls.append((source, kwargs))
         return self.results
 
 
@@ -408,13 +413,30 @@ def test_ultralytics_adapter_normalizes_boxes_labels_and_configuration() -> None
 
 
 def test_ultralytics_adapter_preserves_stable_tracker_identity_with_offset() -> None:
+    model = _YOLO([_Result(_Boxes(identifiers=[40, 41]))])
     adapter = UltralyticsYOLODetector(
-        _YOLO([_Result(_Boxes(identifiers=[40, 41]))]),
+        model,
         track_id_offset=1,
+        mode="track",
+        predict_kwargs={"tracker": "bytetrack.yaml", "persist": False},
     )
     assert [
         detection.target_id for detection in adapter(InferenceContext(_frame())).detections
     ] == [41, 42]
+    assert model.track_calls == [
+        (
+            b"adapter-owned-frame",
+            {"verbose": False, "tracker": "bytetrack.yaml", "persist": False},
+        )
+    ]
+
+
+def test_ultralytics_tracking_persists_identity_by_default() -> None:
+    model = _YOLO([_Result(_Boxes(identifiers=[3, 4]))])
+    UltralyticsYOLODetector(model, mode="track")(InferenceContext(_frame()))
+
+    assert model.calls == []
+    assert model.track_calls == [(b"adapter-owned-frame", {"verbose": False, "persist": True})]
 
 
 def test_ultralytics_adapter_handles_empty_results_and_rejects_bad_shapes() -> None:
@@ -458,15 +480,11 @@ def test_ultralytics_adapter_strictly_validates_result_values() -> None:
     fractional_class = _Boxes()
     fractional_class.cls = _Array([0.5, 1])
     with pytest.raises(ValueError, match="class ID"):
-        UltralyticsYOLODetector(_YOLO([_Result(fractional_class)]))(
-            InferenceContext(_frame())
-        )
+        UltralyticsYOLODetector(_YOLO([_Result(fractional_class)]))(InferenceContext(_frame()))
 
     negative_track = _Boxes(identifiers=[-1, 2])
     with pytest.raises(ValueError, match="track ID"):
-        UltralyticsYOLODetector(_YOLO([_Result(negative_track)]))(
-            InferenceContext(_frame())
-        )
+        UltralyticsYOLODetector(_YOLO([_Result(negative_track)]))(InferenceContext(_frame()))
 
 
 def test_ultralytics_adapter_accepts_sequence_name_catalog() -> None:
@@ -486,6 +504,7 @@ def test_ultralytics_adapter_accepts_sequence_name_catalog() -> None:
         ({"status": 1}, TypeError),
         ({"track_id_offset": 0}, ValueError),
         ({"predict_kwargs": []}, TypeError),
+        ({"mode": "segment"}, ValueError),
     ],
 )
 def test_ultralytics_adapter_validates_configuration(
@@ -495,6 +514,8 @@ def test_ultralytics_adapter_validates_configuration(
         UltralyticsYOLODetector(_YOLO([]), **kwargs)  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="predict"):
         UltralyticsYOLODetector(object())
+    with pytest.raises(TypeError, match="track"):
+        UltralyticsYOLODetector(object(), mode="track")
 
 
 class _OnnxInput:
@@ -536,10 +557,8 @@ def test_onnx_adapter_validates_tensors_and_decodes_model_specific_output() -> N
     context = InferenceContext(_frame())
     output = adapter(context)
 
-    assert session.calls == [
-        ((["boxes", "scores"]), {"images": b"adapter-owned-frame"})
-    ]
-    assert seen == [(('boxes', 'scores'), context)]
+    assert session.calls == [((["boxes", "scores"]), {"images": b"adapter-owned-frame"})]
+    assert seen == [(("boxes", "scores"), context)]
     assert output.detections[0].label == "truck"
 
 
@@ -563,9 +582,7 @@ def test_onnx_adapter_can_defer_input_validation_to_runtime() -> None:
         ({"images": 1, "extra": 2}, "unexpected inputs"),
     ],
 )
-def test_onnx_adapter_reports_input_name_mismatches(
-    feed: dict[str, object], message: str
-) -> None:
+def test_onnx_adapter_reports_input_name_mismatches(feed: dict[str, object], message: str) -> None:
     adapter = OnnxRuntimeAdapter(
         _OnnxSession(),
         input_builder=lambda _: feed,
@@ -792,9 +809,7 @@ def _detection_context(*, metadata: tuple[TimedKLVPacket, ...] = ()) -> Inferenc
     return InferenceContext(frame).with_result(
         InferenceResult(
             "tracker",
-            InferenceOutput(
-                (Detection(42, PixelBoundingBox(10, 20, 30, 40), 0.9),)
-            ),
+            InferenceOutput((Detection(42, PixelBoundingBox(10, 20, 30, 40), 0.9),)),
         )
     )
 
@@ -814,13 +829,9 @@ def test_vmti_emitter_creates_timed_parent_for_media_only_stream() -> None:
     assert packet.metadata_service_id == 7
     assert packet.random_access
     assert isinstance(packet.decoded, UASLocalSet)
-    assert packet.decoded.value(2) == datetime.fromtimestamp(
-        1_700_000_029, tz=timezone.utc
-    )
+    assert packet.decoded.value(2) == datetime.fromtimestamp(1_700_000_029, tz=timezone.utc)
     assert packet.decoded.value(136) == 29
-    assert packet.decoded.utc_timestamp() == datetime.fromtimestamp(
-        1_700_000_000, tz=timezone.utc
-    )
+    assert packet.decoded.utc_timestamp() == datetime.fromtimestamp(1_700_000_000, tz=timezone.utc)
     assert packet.decoded.value(65) == 19
     assert packet.decoded.value(74).targets[0].target_id == 42
 
@@ -837,9 +848,7 @@ def test_vmti_emitter_preserves_correlated_parent_and_refreshes_timestamp() -> N
         pts=80_000,
         metadata_service_id=3,
     )
-    packet = VMTIMetadataEmitter("tracker", leap_seconds=29)(
-        _detection_context(metadata=(parent,))
-    )
+    packet = VMTIMetadataEmitter("tracker", leap_seconds=29)(_detection_context(metadata=(parent,)))
 
     assert packet.pid == 0x121
     assert packet.metadata_service_id == 3
@@ -847,20 +856,14 @@ def test_vmti_emitter_preserves_correlated_parent_and_refreshes_timestamp() -> N
     assert packet.decoded.value(13) == pytest.approx(40)
     assert packet.decoded.value(14) == pytest.approx(-75)
     assert packet.decoded.value(136) == 29
-    assert packet.decoded.value(2) == datetime.fromtimestamp(
-        1_700_000_029, tz=timezone.utc
-    )
-    assert packet.decoded.utc_timestamp() == datetime.fromtimestamp(
-        1_700_000_000, tz=timezone.utc
-    )
+    assert packet.decoded.value(2) == datetime.fromtimestamp(1_700_000_029, tz=timezone.utc)
+    assert packet.decoded.utc_timestamp() == datetime.fromtimestamp(1_700_000_000, tz=timezone.utc)
     assert packet.decoded.value(74).targets[0].target_id == 42
 
 
 def test_vmti_emitter_honors_parent_timestamp_correction_offset() -> None:
     parent = TimedKLVPacket.from_bytes(
-        encode_uas_local_set(
-            {2: 1_600_000_000_000_000, 65: 19, 136: 29, 137: 125_000}
-        ),
+        encode_uas_local_set({2: 1_600_000_000_000_000, 65: 19, 136: 29, 137: 125_000}),
         program_number=1,
         pid=0x121,
         carriage=KLVCarriage.SYNCHRONOUS,
@@ -872,9 +875,7 @@ def test_vmti_emitter_honors_parent_timestamp_correction_offset() -> None:
 
     assert packet.decoded.misp_timestamp_microseconds == 1_700_000_028_875_000
     assert packet.decoded.value(137) == 125_000
-    assert packet.decoded.utc_timestamp() == datetime.fromtimestamp(
-        1_700_000_000, tz=timezone.utc
-    )
+    assert packet.decoded.utc_timestamp() == datetime.fromtimestamp(1_700_000_000, tz=timezone.utc)
 
 
 def test_vmti_emitter_requires_unambiguous_parent_stage_and_time() -> None:
@@ -893,9 +894,7 @@ def test_vmti_emitter_requires_unambiguous_parent_stage_and_time() -> None:
     with pytest.raises(ValueError, match="metadata_pid"):
         VMTIMetadataEmitter("tracker", leap_seconds=29)(_detection_context())
 
-    parent_bytes = encode_uas_local_set(
-        {2: 1_600_000_000_000_000, 65: 19, 136: 29}
-    )
+    parent_bytes = encode_uas_local_set({2: 1_600_000_000_000_000, 65: 19, 136: 29})
     parents = tuple(
         TimedKLVPacket.from_bytes(
             parent_bytes,

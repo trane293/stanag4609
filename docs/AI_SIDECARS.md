@@ -187,21 +187,23 @@ model = YOLO("your-vehicle-model.pt")
 detector = UltralyticsYOLODetector(
     model,
     algorithm_id=1,
-    predict_kwargs={"conf": 0.35, "iou": 0.6},
+    mode="track",
+    predict_kwargs={"conf": 0.35, "iou": 0.6, "tracker": "bytetrack.yaml"},
 )
 vehicle_stage = InferenceStage("vehicle-detector", detector, threaded=True)
 ```
 
 The adapter uses `floor` for left/top and `ceil` for right/bottom so fractional
-model boxes retain all covered pixels. When Ultralytics supplies tracker IDs,
-the configurable `track_id_offset` (default `1`) maps the common zero-based
-domain into ST 0903's positive target IDs. Without tracker IDs, result order is
-used; for durable cross-frame identity, add an Ultralytics tracking call in an
-application adapter or place a stateful tracker in a later sequential stage.
-That stage can read detector output with `context.result("vehicle-detector")`.
+model boxes retain all covered pixels. In `track` mode it calls Ultralytics
+tracking with `persist=True` by default; keep ordered frames on the same adapter
+instance. The configurable `track_id_offset` (default `1`) maps Ultralytics'
+zero-based tracker domain into ST 0903's positive target IDs. In `predict` mode,
+or before a tracker confirms a track, result order is used only as a per-frame
+identifier and must not be described as persistent identity.
 
 The adapter follows the official
-[Ultralytics prediction result contract](https://docs.ultralytics.com/modes/predict/)
+[Ultralytics prediction](https://docs.ultralytics.com/modes/predict/) and
+[tracking](https://docs.ultralytics.com/modes/track/) result contracts
 and accepts duck-typed result objects in tests, so importing `stanag4609` never
 imports Ultralytics or PyTorch.
 

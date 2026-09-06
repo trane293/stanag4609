@@ -10,6 +10,13 @@
     header { padding: 14px 20px; border-bottom: 1px solid #263849; color: #8ed8ff; font-size: 14px; }
     main { display: grid; grid-template-columns: minmax(0, 1fr) clamp(420px, 36vw, 560px); gap: 16px; padding: 16px; }
     .media-column { min-width: 0; align-self: start; }
+    .demo-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid #263849; border-radius: 8px; background: #0b1721; color: #a8bed0; font-size: 11px; }
+    .demo-toolbar label { display: inline-flex; align-items: center; gap: 6px; }
+    .demo-toolbar select, .demo-toolbar input { accent-color: #62e6a7; }
+    .demo-toolbar select { padding: 3px 5px; border: 1px solid #49657a; border-radius: 4px; background: #07131c; color: #dbe8f4; }
+    #mode-badge { margin-right: auto; color: #8ed8ff; }
+    #class-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 9px; margin: 0; padding: 0; border: 0; }
+    #class-filters legend { float: left; margin-right: 7px; color: #6f899d; }
     .video-shell { position: relative; align-self: start; line-height: 0; }
     video { display: block; width: 100%; max-height: calc(100vh - 205px); background: black; }
     #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -65,6 +72,13 @@
   <header>STANAG 4609 / MISB synchronized reference player</header>
   <main>
     <div class="media-column">
+      <section class="demo-toolbar" aria-label="Detection display controls">
+        <span id="mode-badge">Recorded file</span>
+        <label>Overlay <select id="overlay-mode"><option value="all">Boxes + centers</option><option value="boxes">Boxes only</option><option value="centers">Centers only</option><option value="off">Off</option></select></label>
+        <label>Confidence <input id="confidence-filter" type="range" min="0" max="100" step="1" value="0"><output id="confidence-value">0%+</output></label>
+        <label><input id="track-trails" type="checkbox"> Track trails</label>
+        <fieldset id="class-filters"><legend>Classes</legend><span class="empty-state">Waiting for VMTI</span></fieldset>
+      </section>
       <div class="video-shell">
         <video id="video" controls autoplay></video>
         <canvas id="overlay" aria-label="VMTI detection overlay"></canvas>
@@ -115,6 +129,12 @@
     const timelineLegend = document.querySelector('#timeline-legend');
     const activityList = document.querySelector('#activity-list');
     const activityCount = document.querySelector('#activity-count');
+    const modeBadge = document.querySelector('#mode-badge');
+    const overlayMode = document.querySelector('#overlay-mode');
+    const confidenceFilter = document.querySelector('#confidence-filter');
+    const confidenceValue = document.querySelector('#confidence-value');
+    const trackTrails = document.querySelector('#track-trails');
+    const classFilters = document.querySelector('#class-filters');
     const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6, useGrouping: false });
     const query = new URLSearchParams(window.location.search);
     const liveMode = query.get('live') === '1';
@@ -126,6 +146,7 @@
     const MAX_TILE_CACHE = 96;
     const TILE_TEMPLATE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
     const basemapEnabled = query.get('basemap') !== 'off';
+    const disabledLabels = new Set();
     let samples = [], selected = -1, eventStream = null, streamEnded = false;
     let timelineOverview = null, timelineOverviewError = null, timelineOverviewRequestKey = null;
     const TIMELINE_COLORS = ['#62e6a7', '#55bcea', '#ff9f43', '#c792ea', '#ff7185'];
@@ -134,6 +155,7 @@
     let activeMapSample = null, activeMapIndex = -1;
     const mapView = {longitude: 0, latitude: 0, zoom: 2, follow: true};
     const tileCache = new Map();
+    modeBadge.textContent = liveMode ? (query.get('demo') === 'simulated' ? 'Simulated live · disk MPEG-TS' : 'Live MPEG-TS') : (streamMode ? 'Recorded file · simulated metadata stream' : 'Recorded file');
     if (!liveMode) video.src = 'media.mp4';
     function loadTimeline() {
       fetch('timeline.json').then(response => {
@@ -143,6 +165,7 @@
         if (!Array.isArray(data.samples)) throw new Error('timeline does not contain a samples array');
         samples = data.samples;
         samples.forEach(decorateSample);
+        refreshClassFilters();
         invalidateTimeline();
         if (!samples.length) {
           showUnavailable('No ST 0601 metadata samples found', 'No geospatial metadata');
@@ -207,6 +230,7 @@
             samples.splice(0, removed);
             selected = Math.max(-1, selected - removed);
           }
+          refreshClassFilters();
           invalidateTimeline();
           render(findSample(video.currentTime));
           if (!liveMode && video.paused) stopMetadataStream();
@@ -355,18 +379,20 @@
       while (lo <= hi) { const mid = (lo + hi) >> 1; if (samples[mid].time_seconds <= time) { answer = mid; lo = mid + 1; } else hi = mid - 1; }
       return answer;
     }
-    function render(index) {
+    function render(index, force = false) {
       if (index < 0 || !samples[index]) {
         showUnavailable(`Waiting for first metadata sample… ${samples.length} samples loaded`, 'Waiting for geospatial metadata…');
         return;
       }
-      if (index === selected) return;
+      if (index === selected && !force) return;
       selected = index; const sample = samples[index];
-      const detections = sample.detections || [];
+      const detections = visibleDetections(sample);
+      const totalDetections = (sample.detections || []).length;
       const issues = sample.issues || [];
       status.classList.remove('error');
       const delivery = streamMode ? 'SSE live · ' : '';
-      status.textContent = `${delivery}t=${sample.time_seconds.toFixed(3)}s · PID ${sample.pid} · PTS ${sample.pts ?? 'async'} · ${detections.length} targets · ${issues.length} diagnostics`;
+      const filtered = detections.length === totalDetections ? '' : `/${totalDetections}`;
+      status.textContent = `${delivery}t=${sample.time_seconds.toFixed(3)}s · PID ${sample.pid} · PTS ${sample.pts ?? 'async'} · ${detections.length}${filtered} targets · ${issues.length} diagnostics`;
       panel.replaceChildren(...Object.entries(sample.fields || {}).map(([name, entry]) => {
         const row = document.createElement('div'); row.className = 'field';
         const dt = document.createElement('dt'); dt.textContent = name;
@@ -409,10 +435,44 @@
     function detectionLabel(detection) {
       return detection.label || (detection.target_id == null ? 'unlabelled target' : `target ${detection.target_id}`);
     }
+    function detectionClass(detection) { return detection.label || 'unlabelled'; }
+    function visibleDetections(sample) {
+      const minimumConfidence = Number(confidenceFilter.value) || 0;
+      return (sample?.detections || []).filter(detection => {
+        if (disabledLabels.has(detectionClass(detection))) return false;
+        return !Number.isFinite(detection.confidence) || detection.confidence >= minimumConfidence;
+      });
+    }
+    let classFilterKey = '';
+    function refreshClassFilters() {
+      const labels = [...new Set(samples.flatMap(sample => (sample.detections || []).map(detectionClass)))].sort();
+      const key = labels.join('\u0000');
+      if (key === classFilterKey) return;
+      classFilterKey = key;
+      const legend = document.createElement('legend'); legend.textContent = 'Classes';
+      if (!labels.length) {
+        const empty = document.createElement('span'); empty.className = 'empty-state'; empty.textContent = 'No VMTI classes';
+        classFilters.replaceChildren(legend, empty); return;
+      }
+      classFilters.replaceChildren(legend, ...labels.map(label => {
+        const wrapper = document.createElement('label');
+        const input = document.createElement('input'); input.type = 'checkbox'; input.checked = !disabledLabels.has(label); input.value = label;
+        input.addEventListener('change', () => {
+          input.checked ? disabledLabels.delete(label) : disabledLabels.add(label);
+          invalidateDetectionViews();
+        });
+        wrapper.append(input, document.createTextNode(label)); return wrapper;
+      }));
+    }
+    function invalidateDetectionViews() {
+      for (const sample of samples) delete sample._activity_groups;
+      invalidateTimeline();
+      render(selected, true);
+    }
     function decorateSample(sample) {
       if (!sample || Array.isArray(sample._activity_groups)) return;
       const groups = new Map();
-      for (const detection of sample.detections || []) {
+      for (const detection of visibleDetections(sample)) {
         const label = detectionLabel(detection);
         const key = `${label}\u0000${detection.status || ''}`;
         let group = groups.get(key);
@@ -501,7 +561,8 @@
       const duration = timelineDuration();
       const binCount = Math.max(1, Math.min(Math.ceil(width), 2048));
       timelineBins = Array.from({length: binCount}, () => ({count: 0, labels: new Map(), other: 0}));
-      if (timelineOverview) {
+      const filtersActive = disabledLabels.size > 0 || Number(confidenceFilter.value) > 0;
+      if (timelineOverview && !filtersActive) {
         for (const source of timelineOverview.bins) {
           if (!Number.isInteger(source.index) || source.index < 0 || source.index >= timelineOverview.bin_count || !Number.isInteger(source.count) || source.count < 0) continue;
           const index = Math.min(binCount - 1, Math.floor((source.index / timelineOverview.bin_count) * binCount));
@@ -517,8 +578,9 @@
           if (!Number.isFinite(sample.time_seconds) || !Array.isArray(sample.detections)) continue;
           const index = Math.min(binCount - 1, Math.max(0, Math.floor((sample.time_seconds / Math.max(duration, 0.001)) * binCount)));
           const bin = timelineBins[index];
-          bin.count += sample.detections.length;
-          for (const detection of sample.detections) {
+          const detections = visibleDetections(sample);
+          bin.count += detections.length;
+          for (const detection of detections) {
             const label = detectionLabel(detection);
             bin.labels.set(label, (bin.labels.get(label) || 0) + 1);
           }
@@ -595,8 +657,9 @@
         timelineContext.strokeStyle = '#ffcf70'; timelineContext.lineWidth = 2;
         timelineContext.beginPath(); timelineContext.moveTo(x, 0); timelineContext.lineTo(x, height); timelineContext.stroke();
       }
-      const total = timelineOverview ? timelineOverview.observation_count : timelineBins.reduce((sum, bin) => sum + bin.count, 0);
-      const scope = streamMode && !timelineOverview ? 'retained observations' : 'observations';
+      const filtersActive = disabledLabels.size > 0 || Number(confidenceFilter.value) > 0;
+      const total = timelineOverview && !filtersActive ? timelineOverview.observation_count : timelineBins.reduce((sum, bin) => sum + bin.count, 0);
+      const scope = streamMode && (!timelineOverview || filtersActive) ? 'visible retained observations' : (filtersActive ? 'visible observations' : 'observations');
       const suffix = timelineOverviewError ? ` · overview unavailable: ${timelineOverviewError}` : (!liveMode && streamMode && !timelineOverview ? ' · loading full-mission overview…' : ` · ${timelineBins.length} grouped time buckets`);
       timelineSummary.textContent = `${total} ${scope}${suffix}`;
       timelineScrubber.max = String(duration);
@@ -668,7 +731,7 @@
     }
     function mapPositions(sample) {
       const featurePositions = (sample?.geospatial || []).flatMap(feature => geometryPositions(feature.geometry));
-      const detectionPositions = (sample?.detections || []).flatMap(detection => {
+      const detectionPositions = visibleDetections(sample).flatMap(detection => {
         const polygon = Array.isArray(detection.ground_polygon) ? detection.ground_polygon : [];
         const point = Number.isFinite(detection.longitude) && Number.isFinite(detection.latitude) ? [[detection.longitude, detection.latitude]] : [];
         return [...polygon, ...point];
@@ -754,7 +817,7 @@
           }
         }
       }
-      const detectionPolygons = (sample?.detections || []).filter(detection => Array.isArray(detection.ground_polygon) && detection.ground_polygon.length >= 4);
+      const detectionPolygons = visibleDetections(sample).filter(detection => Array.isArray(detection.ground_polygon) && detection.ground_polygon.length >= 4);
       map.dataset.detectionPolygons = String(detectionPolygons.length);
       if (!sample || !mapPositions(sample).length) { mapCaption.textContent = 'No current geospatial geometry'; return; }
       const drawRing = ring => {
@@ -774,7 +837,7 @@
       }
       const colors = {sensor: '#f3c969', frame_center: '#62e6a7', target: '#ff7185', vmti_target: '#ff9f43'};
       const points = features.filter(item => item.geometry?.type === 'Point').map(feature => ({coordinates: feature.geometry.coordinates, role: feature.properties?.role || 'point', label: feature.properties?.role === 'vmti_target' ? `VMTI target ${feature.properties?.target_id ?? '?'}` : (feature.properties?.role || 'point').replace('_', ' ')}));
-      for (const detection of sample.detections || []) {
+      for (const detection of visibleDetections(sample)) {
         if (Number.isFinite(detection.longitude) && Number.isFinite(detection.latitude)) points.push({coordinates: [detection.longitude, detection.latitude], role: 'vmti_target', label: detectionLabel(detection)});
       }
       for (const point of points) {
@@ -790,6 +853,21 @@
       const latitudes = positions.map(point => point[1]), longitudes = positions.map(point => point[0]);
       mapCaption.textContent = `${Math.min(...latitudes).toFixed(5)}…${Math.max(...latitudes).toFixed(5)}° lat · ${Math.min(...longitudes).toFixed(5)}…${Math.max(...longitudes).toFixed(5)}° lon · ${detectionPolygons.length} mapped detection box${detectionPolygons.length === 1 ? '' : 'es'}`;
     }
+    function detectionCenter(detection) {
+      if (Number.isFinite(detection.center_x) && Number.isFinite(detection.center_y)) return [detection.center_x, detection.center_y];
+      if ([detection.left, detection.top, detection.right, detection.bottom].every(Number.isFinite)) return [(detection.left + detection.right) / 2, (detection.top + detection.bottom) / 2];
+      return null;
+    }
+    function trackHistory(targetId) {
+      if (targetId == null || selected < 0) return [];
+      const points = [];
+      for (let index = Math.max(0, selected - 30); index <= selected; index += 1) {
+        const detection = visibleDetections(samples[index]).find(item => item.target_id === targetId);
+        const center = detectionCenter(detection || {});
+        if (center) points.push(center);
+      }
+      return points;
+    }
     function drawDetections(sample) {
       const cssWidth = video.clientWidth, cssHeight = video.clientHeight;
       if (!cssWidth || !cssHeight || !context) return;
@@ -800,14 +878,33 @@
       }
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, cssWidth, cssHeight);
+      overlay.dataset.mode = overlayMode.value;
+      if (overlayMode.value === 'off') { overlay.dataset.visibleDetections = '0'; overlay.dataset.trackTrails = '0'; return; }
       const videoRatio = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : cssWidth / cssHeight;
       let imageWidth = cssWidth, imageHeight = cssWidth / videoRatio;
       if (imageHeight > cssHeight) { imageHeight = cssHeight; imageWidth = cssHeight * videoRatio; }
       const offsetX = (cssWidth - imageWidth) / 2, offsetY = (cssHeight - imageHeight) / 2;
-      for (const detection of sample?.detections || []) {
+      const detections = visibleDetections(sample);
+      overlay.dataset.visibleDetections = String(detections.length);
+      let renderedTrails = 0;
+      if (trackTrails.checked) {
+        for (const detection of detections) {
+          const points = trackHistory(detection.target_id);
+          if (points.length < 2) continue;
+          renderedTrails += 1;
+          context.beginPath(); context.strokeStyle = '#ffcf70'; context.lineWidth = 2;
+          points.forEach(([normalizedX, normalizedY], index) => {
+            const x = offsetX + normalizedX * imageWidth, y = offsetY + normalizedY * imageHeight;
+            index ? context.lineTo(x, y) : context.moveTo(x, y);
+          });
+          context.stroke();
+        }
+      }
+      overlay.dataset.trackTrails = String(renderedTrails);
+      for (const detection of detections) {
         const color = detection.status === 'dropped' ? '#ff7185' : '#62e6a7';
         context.strokeStyle = color; context.fillStyle = color; context.lineWidth = 2;
-        if (Array.isArray(detection.mask_runs) && Number.isInteger(detection.mask_width) && Number.isInteger(detection.mask_height)) {
+        if (overlayMode.value === 'all' && Array.isArray(detection.mask_runs) && Number.isInteger(detection.mask_width) && Number.isInteger(detection.mask_height)) {
           context.save(); context.fillStyle = color; context.globalAlpha = 0.22;
           for (const run of detection.mask_runs) {
             let pixel = run.start_pixel - 1, remaining = run.run_length;
@@ -825,7 +922,7 @@
           }
           context.restore();
         }
-        if (Array.isArray(detection.contour) && detection.contour.length >= 3) {
+        if (overlayMode.value === 'all' && Array.isArray(detection.contour) && detection.contour.length >= 3) {
           context.save(); context.strokeStyle = color; context.fillStyle = color; context.lineWidth = 2;
           context.beginPath();
           detection.contour.forEach(([normalizedX, normalizedY], index) => {
@@ -836,7 +933,7 @@
           context.globalAlpha = 1; context.stroke(); context.restore();
         }
         const hasBox = [detection.left, detection.top, detection.right, detection.bottom].every(Number.isFinite);
-        if (hasBox) {
+        if (hasBox && (overlayMode.value === 'all' || overlayMode.value === 'boxes')) {
           const x = offsetX + detection.left * imageWidth;
           const y = offsetY + detection.top * imageHeight;
           const width = (detection.right - detection.left) * imageWidth;
@@ -848,7 +945,7 @@
           context.fillRect(x, Math.max(0, y - 18), labelWidth, 18);
           context.fillStyle = '#061018'; context.fillText(label, x + 4, Math.max(13, y - 5));
         }
-        if (Number.isFinite(detection.center_x) && Number.isFinite(detection.center_y)) {
+        if ((overlayMode.value === 'all' || overlayMode.value === 'centers') && Number.isFinite(detection.center_x) && Number.isFinite(detection.center_y)) {
           const x = offsetX + detection.center_x * imageWidth;
           const y = offsetY + detection.center_y * imageHeight;
           context.beginPath(); context.moveTo(x - 5, y); context.lineTo(x + 5, y);
@@ -877,6 +974,12 @@
     document.querySelector('#map-zoom-in').addEventListener('click', () => { mapView.follow = false; mapView.zoom = Math.min(18, mapView.zoom + 1); drawMap(activeMapSample, {preserveView: true}); });
     document.querySelector('#map-zoom-out').addEventListener('click', () => { mapView.follow = false; mapView.zoom = Math.max(1, mapView.zoom - 1); drawMap(activeMapSample, {preserveView: true}); });
     document.querySelector('#map-follow').addEventListener('click', () => { mapView.follow = true; activeMapIndex = -1; drawMap(activeMapSample); });
+    overlayMode.addEventListener('change', () => drawDetections(selected >= 0 ? samples[selected] : null));
+    confidenceFilter.addEventListener('input', () => {
+      confidenceValue.textContent = `${confidenceFilter.value}%+`;
+      invalidateDetectionViews();
+    });
+    trackTrails.addEventListener('change', () => drawDetections(selected >= 0 ? samples[selected] : null));
     video.addEventListener('timeupdate', () => { render(findSample(video.currentTime)); syncPlayhead(); });
     video.addEventListener('playing', () => startMetadataStream());
     video.addEventListener('pause', () => { if (!liveMode) stopMetadataStream(); });

@@ -13,6 +13,30 @@ vectors for opt-in end-to-end tests:
 - `vmti_nested.klv`, `vmti_standalone.klv`, and `vmti_vtarget.klv`: small
   Apache-2.0 vectors published by the independent `libmisbklv` implementation.
 
+“Publicly downloadable” does not mean “openly licensed.” The FFmpeg directory
+and Esri item grant public download access but publish no media license. The
+project therefore records their source and hashes and downloads them only on
+demand; it does not redistribute them or describe them as open content.
+
+For redistributable examples, the package generates two original synthetic
+FMVs from FFmpeg test sources and project-authored telemetry. They exercise
+H.264 video, Layer II audio, synchronous ST 0601, maps, recorded playback, and
+simulated-live playback without third-party footage:
+
+```console
+stanag4609-player --demo day
+stanag4609-player --demo thermal --simulate-live
+stanag4609-demo-samples samples/demo --duration 30
+```
+
+The generated data is dedicated under CC0 1.0; the generator code remains MIT
+licensed. See `DEMO_DATA_LICENSE.md` in the source distribution.
+
+These teaching streams are deliberately small and synthetic. They are not
+independent interoperability evidence and may contain verifier findings for
+profiles that require producer security policy, MIIS identity, or embedded
+video timestamps that a generic demo cannot truthfully invent.
+
 The large media files are installed into the ignored `samples/private/`
 directory rather than committed. The fetcher verifies Esri's source ZIP before
 extracting only the recorded video member and retains the ImpleoTV corpus as a

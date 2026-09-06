@@ -31,6 +31,26 @@ ffmpeg -i 'udp://0.0.0.0:5000' -map 0 -c copy -f mpegts - \
   | stanag4609-player - --live
 ```
 
+To exercise the identical bounded live pathway from a complete file at wall
+clock speed, use simulated-live mode. The player obtains the media duration
+with FFprobe and paces bytes at the selected average rate:
+
+```console
+stanag4609-player mission.ts --simulate-live
+stanag4609-player mission.ts --simulate-live --playback-rate 2
+```
+
+For demos with no third-party footage, generate or directly launch the two
+first-party synthetic FMVs. Their moving telemetry is authored by this project,
+their pictures and tone come from FFmpeg's deterministic generators, and the
+resulting data is dedicated under CC0 while the generator remains MIT licensed:
+
+```console
+stanag4609-player --demo day
+stanag4609-player --demo thermal --simulate-live
+stanag4609-demo-samples samples/demo --duration 30
+```
+
 The gateway fans every input chunk into the incremental KLV decoder and an
 FFmpeg pipe. FFmpeg uses a 32 KiB/0.5-second bounded input probe, ultrafast,
 zero-latency H.264 encoding, optional AAC, and a forced keyframe every second. Complete `moof`/`mdat` units are numbered
@@ -183,6 +203,13 @@ those diagnostics in a dedicated warning panel for the selected metadata
 sample. Before the first timestamped sample, it leaves the fields, map, and
 overlays empty instead of displaying future telemetry. Empty, malformed, or
 unavailable timeline responses produce distinct operator-readable states.
+
+The display toolbar can hide all overlays, show boxes or centers, set a minimum
+confidence, and toggle individual VMTI classes without changing the underlying
+metadata. Track trails join the same positive ST 0903 target ID over the last
+30 retained metadata samples. They are meaningful when the producer supplies
+persistent IDs, such as the first-party Ultralytics adapter in `track` mode;
+per-frame prediction indices must not be interpreted as object identity.
 
 The interactive detection timeline under the video uses at most one canvas bin
 per rendered pixel, capped at 2,048 bins. It groups by time first, then stacks

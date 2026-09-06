@@ -1,4 +1,4 @@
-"""Optional Ultralytics YOLO result adapter for the model-neutral sidecar API."""
+"""Optional Ultralytics YOLO prediction/tracking adapter for sidecar graphs."""
 
 from __future__ import annotations
 
@@ -52,7 +52,9 @@ class UltralyticsYOLODetector:
     The adapter deliberately accepts an already-created model object, keeping
     Ultralytics, PyTorch, NumPy, and accelerator libraries out of the core
     dependency set. Use it in a threaded ``InferenceStage`` because normal
-    Ultralytics prediction is synchronous.
+    Ultralytics prediction and tracking are synchronous. ``mode="track"``
+    invokes the model's tracker with ``persist=True`` by default so identities
+    survive successive calls made on ordered frames.
 
     Tracker IDs are offset by ``track_id_offset``. The default of one converts
     the common zero-based ID domain into ST 0903's positive target-ID domain;
@@ -61,6 +63,7 @@ class UltralyticsYOLODetector:
 
     __slots__ = (
         "algorithm_id",
+        "mode",
         "model",
         "predict_kwargs",
         "status",
@@ -75,9 +78,12 @@ class UltralyticsYOLODetector:
         status: DetectionStatus = DetectionStatus.ACTIVE_MOVING,
         track_id_offset: int = 1,
         predict_kwargs: Mapping[str, Any] | None = None,
+        mode: str = "predict",
     ) -> None:
-        if not callable(getattr(model, "predict", None)):
-            raise TypeError("Ultralytics model must expose a callable predict method")
+        if mode not in {"predict", "track"}:
+            raise ValueError("mode must be 'predict' or 'track'")
+        if not callable(getattr(model, mode, None)):
+            raise TypeError(f"Ultralytics model must expose a callable {mode} method")
         if algorithm_id is not None and (
             isinstance(algorithm_id, bool)
             or not isinstance(algorithm_id, int)
@@ -95,17 +101,19 @@ class UltralyticsYOLODetector:
         if predict_kwargs is not None and not isinstance(predict_kwargs, Mapping):
             raise TypeError("predict_kwargs must be a mapping")
         self.model = model
+        self.mode = mode
         self.algorithm_id = algorithm_id
         self.status = status
         self.track_id_offset = track_id_offset
         self.predict_kwargs = {"verbose": False, **dict(predict_kwargs or {})}
+        if mode == "track":
+            self.predict_kwargs.setdefault("persist", True)
 
     def __call__(self, context: InferenceContext) -> InferenceOutput:
         if not isinstance(context, InferenceContext):
             raise TypeError("context must be InferenceContext")
-        results = tuple(
-            self.model.predict(source=context.frame.pixels, **self.predict_kwargs)
-        )
+        infer = getattr(self.model, self.mode)
+        results = tuple(infer(source=context.frame.pixels, **self.predict_kwargs))
         if len(results) != 1:
             raise ValueError(
                 f"Ultralytics frame prediction must return exactly one result, got {len(results)}"
@@ -120,9 +128,7 @@ class UltralyticsYOLODetector:
         classes = _values(getattr(boxes, "cls", None), name="boxes.cls")
         identifiers_value = getattr(boxes, "id", None)
         identifiers = (
-            None
-            if identifiers_value is None
-            else _values(identifiers_value, name="boxes.id")
+            None if identifiers_value is None else _values(identifiers_value, name="boxes.id")
         )
         lengths = {len(coordinates), len(confidences), len(classes)}
         if identifiers is not None:

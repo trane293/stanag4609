@@ -777,8 +777,12 @@ real-UAS streams, Esri's audio-bearing `Truck.ts`, and ImpleoTV's public
 negative-conformance corpus as opt-in integration fixtures. The fetcher
 verifies exact byte sizes and SHA-256 identities before the library processes
 them; the negative corpus additionally authenticates each asserted ZIP member.
+These sources are publicly downloadable but do not publish an open-content
+license, so they remain ignored, download-on-demand fixtures. For an entirely
+authored, redistributable demo, generate the small day and thermal FMVs locally:
 
 ```console
+stanag4609-demo-samples samples/demo
 python scripts/fetch_public_fixtures.py
 pytest -m integration tests/integration/test_public_fmv.py
 ```
@@ -796,6 +800,9 @@ FMV file:
 stanag4609-player "/path/to/Truck.ts"
 stanag4609-player "/path/to/Truck.ts" --stream-metadata
 stanag4609-player - --live
+stanag4609-player "/path/to/Truck.ts" --simulate-live
+stanag4609-player --demo day
+stanag4609-player --demo thermal --simulate-live
 stanag4609-benchmark-live "/path/to/Truck.ts"
 stanag4609-soak-live "/path/to/Truck.ts" --epochs 20 --rate 1
 ```
@@ -813,7 +820,9 @@ baselayer, with a network-free grid fallback, and plots the sensor, frame
 center, target, full or offset-derived image footprint, and footprint-projected
 AI boxes. Typed VMTI targets with pixel geometry are drawn as synchronized
 bounding boxes and centroid markers, including labels and confidence when the
-packet carries Algorithm/Ontology metadata. A scrubber under the video groups
+packet carries Algorithm/Ontology metadata. UI controls filter classes and
+confidence, switch boxes/centers/contours off independently of the data, and
+draw short trails for persistent ST 0903 target IDs. A scrubber under the video groups
 detections into bounded time buckets and stacks the five most prevalent classes
 plus `other`; log-scaled density keeps both quiet and busy periods visible.
 Hover reveals the exact bucket interval and class counts, while click, drag,

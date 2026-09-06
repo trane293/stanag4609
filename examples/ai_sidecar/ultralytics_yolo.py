@@ -12,6 +12,7 @@ def vehicle_detection_stage(weights: str = "yolo26n.pt") -> InferenceStage:
     detector = UltralyticsYOLODetector(
         model,
         algorithm_id=1,
-        predict_kwargs={"conf": 0.35, "iou": 0.6},
+        mode="track",
+        predict_kwargs={"conf": 0.35, "iou": 0.6, "tracker": "bytetrack.yaml"},
     )
     return InferenceStage("ultralytics-vehicles", detector, threaded=True)

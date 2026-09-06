@@ -25,6 +25,7 @@ from stanag4609.player.server import PlayerHTTPRequestHandler, prepare_player_as
 from stanag4609.sidecar import (
     FrameEnvelope,
     InferenceContext,
+    InferenceOutput,
     InferenceResult,
     PyAVFrameSource,
     UltralyticsYOLODetector,
@@ -55,7 +56,23 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--weights", default="yolo11n.pt")
     parser.add_argument("--confidence", type=float, default=0.35)
     parser.add_argument("--image-size", type=int, default=960)
-    parser.add_argument("--batch-size", type=int, default=24)
+    parser.add_argument(
+        "--inference-mode",
+        choices=("track", "predict"),
+        default="track",
+        help="Ultralytics tracking with persistent IDs, or independent predictions",
+    )
+    parser.add_argument(
+        "--tracker",
+        default="bytetrack.yaml",
+        help="Ultralytics tracker configuration used in track mode",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=24,
+        help="batch size for predict mode; track mode processes ordered frames singly",
+    )
     parser.add_argument("--device", default=None, help="for example cpu, mps, or 0")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8767)
@@ -76,19 +93,20 @@ def _sampled_frames(
         origin_pts = first.pts
         sample_index = 0
         for frame in chain((first,), frames):
-            frame_time = (
-                (frame.pts - origin_pts) % PTS_MODULUS
-            ) / PTS_CLOCK_RATE
+            frame_time = ((frame.pts - origin_pts) % PTS_MODULUS) / PTS_CLOCK_RATE
             while (
                 sample_index < len(samples)
                 and float(samples[sample_index]["time_seconds"]) <= frame_time
             ):
                 sample = samples[sample_index]
-                yield sample_index, replace(
-                    frame,
-                    sequence_number=sample_index,
-                    pts=int(sample["pts"]),
-                    timestamp_microseconds=_timestamp(sample),
+                yield (
+                    sample_index,
+                    replace(
+                        frame,
+                        sequence_number=sample_index,
+                        pts=int(sample["pts"]),
+                        timestamp_microseconds=_timestamp(sample),
+                    ),
                 )
                 sample_index += 1
     finally:
@@ -128,6 +146,8 @@ def _annotate_with_yolo(
     image_size: int,
     batch_size: int,
     device: str | None,
+    inference_mode: str,
+    tracker: str,
 ) -> tuple[int, int]:
     try:
         from ultralytics import YOLO  # type: ignore[attr-defined]
@@ -167,45 +187,59 @@ def _annotate_with_yolo(
     samples = timeline["samples"]
     detected_frames = detection_count = 0
     pending: list[tuple[int, Any]] = []
+    inference_kwargs: dict[str, Any] = {
+        "classes": list(_ROAD_CLASSES),
+        "conf": confidence,
+        "imgsz": image_size,
+        "verbose": False,
+    }
+    if device is not None:
+        inference_kwargs["device"] = device
+    tracked_detector = (
+        UltralyticsYOLODetector(
+            model,
+            algorithm_id=1,
+            mode="track",
+            predict_kwargs={**inference_kwargs, "tracker": tracker},
+        )
+        if inference_mode == "track"
+        else None
+    )
+
+    def record(sample_index: int, frame: FrameEnvelope, output: InferenceOutput) -> None:
+        nonlocal detected_frames, detection_count
+        sample = samples[sample_index]
+        context = InferenceContext(frame).with_result(InferenceResult("yolo", output))
+        packet = emitter(context)
+        vmti = packet.decoded.value(74)
+        sample["detections"] = [
+            asdict(item)
+            for item in extract_overlay_detections(
+                vmti,
+                frame_corners=_frame_corners(sample),
+            )
+        ]
+        sample["fields"]["AI Sidecar"] = {
+            "value": (f"real {Path(weights).name} {inference_mode} inference -> ST 0903 VMTI")
+        }
+        if output.detections:
+            detected_frames += 1
+            detection_count += len(output.detections)
 
     def process(batch: list[tuple[int, Any]]) -> None:
-        nonlocal detected_frames, detection_count
+        if tracked_detector is not None:
+            for sample_index, frame in batch:
+                record(sample_index, frame, tracked_detector(InferenceContext(frame)))
+            return
         frames = [frame.pixels for _, frame in batch]
-        kwargs: dict[str, Any] = {
-            "classes": list(_ROAD_CLASSES),
-            "conf": confidence,
-            "imgsz": image_size,
-            "verbose": False,
-        }
-        if device is not None:
-            kwargs["device"] = device
-        results = model.predict(frames, **kwargs)
+        results = model.predict(frames, **inference_kwargs)
         for (sample_index, frame), result in zip(batch, results, strict=True):
-            sample = samples[sample_index]
-            detector = UltralyticsYOLODetector(
-                _PreparedPrediction(result), algorithm_id=1
-            )
-            output = detector(InferenceContext(frame))
-            context = InferenceContext(frame).with_result(InferenceResult("yolo", output))
-            packet = emitter(context)
-            vmti = packet.decoded.value(74)
-            sample["detections"] = [
-                asdict(item)
-                for item in extract_overlay_detections(
-                    vmti,
-                    frame_corners=_frame_corners(sample),
-                )
-            ]
-            sample["fields"]["AI Sidecar"] = {
-                "value": f"real {Path(weights).name} inference -> ST 0903 VMTI"
-            }
-            if output.detections:
-                detected_frames += 1
-                detection_count += len(output.detections)
+            detector = UltralyticsYOLODetector(_PreparedPrediction(result), algorithm_id=1)
+            record(sample_index, frame, detector(InferenceContext(frame)))
 
     for item in _sampled_frames(media, samples):
         pending.append(item)
-        if len(pending) == batch_size:
+        if len(pending) == (1 if tracked_detector is not None else batch_size):
             process(pending)
             print(f"inference: {pending[-1][0] + 1}/{len(samples)} samples", flush=True)
             pending.clear()
@@ -222,9 +256,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not 0 < args.confidence <= 1:
         raise SystemExit("--confidence must be greater than 0 and at most 1")
     if args.image_size < 32 or args.batch_size < 1:
-        raise SystemExit(
-            "--image-size must be at least 32 and --batch-size must be positive"
-        )
+        raise SystemExit("--image-size must be at least 32 and --batch-size must be positive")
 
     assets = prepare_player_assets(args.source, args.output)
     timeline = json.loads(assets.timeline.read_text(encoding="utf-8"))
@@ -236,16 +268,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         image_size=args.image_size,
         batch_size=args.batch_size,
         device=args.device,
+        inference_mode=args.inference_mode,
+        tracker=args.tracker,
     )
-    assets.timeline.write_text(
-        json.dumps(timeline, separators=(",", ":")), encoding="utf-8"
-    )
+    assets.timeline.write_text(json.dumps(timeline, separators=(",", ":")), encoding="utf-8")
 
     handler = partial(PlayerHTTPRequestHandler, directory=str(assets.root))
     with ThreadingHTTPServer((args.host, args.port), handler) as server:
         url = f"http://{args.host}:{server.server_port}/"
         print(
             f"AI sidecar UI: {url} model={args.weights} "
+            f"mode={args.inference_mode} "
             f"detected_frames={detected_frames} detections={detection_count}",
             flush=True,
         )

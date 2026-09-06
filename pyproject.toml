@@ -51,6 +51,7 @@ Changelog = "https://github.com/trane293/stanag4609/blob/main/CHANGELOG.md"
 
 [project.scripts]
 stanag4609-benchmark-live = "stanag4609.player.benchmark:main"
+stanag4609-demo-samples = "stanag4609.player.demo_cli:main"
 stanag4609-export-esri = "stanag4609.csvexport:main"
 stanag4609-export-geojson = "stanag4609.geojson:main"
 stanag4609-mux-esri = "stanag4609.csvmux:main"
@@ -112,6 +113,7 @@ include = [
   "/tests",
   "/CHANGELOG.md",
   "/CONTRIBUTING.md",
+  "/DEMO_DATA_LICENSE.md",
   "/LICENSE",
   "/README.md",
   "/mkdocs.yml",

@@ -18,7 +18,7 @@ from stanag4609.player.live import (
     LivePlayerGateway,
     ffmpeg_live_player_command,
 )
-from stanag4609.player.server import PlayerHTTPRequestHandler
+from stanag4609.player.server import PlayerHTTPRequestHandler, _ingest_live_source
 from stanag4609.player.server import main as player_main
 from stanag4609.player.timeline import MetadataSample
 from stanag4609.st0601 import PlatformStatus, encode_uas_local_set
@@ -355,13 +355,55 @@ def test_live_player_cli_validates_program_selection() -> None:
         player_main(["-", "--live", "--program-number", "0", "--no-open"])
 
 
+def test_simulated_live_cli_requires_disk_and_valid_rate(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit, match="complete disk input"):
+        player_main(["-", "--simulate-live", "--no-open"])
+    source = tmp_path / "source.ts"
+    source.write_bytes(b"x")
+    with pytest.raises(SystemExit, match="playback-rate"):
+        player_main([str(source), "--simulate-live", "--playback-rate", "0", "--no-open"])
+
+
+def test_simulated_live_disk_ingest_is_paced_by_media_duration(tmp_path: Path) -> None:
+    source = tmp_path / "source.ts"
+    source.write_bytes(b"0123456789")
+    fed: list[bytes] = []
+    finished: list[bool] = []
+    now = [0.0]
+
+    class Gateway:
+        def feed(self, chunk: bytes) -> None:
+            fed.append(chunk)
+
+        def finish(self) -> None:
+            finished.append(True)
+
+        def close(self) -> None:
+            pytest.fail("valid paced ingestion must not close as an error")
+
+    def sleep(seconds: float) -> None:
+        now[0] += seconds
+
+    _ingest_live_source(
+        source,
+        Gateway(),  # type: ignore[arg-type]
+        chunk_size=4,
+        source_duration_seconds=5,
+        playback_rate=1,
+        monotonic=lambda: now[0],
+        sleep=sleep,
+    )
+
+    assert fed == [b"0123", b"4567", b"89"]
+    assert finished == [True]
+    assert now[0] == pytest.approx(5)
+
+
 def test_live_player_cli_requires_explicit_remote_exposure() -> None:
     with pytest.raises(SystemExit, match="--allow-remote"):
         player_main(["missing.ts", "--host", "0.0.0.0", "--no-open"])
     with pytest.raises(SystemExit, match="--allowed-host"):
-        player_main(
-            ["missing.ts", "--host", "0.0.0.0", "--allow-remote", "--no-open"]
-        )
+        player_main(["missing.ts", "--host", "0.0.0.0", "--allow-remote", "--no-open"])
 
 
 def test_player_http_rejects_untrusted_hosts_and_sets_browser_security_headers(
@@ -539,8 +581,7 @@ def test_live_player_http_reports_fragment_history_gap_and_bad_queries(
         restarted = response.read()
         assert response.status == 200
         assert (
-            b'event: reset\ndata: {"dropped":0,"oldest_id":1,'
-            b'"reason":"cursor_ahead"}\n\n'
+            b'event: reset\ndata: {"dropped":0,"oldest_id":1,"reason":"cursor_ahead"}\n\n'
         ) in restarted
         assert b"event: sample\nid: 1\n" in restarted
         connection.close()
@@ -605,9 +646,7 @@ def test_live_player_http_fans_out_identical_media_and_metadata_concurrently(
             fragments: list[bytes] = []
             after = -1
             while True:
-                status, headers, body = request(
-                    f"/media/fragment?after={after}&wait=2"
-                )
+                status, headers, body = request(f"/media/fragment?after={after}&wait=2")
                 if status == 204:
                     assert headers.get("X-Stream-End") == "true"
                     break

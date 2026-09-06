@@ -275,6 +275,9 @@ def test_reference_player_renders_and_resynchronizes_in_chromium(player_url: str
         playwright.expect(page.locator("#activity-list")).to_contain_text("93%")
         playwright.expect(page.locator("#activity-list")).to_contain_text("0.000s")
         playwright.expect(page.locator("#activity-list")).to_contain_text("49.12000")
+        playwright.expect(page.locator("#mode-badge")).to_have_text("Recorded file")
+        playwright.expect(page.locator("#class-filters")).to_contain_text("truck")
+        playwright.expect(page.locator("#class-filters")).to_contain_text("car")
         playwright.expect(page.locator("#map")).to_have_attribute(
             "data-detection-polygons", "1"
         )
@@ -301,6 +304,20 @@ def test_reference_player_renders_and_resynchronizes_in_chromium(player_url: str
         playwright.expect(page.locator("#map")).to_have_attribute(
             "data-detection-polygons", "2"
         )
+        page.locator('#class-filters input[value="car"]').uncheck()
+        playwright.expect(page.locator("#status")).to_contain_text("1/2 targets")
+        playwright.expect(page.locator("#map")).to_have_attribute(
+            "data-detection-polygons", "1"
+        )
+        page.locator("#track-trails").check()
+        playwright.expect(page.locator("#overlay")).to_have_attribute(
+            "data-track-trails", "1"
+        )
+        page.locator("#overlay-mode").select_option("off")
+        playwright.expect(page.locator("#overlay")).to_have_attribute("data-mode", "off")
+        assert not _canvas_has_ink(page, "#overlay")
+        page.locator("#overlay-mode").select_option("all")
+        page.locator('#class-filters input[value="car"]').check()
         playwright.expect(page.locator("#activity-list")).to_contain_text(
             "footprint interpolation"
         )

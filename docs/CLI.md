@@ -1,6 +1,6 @@
 # Command-line tools
 
-The package installs six focused commands. Each returns a non-zero exit status
+The package installs eight focused commands. Each returns a non-zero exit status
 on failure. Commands that create output files refuse to replace them unless
 `--force` is present.
 
@@ -38,6 +38,8 @@ checks that encoded headers cannot prove by themselves.
 stanag4609-player mission.ts
 stanag4609-player mission.ts --no-open --host 127.0.0.1 --port 9000
 stanag4609-player - --live --no-open
+stanag4609-player mission.ts --simulate-live
+stanag4609-player --demo day
 ```
 
 Non-loopback binding is deliberately two-step and still does not add
@@ -56,6 +58,13 @@ The player requires an FFmpeg executable. Use `--ffmpeg /path/to/ffmpeg` when
 it is not on `PATH`. `--live` accepts a growing TS file or `-` for a TS byte
 stream on stdin and begins browser playback before end-of-input. See
 [reference player](PLAYER.md).
+
+Generate both redistributable synthetic demo streams without launching a
+browser:
+
+```console
+stanag4609-demo-samples samples/demo --duration 30
+```
 
 ## Measure the live gateway
 
@@ -114,6 +123,7 @@ footprint geometry. See [GeoJSON streams](GEOJSON.md).
 
 ```console
 stanag4609-player --help
+stanag4609-demo-samples --help
 stanag4609-benchmark-live --help
 stanag4609-soak-live --help
 stanag4609-verify --help
