@@ -1384,6 +1384,17 @@ class FMVVerifier:
                     pid=key[1],
                     offset=audio.last_offset,
                 )
+        for tree_key, snapshot in self._metadata_tree_snapshots.items():
+            if not snapshot.branches:
+                continue
+            program_number, pid, _service_id = tree_key
+            for policy_issue in validate_st1607_security(snapshot):
+                if policy_issue.code == "missing_root_security":
+                    self._add_st1607_policy(
+                        policy_issue,
+                        program_number=program_number,
+                        pid=pid,
+                    )
         for profile_key, validator in self._mismms.items():
             program_number, pid, _service_id = profile_key
             tree_snapshot = self._metadata_tree_snapshots.get(profile_key)
@@ -2124,6 +2135,8 @@ class FMVVerifier:
                     offset=event.source.pes.offset,
                 )
             for policy_issue in validate_st1607_security(snapshot):
+                if policy_issue.code == "missing_root_security":
+                    continue
                 self._add_st1607_policy(
                     policy_issue,
                     program_number=event.program_number,

@@ -521,6 +521,27 @@
       "inactive_requirements": []
     },
     {
+      "id": "MISB-ST-1607.2",
+      "source_sha256": "08919a645003cb62bf5b986f47800e877645f92be540f68a8389e4afab934b43",
+      "trace": "docs/requirements/ST1607.2.md",
+      "active_requirements": [
+        "ST 1607-01",
+        "ST 1607-02",
+        "ST 1607.2-09",
+        "ST 1607-04",
+        "ST 1607.2-07",
+        "ST 1607.2-08",
+        "ST 1607-05",
+        "ST 1607-06"
+      ],
+      "inactive_requirements": [
+        {
+          "id": "ST 1607-03",
+          "status": "retired"
+        }
+      ]
+    },
+    {
       "id": "MISB-MISP-2019.1",
       "source_sha256": "3167362ace20746ed13e85522130c2e9f3fc9ecf62a112bd75bdced7b102d5ea",
       "trace": "docs/requirements/MISP-2019.1.md",

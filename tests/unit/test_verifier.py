@@ -159,6 +159,23 @@ def _complete_uas_values(*, without: set[int] = frozenset()) -> dict[int, object
     }
 
 
+def _root_security() -> object:
+    return decode_security_local_set(
+        encode_security_local_set(
+            {
+                1: SecurityClassification.UNCLASSIFIED,
+                2: 14,
+                3: "//USA",
+                12: 14,
+                13: "USA",
+                22: 12,
+            },
+            standalone=False,
+        ),
+        standalone=False,
+    )
+
+
 def _layer_ii_frame() -> bytes:
     header = bytes.fromhex("FFFC8444")
     return header + bytes(384 - len(header))
@@ -1411,6 +1428,7 @@ def test_verifier_reports_target_elevation_without_receiver_current_datum() -> N
 
 def test_verifier_accepts_mismms_completed_by_terminal_segment_union() -> None:
     values = _complete_uas_values(without={13})
+    values[48] = _root_security()
     values[100] = _segment(7, {13: 49.0})
 
     report = _verify(_transport(encode_uas_local_set(values)))
@@ -1422,8 +1440,45 @@ def test_verifier_accepts_mismms_completed_by_terminal_segment_union() -> None:
     assert any(finding.code == "st0902.profile" for finding in report.passes)
 
 
+def test_verifier_defers_missing_st1607_root_security_until_final_state() -> None:
+    start = 1_700_000_000_000_000
+    report = _verify(
+        _transport_sequence(
+            _stateful_uas(
+                timestamp=start,
+                values={100: _segment(7, {})},
+            ),
+            _stateful_uas(
+                timestamp=start + 1_000_000,
+                values={48: _root_security()},
+            ),
+        )
+    )
+
+    assert not any(
+        finding.code == "st1607.missing_root_security"
+        for finding in report.errors
+    )
+
+
+def test_verifier_reports_missing_st1607_root_security_at_end_of_stream() -> None:
+    values = _complete_uas_values()
+    values[100] = _segment(7, {})
+
+    report = _verify(_transport(encode_uas_local_set(values)))
+
+    issue = next(
+        finding
+        for finding in report.errors
+        if finding.code == "st1607.missing_root_security"
+    )
+    assert issue.requirement == "ST 1607-02"
+    assert issue.tags == (48,)
+
+
 def test_verifier_reports_incomplete_terminal_segment_union() -> None:
     values = _complete_uas_values(without={13})
+    values[48] = _root_security()
     values[100] = _segment(7, {})
 
     report = _verify(_transport(encode_uas_local_set(values)))
@@ -1440,6 +1495,7 @@ def test_verifier_reports_incomplete_terminal_segment_union() -> None:
 
 def test_verifier_requires_amended_stream_root_to_satisfy_mismms() -> None:
     values = _complete_uas_values(without={13})
+    values[48] = _root_security()
     values[101] = _amend(9, {13: 49.0})
 
     report = _verify(_transport(encode_uas_local_set(values)))
@@ -1456,6 +1512,7 @@ def test_verifier_requires_amended_stream_root_to_satisfy_mismms() -> None:
 
 def test_structural_verifier_reports_invalid_segment_security_override() -> None:
     values = _complete_uas_values()
+    values[48] = _root_security()
     incomplete_country_security = decode_security_local_set(
         bytes.fromhex("0C 01 0D"),
         standalone=False,

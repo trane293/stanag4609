@@ -88,6 +88,16 @@ def _security(raw: bytes) -> SecurityLocalSet:
     )
 
 
+def _root_security() -> SecurityLocalSet:
+    return decode_security_local_set(
+        encode_security_local_set(
+            {1: 1, 2: 14, 3: "//USA", 12: 14, 13: "USA", 22: 12},
+            standalone=False,
+        ),
+        standalone=False,
+    )
+
+
 def _composite(
     z_order: int,
     *,
@@ -309,13 +319,7 @@ def test_malformed_branch_field_does_not_replace_current_value() -> None:
 
 
 def test_child_country_security_overlays_inherited_root_security() -> None:
-    root = decode_security_local_set(
-        encode_security_local_set(
-            {1: 1, 2: 14, 3: "//USA", 12: 14, 13: "USA", 22: 12},
-            standalone=False,
-        ),
-        standalone=False,
-    )
+    root = _root_security()
     child = _security(bytes.fromhex("0C 01 0E 0D 06 00 43 00 41 00 4E"))
     snapshot = MetadataTreeState().observe(
         _packet(START, **{"48": root, "100": _segment(1, **{"48": child})})
@@ -337,6 +341,7 @@ def test_child_security_policy_reports_shape_and_inheritance_violations() -> Non
         _packet(
             START,
             **{
+                "48": _root_security(),
                 "100": (
                     _segment(1, **{"48": extra}),
                     _segment(2, **{"48": missing}),
@@ -351,12 +356,32 @@ def test_child_security_policy_reports_shape_and_inheritance_violations() -> Non
     ]
 
     deleted = MetadataTreeState().observe(
-        _packet(START, **{"101": _amend(9, **{"48": DELETE})})
+        _packet(
+            START,
+            **{"48": _root_security(), "101": _amend(9, **{"48": DELETE})},
+        )
     )
     assert validate_st1607_security(deleted)[0].code == "root_security_deleted"
     assert deleted.effective_security((MetadataSubstreamID(9),)) is None
     with pytest.raises(TypeError, match="MetadataTreeSnapshot"):
         validate_st1607_security(object())  # type: ignore[arg-type]
+
+
+def test_security_policy_requires_root_security_for_each_branch_construct() -> None:
+    nested_amend = _amend(2)
+    snapshot = MetadataTreeState().observe(
+        _packet(START, **{"100": _segment(1, **{"101": nested_amend})})
+    )
+
+    issues = validate_st1607_security(snapshot)
+
+    assert [
+        (issue.code, issue.requirement, issue.path, issue.tags)
+        for issue in issues
+    ] == [
+        ("missing_root_security", "ST 1607-01", (), (48,)),
+        ("missing_root_security", "ST 1607-02", (), (48,)),
+    ]
 
 
 def test_segment_leaf_union_can_complete_mismms_across_substream_levels() -> None:

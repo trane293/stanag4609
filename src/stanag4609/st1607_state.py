@@ -260,6 +260,24 @@ def validate_st1607_security(
     if not isinstance(snapshot, MetadataTreeSnapshot):
         raise TypeError("snapshot must be a MetadataTreeSnapshot")
     issues: list[ST1607PolicyIssue] = []
+    root_security = snapshot.root.value(48)
+    branch_kinds = {branch.kind for branch in snapshot.branches.values()}
+    if not isinstance(root_security, SecurityLocalSet):
+        for kind, requirement in (
+            (MetadataBranchKind.AMEND, "ST 1607-01"),
+            (MetadataBranchKind.SEGMENT, "ST 1607-02"),
+        ):
+            if kind in branch_kinds:
+                issues.append(
+                    ST1607PolicyIssue(
+                        "missing_root_security",
+                        requirement,
+                        "the root metadata set must carry the security metadata "
+                        "that applies to every child and sub-child",
+                        (),
+                        (48,),
+                    )
+                )
     for path, branch in snapshot.branches.items():
         security = branch.value(48)
         if security is None:

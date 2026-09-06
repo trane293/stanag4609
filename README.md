@@ -339,8 +339,9 @@ value, Amend deletions remain effective for their refresh lifetime, and a child
 report refreshes only when its complete parent MSID lineage is present.
 `snapshot.effective_security(path)` overlays a branch's permitted ST 0102
 object-country Items 12 and 13 onto inherited root markings. Use
-`validate_st1607_security(snapshot)` to report incomplete child country sets,
-unexpected child security items, or an attempted deletion of root security.
+`validate_st1607_security(snapshot)` to report missing root security, incomplete
+child country sets, unexpected child security items, or an attempted deletion
+of inherited root security.
 `validate_st1607_mismms(snapshot)` applies the airborne MISP/ST 0902 minimum
 profile at the root for Amend trees and to every terminal effective union for
 Segment trees. For a non-hierarchical reconstructed view, use
