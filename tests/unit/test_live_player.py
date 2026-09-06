@@ -441,8 +441,17 @@ def test_player_http_rejects_untrusted_hosts_and_sets_browser_security_headers(
         )
         content_security_policy = response.getheader("Content-Security-Policy")
         assert content_security_policy is not None
+        directives = {
+            parts[0]: parts[1:]
+            for directive in content_security_policy.split(";")
+            if (parts := directive.split())
+        }
         assert "frame-ancestors 'none'" in content_security_policy
-        assert "https://tile.openstreetmap.org" in content_security_policy
+        assert directives["img-src"] == [
+            "'self'",
+            "data:",
+            "https://tile.openstreetmap.org",
+        ]
         assert "media-src 'self' blob:" in content_security_policy
         assert response.read() == b"player"
         accepted.close()
