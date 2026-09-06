@@ -53,7 +53,8 @@ Before the first stable release, the documentation must provide:
 - performance/backpressure recipes and benchmark methodology;
 - glossary, troubleshooting, upgrade, and release notes;
 - accessible light/dark presentation, searchable navigation, stable anchors,
-  link checking, and a warning-free strict site build.
+  link checking, and a strict site build without documentation-validation
+  warnings.
 
 No example may contain a fabricated API, and no interoperability page may
 present “should work” as verified support.
@@ -74,12 +75,12 @@ helps a reader confirm success:
   same pull request.
 
 The current JPEG captures live in `docs/assets/screenshots/`. Recreate the
-verifier capture by generating its self-contained HTML report, and recreate the
-dashboard and AI-sidecar captures by running their tutorials against the pinned
-Esri `Truck.ts` fixture. Before committing, rerun the tutorial commands, inspect
-each image at full size, and run `mkdocs build --strict`. Screenshots should
-supplement accessible text and alt text; they must not be the only place a
-result is documented.
+verifier capture by generating its self-contained HTML report; recreate the
+reference-player, custom-dashboard, and AI-sidecar captures by running their
+tutorials against the pinned Esri `Truck.ts` fixture. Before committing, rerun
+the tutorial commands, inspect each image at full size, and run
+`mkdocs build --strict`. Screenshots should supplement accessible text and alt
+text; they must not be the only place a result is documented.
 
 ## Build and host
 

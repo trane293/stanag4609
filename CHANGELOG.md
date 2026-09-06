@@ -5,6 +5,10 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Refresh real-fixture verifier and player tutorial output, replace stale UI
+  captures with the current map/activity/timeline interface, and remove former
+  alpha-era wording from active documentation.
+
 - Guard the documented public import surfaces against accidental compatibility
   breaks, publish a security policy, and add pinned CodeQL and Dependabot
   configuration as final production-readiness audit gates.

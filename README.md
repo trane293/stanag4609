@@ -173,7 +173,7 @@ for the exact boundary behind each label.
 
 ## Install
 
-Install the public alpha from PyPI:
+Install the current release from PyPI:
 
 ```console
 python -m pip install stanag4609
@@ -209,8 +209,8 @@ Start at the [documentation home](https://stanag4609.readthedocs.io/). The
 generated from the typed public docstrings during every strict documentation
 build. The
 [`documentation roadmap`](https://stanag4609.readthedocs.io/en/latest/DOCUMENTATION/)
-records the tutorial and quality gates that must be met before the first stable
-release.
+records tutorial coverage and the remaining documentation improvements for a
+stable `1.0` API.
 The site is configured for versioned hosting on Read the Docs; PyPI will show
 this README and link to the full documentation rather than hosting the complete
 site itself. Maintainer setup and the release gates are in the
@@ -224,7 +224,7 @@ End-to-end tutorials:
 - [build a video, map, telemetry, and activity dashboard](https://stanag4609.readthedocs.io/en/latest/tutorials/web_dashboard/);
 - [transform live KLV and fan out independent consumers](https://stanag4609.readthedocs.io/en/latest/tutorials/live_fanout/).
 
-The exact post-alpha continuation backlog is maintained in
+The exact continuation backlog is maintained in
 the [roadmap](https://stanag4609.readthedocs.io/en/latest/ROADMAP/).
 
 ## Verify and debug an FMV file

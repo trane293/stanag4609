@@ -15,6 +15,7 @@ API_PAGES = {
     "st0601.md",
     "st0902.md",
     "st0903.md",
+    "transformations.md",
     "transport.md",
     "verifier.md",
 }
@@ -22,6 +23,7 @@ SCREENSHOT_ASSETS = {
     "ai-sidecar-player.jpg",
     "fmv-operations-dashboard.jpg",
     "fmv-verifier-report.jpg",
+    "reference-player.jpg",
 }
 BENCHMARK_ASSETS = {
     "live-player-day-flight.json",
@@ -100,6 +102,7 @@ def test_landing_pages_publish_the_same_three_state_standards_matrix() -> None:
 
 def test_tutorial_screenshot_assets_are_real_jpeg_files() -> None:
     screenshot_directory = ROOT / "docs" / "assets" / "screenshots"
+    assert {path.name for path in screenshot_directory.glob("*.jpg")} == SCREENSHOT_ASSETS
 
     for name in SCREENSHOT_ASSETS:
         screenshot = screenshot_directory / name
@@ -107,6 +110,16 @@ def test_tutorial_screenshot_assets_are_real_jpeg_files() -> None:
         assert contents.startswith(b"\xff\xd8\xff")
         assert contents.endswith(b"\xff\xd9")
         assert len(contents) > 10_000
+
+
+def test_real_fixture_tutorial_excerpts_match_current_audit() -> None:
+    inspect = (ROOT / "docs" / "tutorials" / "inspect_fmv.md").read_text()
+    create = (ROOT / "docs" / "tutorials" / "create_fmv.md").read_text()
+
+    assert "Summary: 33 error(s), 4 warning(s), 14 passed, 1 not applicable" in inspect
+    assert "Summary: 1 error(s), 0 warning(s), 26 passed, 2 not applicable" in create
+    assert "st0604.timestamp.missing" in create
+    assert "Result: PASS" not in create
 
 
 def test_tutorials_reference_every_screenshot_asset() -> None:

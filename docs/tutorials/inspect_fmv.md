@@ -56,7 +56,7 @@ Metadata: 356 KLV packet(s), 356 ST 0601, 0 ST 0903, 0 unknown
 VMTI targets: 0 observation(s), 0 stream-scoped unique ID(s)
 
 Streams:
-  program 1 PID 0x0100 video: stream_type=0x1B, PES=4439
+  program 1 PID 0x0100 video: stream_type=0x1B, PES=4439, ST0604=0/4439 access units, 1920x1080 Baseline Level 4.1 progressive
   program 1 PID 0x0101 audio: stream_type=0x0F, PES=6946, mpeg-2-aac-lc, frames=6946, 48000 Hz, 2 channel(s)
   program 1 PID 0x0102 klv: stream_type=0x15, PES=711, synchronous
 
@@ -64,14 +64,17 @@ ST 0601 services:
   program 1 PID 0x0102 service 0: packets=356, tags=37 known/0 unknown, versions=[1]
     MISP Item 2: first=1348087826484970, last=1348087974296682; UTC converted=0, unavailable=356
 
-Summary: 5 error(s), 2 warning(s), 9 passed, 2 not applicable
+Summary: 33 error(s), 4 warning(s), 14 passed, 1 not applicable
 ```
 
 This is an expected `FAIL`, not a broken tutorial: the public recording is
-playable and structurally useful, while the verifier correctly preserves its
-missing Metadata STD descriptor, ST 0102 Object Country, PCR-cadence, metadata
-sequence, and decoder-delay findings. Generate the self-contained HTML form
-with the earlier `--format html` command:
+playable and structurally useful. The expanded verifier now reports its missing
+Metadata STD descriptor and embedded ST 0604 timestamps, malformed or absent
+ST 0902 fields, non-profile AVC signalling, PCR cadence, metadata sequence, and
+decoder-delay findings. Repeated packet-level occurrences are aggregated under
+stable finding codes, which is why the summary counts findings rather than bad
+packets. Generate the self-contained HTML form with the earlier `--format html`
+command:
 
 ![HTML FMV verifier report showing stream inventory and finding totals](../assets/screenshots/fmv-verifier-report.jpg)
 
@@ -89,11 +92,12 @@ The UI follows media PTS rather than packet arrival time and displays the curren
 Report-on-Change state, map geometry, VMTI overlays, and sample diagnostics. Stop
 it with Ctrl-C.
 
-![Reference FMV dashboard playing Truck.ts with synchronized telemetry](../assets/screenshots/fmv-operations-dashboard.jpg)
+![Current reference player showing Truck.ts, the real map, metadata diagnostics, and detection timeline](../assets/screenshots/reference-player.jpg)
 
-*The bundled dashboard at 17.96 seconds: H.264 video, current ST 0601 fields,
-sensor/frame-center geometry, and metadata activity all derive from the same
-transport and playhead.*
+*The bundled player at 17.93 seconds: H.264 video, current ST 0601 fields,
+frame-center geometry on OpenStreetMap, and metadata diagnostics all derive
+from the same transport and playhead. This source has no VMTI, so detection
+controls and the timeline correctly show zero observations.*
 
 ## Export the same timeline
 

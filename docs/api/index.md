@@ -10,7 +10,7 @@ Prefer symbols re-exported by `stanag4609`, `stanag4609.transport`,
 `stanag4609.sidecar`, `stanag4609.audio`, `stanag4609.klv`, or
 `stanag4609.player`. Their `__all__` declarations define the supported public
 surface. A name imported from a deeper implementation module can change during
-the alpha series unless a guide or reference page explicitly presents it as a
+the pre-1.0 series unless a guide or reference page explicitly presents it as a
 public extension point.
 
 ```python

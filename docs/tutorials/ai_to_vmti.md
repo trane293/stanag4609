@@ -56,11 +56,13 @@ parent-offset VTarget coordinates is plotted as a separately resolved point.
 
 ![Reference player showing real YOLO11 detections encoded as ST 0903](../assets/screenshots/ai-sidecar-player.jpg)
 
-*Actual browser capture using the pinned Esri `Truck.ts` fixture. The green
-boxes are per-frame YOLO11n road-vehicle predictions encoded as ST 0903 VMTI
-and decoded again by the production player adapter. The demo uses COCO car,
-motorcycle, bus, and truck classes with a `0.35` confidence threshold. It is an
-integration demonstration, not a claim about model accuracy.*
+*Actual browser capture using the pinned Esri `Truck.ts` fixture and the current
+player. The green boxes are YOLO11n road-vehicle predictions encoded as ST 0903
+VMTI and decoded again by the player; the same observations populate the real
+map, grouped activity feed, class filters, and bounded detection timeline. The
+demo uses COCO car, motorcycle, bus, and truck classes with a `0.35` confidence
+threshold. It is an integration demonstration, not a claim about model
+accuracy.*
 
 Tracking is the default and uses Ultralytics ByteTrack with persistent IDs,
 which become positive ST 0903 target IDs. Use `--inference-mode predict` for
