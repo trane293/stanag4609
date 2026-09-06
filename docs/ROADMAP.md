@@ -54,7 +54,11 @@ important negative-conformance expectations.
    properties.
 2. Close the remaining contextual and cross-item ST 0601.19 conformance gaps,
    especially producer-supplied time-of-birth/precision facts. The child
-   standards embedded by Items 73, 95, 98, and 99 now have typed bridges;
+   standards embedded by Items 48, 73, 94, 95, 97, 98, 99, and 102 now have
+   typed bridges;
+   Item 48 has checksum-bound exact ST 0102.12 accounting plus complete
+   Universal/Local Set conversion and policy-context enforcement for its
+   software-verifiable profile;
    Item 73 has checksum-bound exact ST 0806.4 requirement accounting and
    producer-supplied time-of-birth validation;
    Item 94 has checksum-bound exact ST 1204.3 requirement accounting plus

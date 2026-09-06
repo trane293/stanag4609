@@ -17,6 +17,9 @@ from stanag4609.klv.stream import KLVStreamParser
 SECURITY_LOCAL_SET_KEY = bytes.fromhex(
     "06 0E 2B 34 02 03 01 01 0E 01 03 03 02 00 00 00"
 )
+SECURITY_UNIVERSAL_SET_KEY = bytes.fromhex(
+    "06 0E 2B 34 02 01 01 01 02 08 02 00 00 00 00 00"
+)
 
 
 class SecurityClassification(IntEnum):
@@ -123,7 +126,7 @@ class SecurityField:
     name: str
     value: Any
     raw: bytes
-    item: LocalSetItem
+    item: LocalSetItem | KLVPacket
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +147,38 @@ class SecurityLocalSet:
             return None
         if len(matches) > 1:
             raise ValueError(f"ST 0102 tag {tag} occurs {len(matches)} times")
+        return matches[0]
+
+    def value(self, tag: int, default: Any = None) -> Any:
+        field = self.get(tag)
+        return default if field is None else field.value
+
+    @property
+    def version(self) -> int:
+        """Return the declared version, or the mandated legacy default of 3."""
+        value = self.value(22, 3)
+        if not isinstance(value, int):
+            raise DecodeError("ST 0102 Security Metadata Version is Unknown")
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class SecurityUniversalSet:
+    """Decoded standalone ST 0102.12 Security Metadata Universal Set."""
+
+    packet: KLVPacket
+    items: tuple[KLVPacket, ...]
+    fields: tuple[SecurityField, ...]
+
+    def getall(self, tag: int) -> tuple[SecurityField, ...]:
+        return tuple(field for field in self.fields if field.tag == tag)
+
+    def get(self, tag: int) -> SecurityField | None:
+        matches = self.getall(tag)
+        if not matches:
+            return None
+        if len(matches) > 1:
+            raise ValueError(f"ST 0102 Universal Set tag {tag} occurs {len(matches)} times")
         return matches[0]
 
     def value(self, tag: int, default: Any = None) -> Any:
@@ -192,6 +227,64 @@ _DEFINITIONS = {
     22: _SecurityDefinition(22, "Security Metadata Version", "uint", 2),
     23: _SecurityDefinition(23, "Country Coding Method Version Date", "date10", 10),
     24: _SecurityDefinition(24, "Object Country Coding Method Version Date", "date10", 10),
+}
+
+_UNIVERSAL_KEYS = {
+    1: bytes.fromhex("060E2B34010101030208020100000000"),
+    2: bytes.fromhex("060E2B34010101030701200102070000"),
+    3: bytes.fromhex("060E2B34010101030701200102080000"),
+    4: bytes.fromhex("060E2B34010101010E01020302000000"),
+    5: bytes.fromhex("060E2B34010101030208020200000000"),
+    6: bytes.fromhex("060E2B34010101030701200102090000"),
+    7: bytes.fromhex("060E2B34010101030208020300000000"),
+    8: bytes.fromhex("060E2B34010101030208020600000000"),
+    9: bytes.fromhex("060E2B34010101030208020400000000"),
+    10: bytes.fromhex("060E2B34010101030208020500000000"),
+    11: bytes.fromhex("060E2B34010101030208020800000000"),
+    12: bytes.fromhex("060E2B34010101030701200102060000"),
+    13: bytes.fromhex("060E2B34010101030701200102010100"),
+    14: bytes.fromhex("060E2B34010101030208020700000000"),
+    22: bytes.fromhex("060E2B34010101010E01020504000000"),
+    23: bytes.fromhex("060E2B34010101010E01040303000000"),
+    24: bytes.fromhex("060E2B34010101010E01040304000000"),
+}
+_UNIVERSAL_TAGS = {key: tag for tag, key in _UNIVERSAL_KEYS.items()}
+
+_UNIVERSAL_CLASSIFICATIONS = {
+    SecurityClassification.UNCLASSIFIED: "UNCLASSIFIED//",
+    SecurityClassification.RESTRICTED: "RESTRICTED//",
+    SecurityClassification.CONFIDENTIAL: "CONFIDENTIAL//",
+    SecurityClassification.SECRET: "SECRET//",
+    SecurityClassification.TOP_SECRET: "TOP SECRET//",
+}
+_UNIVERSAL_COUNTRY_METHODS = {
+    CountryCodingMethod.ISO_3166_TWO_LETTER: "ISO-3166 Two Letter",
+    CountryCodingMethod.ISO_3166_THREE_LETTER: "ISO-3166 Three Letter",
+    CountryCodingMethod.FIPS_10_4_TWO_LETTER: "FIPS 10-4 Two Letter",
+    CountryCodingMethod.FIPS_10_4_FOUR_LETTER: "FIPS 10-4 Four Letter",
+    CountryCodingMethod.ISO_3166_NUMERIC: "ISO-3166 Numeric",
+    CountryCodingMethod.STANAG_1059_TWO_LETTER: "1059 Two Letter",
+    CountryCodingMethod.STANAG_1059_THREE_LETTER: "1059 Three Letter",
+    CountryCodingMethod.FIPS_10_4_MIXED: "FIPS 10-4 Mixed",
+    CountryCodingMethod.ISO_3166_MIXED: "ISO 3166 Mixed",
+    CountryCodingMethod.STANAG_1059_MIXED: "STANAG 1059 Mixed",
+    CountryCodingMethod.GENC_TWO_LETTER: "GENC Two Letter",
+    CountryCodingMethod.GENC_THREE_LETTER: "GENC Three Letter",
+    CountryCodingMethod.GENC_NUMERIC: "GENC Numeric",
+    CountryCodingMethod.GENC_MIXED: "GENC Mixed",
+}
+_UNIVERSAL_OBJECT_METHODS = {
+    ObjectCountryCodingMethod.ISO_3166_TWO_LETTER: "ISO-3166 Two Letter",
+    ObjectCountryCodingMethod.ISO_3166_THREE_LETTER: "ISO-3166 Three Letter",
+    ObjectCountryCodingMethod.ISO_3166_NUMERIC: "ISO-3166 Numeric",
+    ObjectCountryCodingMethod.FIPS_10_4_TWO_LETTER: "FIPS 10-4 Two Letter",
+    ObjectCountryCodingMethod.FIPS_10_4_FOUR_LETTER: "FIPS 10-4 Four Letter",
+    ObjectCountryCodingMethod.STANAG_1059_TWO_LETTER: "1059 Two Letter",
+    ObjectCountryCodingMethod.STANAG_1059_THREE_LETTER: "1059 Three Letter",
+    ObjectCountryCodingMethod.GENC_TWO_LETTER: "GENC Two Letter",
+    ObjectCountryCodingMethod.GENC_THREE_LETTER: "GENC Three Letter",
+    ObjectCountryCodingMethod.GENC_NUMERIC: "GENC Numeric",
+    ObjectCountryCodingMethod.GENC_ADMINISTRATIVE_SUBDIVISION: "GENC AdminSub",
 }
 
 _COUNTRY_METHODS: dict[int, tuple[str, str, int] | tuple[str, str, None]] = {
@@ -394,6 +487,10 @@ def _decode_value(item: LocalSetItem, definition: _SecurityDefinition) -> Securi
             )
         if item.tag == 1:
             value = SecurityClassification(value)
+        elif item.tag == 2:
+            value = CountryCodingMethod(value)
+        elif item.tag == 12:
+            value = ObjectCountryCodingMethod(value)
     elif definition.kind == "ascii":
         try:
             value = item.value.decode("ascii")
@@ -478,6 +575,80 @@ def _encode_value(tag: int, value: Any) -> bytes:
     return value.strftime("%Y-%m-%d" if definition.kind == "date10" else "%Y%m%d").encode()
 
 
+def _required_tags(declared_version: int) -> set[int]:
+    required = {1, 2, 3, 13}
+    if declared_version >= 4:
+        required.add(22)
+    if declared_version >= 6:
+        required.add(12)
+    return required
+
+
+def _validate_required_values(
+    values: Mapping[int, Any],
+    *,
+    context: SecurityMarkingContext,
+) -> None:
+    declared_version = values.get(22, 3)
+    if isinstance(declared_version, bool) or not isinstance(declared_version, int):
+        raise TypeError("ST 0102 Security Metadata Version must be an integer")
+    for tag in _required_tags(declared_version):
+        if tag not in values or values[tag] is SecuritySpecialValue.UNKNOWN or values[tag] == "":
+            raise ValueError(f"ST 0102 required tag {tag} is missing or Unknown")
+    for tag in context.required_tags:
+        if tag not in values or values[tag] is SecuritySpecialValue.UNKNOWN or values[tag] == "":
+            raise ValueError(f"ST 0102 context-required tag {tag} is missing or Unknown")
+
+
+def _encode_universal_value(tag: int, value: Any) -> bytes:
+    if value is SecuritySpecialValue.UNKNOWN:
+        return b""
+    symbolic: Mapping[Any, str] | None = None
+    if tag == 1:
+        symbolic = _UNIVERSAL_CLASSIFICATIONS
+    elif tag == 2:
+        symbolic = _UNIVERSAL_COUNTRY_METHODS
+    elif tag == 12:
+        symbolic = _UNIVERSAL_OBJECT_METHODS
+    if symbolic is None:
+        return _encode_value(tag, value)
+    _encode_value(tag, value)
+    try:
+        return symbolic[value].encode("ascii")
+    except KeyError as error:
+        raise ValueError(
+            f"ST 0102 tag {tag} value {value!r} has no Universal Set symbolic form"
+        ) from error
+
+
+def encode_security_universal_set(
+    values: Mapping[int, Any],
+    *,
+    context: SecurityMarkingContext | None = None,
+) -> bytes:
+    """Encode an ST 0102.12 Security Metadata Universal Set."""
+
+    active_context = _marking_context(context)
+    _validate_required_values(values, context=active_context)
+    _validate_country_fields(values)
+    encoded_items = []
+    for tag in sorted(values):
+        try:
+            key = _UNIVERSAL_KEYS[tag]
+        except KeyError as error:
+            raise ValueError(
+                f"ST 0102 tag {tag} is not supported for Universal Set encoding"
+            ) from error
+        raw = _encode_universal_value(tag, values[tag])
+        encoded_items.append(key + encode_ber_length(len(raw)) + raw)
+    universal_value = b"".join(encoded_items)
+    return (
+        SECURITY_UNIVERSAL_SET_KEY
+        + encode_ber_length(len(universal_value))
+        + universal_value
+    )
+
+
 def encode_security_local_set(
     values: Mapping[int, Any],
     *,
@@ -488,20 +659,7 @@ def encode_security_local_set(
     if not isinstance(standalone, bool):
         raise TypeError("standalone must be a boolean")
     active_context = _marking_context(context)
-    declared_version = values.get(22, 3)
-    if isinstance(declared_version, bool) or not isinstance(declared_version, int):
-        raise TypeError("ST 0102 Security Metadata Version must be an integer")
-    required_tags = {1, 2, 3, 13}
-    if declared_version >= 4:
-        required_tags.add(22)
-    if declared_version >= 6:
-        required_tags.add(12)
-    for tag in required_tags:
-        if tag not in values or values[tag] is SecuritySpecialValue.UNKNOWN or values[tag] == "":
-            raise ValueError(f"ST 0102 required tag {tag} is missing or Unknown")
-    for tag in active_context.required_tags:
-        if tag not in values or values[tag] is SecuritySpecialValue.UNKNOWN or values[tag] == "":
-            raise ValueError(f"ST 0102 context-required tag {tag} is missing or Unknown")
+    _validate_required_values(values, context=active_context)
     _validate_country_fields(values)
     encoded_items = []
     for tag in sorted(values):
@@ -585,3 +743,118 @@ def decode_security_local_set(
     except ValueError as error:
         raise DecodeError(str(error)) from error
     return SecurityLocalSet(packet, local_set, fields, standalone)
+
+
+def _decode_universal_value(packet: KLVPacket, tag: int) -> SecurityField:
+    definition = _DEFINITIONS[tag]
+    if not packet.value:
+        return SecurityField(
+            tag,
+            definition.name,
+            SecuritySpecialValue.UNKNOWN,
+            packet.value,
+            packet,
+        )
+    reverse: Mapping[str, int] | None = None
+    if tag == 1:
+        reverse = {text: int(value) for value, text in _UNIVERSAL_CLASSIFICATIONS.items()}
+    elif tag == 2:
+        reverse = {text: int(value) for value, text in _UNIVERSAL_COUNTRY_METHODS.items()}
+    elif tag == 12:
+        reverse = {text: int(value) for value, text in _UNIVERSAL_OBJECT_METHODS.items()}
+    if reverse is not None:
+        try:
+            text = packet.value.decode("ascii")
+            numeric = reverse[text]
+        except (UnicodeDecodeError, KeyError) as error:
+            raise DecodeError(
+                f"ST 0102 Universal Set {definition.name} has an unknown symbolic value"
+            ) from error
+        if tag == 1:
+            value: Any = SecurityClassification(numeric)
+        elif tag == 2:
+            value = CountryCodingMethod(numeric)
+        else:
+            value = ObjectCountryCodingMethod(numeric)
+        return SecurityField(tag, definition.name, value, packet.value, packet)
+    item = LocalSetItem(
+        tag=tag,
+        value=packet.value,
+        tag_octets=encode_ber_oid(tag),
+        length_octets=packet.length_octets,
+        offset=packet.offset,
+    )
+    field = _decode_value(item, definition)
+    return SecurityField(field.tag, field.name, field.value, field.raw, packet)
+
+
+def decode_security_universal_set(
+    data: bytes | KLVPacket,
+    *,
+    require_required: bool = True,
+    context: SecurityMarkingContext | None = None,
+) -> SecurityUniversalSet:
+    """Decode one ST 0102.12 Security Metadata Universal Set."""
+
+    if not isinstance(require_required, bool):
+        raise TypeError("require_required must be a boolean")
+    active_context = _marking_context(context)
+    if isinstance(data, KLVPacket):
+        packet = data
+    else:
+        if not isinstance(data, bytes):
+            raise TypeError("ST 0102 Universal Set data must be bytes or a KLVPacket")
+        parser = KLVStreamParser(
+            key_prefix=SECURITY_UNIVERSAL_SET_KEY,
+            max_value_length=1024 * 1024,
+        )
+        packets = parser.feed(data)
+        packets.extend(parser.finish())
+        if len(packets) != 1:
+            raise DecodeError(
+                f"expected exactly one ST 0102 Universal Set, observed {len(packets)}"
+            )
+        packet = packets[0]
+    if packet.key != SECURITY_UNIVERSAL_SET_KEY:
+        raise DecodeError("unexpected Universal Key for ST 0102 Security Universal Set")
+
+    item_parser = KLVStreamParser(
+        key_prefix=b"\x06\x0e\x2b\x34",
+        max_value_length=1024 * 1024,
+    )
+    items = item_parser.feed(packet.value)
+    items.extend(item_parser.finish())
+    seen: set[int] = set()
+    fields: list[SecurityField] = []
+    for item in items:
+        tag = _UNIVERSAL_TAGS.get(item.key)
+        if tag is None:
+            continue
+        if tag in seen:
+            raise DecodeError(f"ST 0102 Universal Set tag {tag} occurs twice")
+        seen.add(tag)
+        fields.append(_decode_universal_value(item, tag))
+    values = {field.tag: field.value for field in fields}
+    declared_version = values.get(22, 3)
+    if declared_version is SecuritySpecialValue.UNKNOWN:
+        raise DecodeError("ST 0102 required tag 22 (Security Metadata Version) is Unknown")
+    if not isinstance(declared_version, int):
+        raise DecodeError("ST 0102 Security Metadata Version is invalid")
+    if require_required:
+        for tag in _required_tags(declared_version):
+            if tag not in values or values[tag] is SecuritySpecialValue.UNKNOWN:
+                raise DecodeError(
+                    f"ST 0102 required tag {tag} ({_DEFINITIONS[tag].name}) "
+                    "is missing or Unknown"
+                )
+        for tag in active_context.required_tags:
+            if tag not in values or values[tag] is SecuritySpecialValue.UNKNOWN:
+                raise DecodeError(
+                    f"ST 0102 context-required tag {tag} ({_DEFINITIONS[tag].name}) "
+                    "is missing or Unknown"
+                )
+    try:
+        _validate_country_fields(values)
+    except ValueError as error:
+        raise DecodeError(str(error)) from error
+    return SecurityUniversalSet(packet, tuple(items), tuple(fields))

@@ -68,6 +68,7 @@ from stanag4609.sidecar import (
 )
 from stanag4609.st0102 import (
     SECURITY_LOCAL_SET_KEY,
+    SECURITY_UNIVERSAL_SET_KEY,
     CountryCodingMethod,
     ObjectCountryCodingMethod,
     SecurityClassification,
@@ -75,8 +76,11 @@ from stanag4609.st0102 import (
     SecurityLocalSet,
     SecurityMarkingContext,
     SecuritySpecialValue,
+    SecurityUniversalSet,
     decode_security_local_set,
+    decode_security_universal_set,
     encode_security_local_set,
+    encode_security_universal_set,
 )
 from stanag4609.st0601 import (
     DELETE,
@@ -635,6 +639,7 @@ __all__ = [
     "SDCCFLP",
     "SDCC_FLP_KEY",
     "SECURITY_LOCAL_SET_KEY",
+    "SECURITY_UNIVERSAL_SET_KEY",
     "SMPTE_UL_LENGTH",
     "SMPTE_UL_PREFIX",
     "ST0601_KEY",
@@ -856,6 +861,7 @@ __all__ = [
     "SecurityLocalSet",
     "SecurityMarkingContext",
     "SecuritySpecialValue",
+    "SecurityUniversalSet",
     "SegmentLocalSet",
     "SensorControlMode",
     "SensorFieldOfViewName",
@@ -968,6 +974,7 @@ __all__ = [
     "decode_sdcc_parse_control",
     "decode_section_data",
     "decode_security_local_set",
+    "decode_security_universal_set",
     "decode_segment_local_set",
     "decode_sensor_frame_rate_pack",
     "decode_time_status",
@@ -1029,6 +1036,7 @@ __all__ = [
     "encode_sdcc_parse_control",
     "encode_section_data",
     "encode_security_local_set",
+    "encode_security_universal_set",
     "encode_segment_local_set",
     "encode_sensor_frame_rate_pack",
     "encode_time_status",

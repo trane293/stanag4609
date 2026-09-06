@@ -48,6 +48,11 @@
   multi-sensor combination, window derivation, and cadence. Physical identity,
   provisioning uniqueness, device lifecycle, insertion topology, and derived-
   product retention remain producer/application responsibilities.
+  ST 0601 Item 48 covers the complete software-verifiable ST 0102.12 profile,
+  including Universal and Local Sets, exact representation conversion, marking
+  structure, and cadence. Security authorities still own marking decisions,
+  authoritative dated code lists, and release policy; producers own the actual
+  geographic country beneath frame center.
   Embedded VChip payloads are checked for their declared JPEG or PNG signature;
   full image decoding and externally referenced IRI content are application concerns.
 - The live transformer is pull-driven and emits one explicitly selected program

@@ -5,16 +5,20 @@ from datetime import date, datetime
 import pytest
 
 from stanag4609.errors import DecodeError
+from stanag4609.klv.ber import encode_ber_length
 from stanag4609.klv.model import KLVPacket
 from stanag4609.st0102 import (
     SECURITY_LOCAL_SET_KEY,
+    SECURITY_UNIVERSAL_SET_KEY,
     CountryCodingMethod,
     ObjectCountryCodingMethod,
     SecurityClassification,
     SecurityMarkingContext,
     SecuritySpecialValue,
     decode_security_local_set,
+    decode_security_universal_set,
     encode_security_local_set,
+    encode_security_universal_set,
 )
 
 MINIMUM = {
@@ -58,6 +62,253 @@ def test_security_local_set_encoder_can_emit_standalone_klv() -> None:
     assert raw.startswith(SECURITY_LOCAL_SET_KEY)
     assert security.packet is not None
     assert security.value(999, "missing") == "missing"
+
+
+def test_security_universal_set_round_trip_and_string_conversions() -> None:
+    raw = encode_security_universal_set(MINIMUM)
+    security = decode_security_universal_set(raw)
+
+    assert raw.startswith(SECURITY_UNIVERSAL_SET_KEY)
+    assert security.packet.key == SECURITY_UNIVERSAL_SET_KEY
+    assert security.value(1) is SecurityClassification.UNCLASSIFIED
+    assert security.value(2) is CountryCodingMethod.GENC_THREE_LETTER
+    assert security.value(3) == "//USA"
+    assert security.value(12) is ObjectCountryCodingMethod.GENC_THREE_LETTER
+    assert security.value(13) == "USA;CAN"
+    assert security.value(22) == 12
+    assert security.version == 12
+    assert encode_security_universal_set(
+        {field.tag: field.value for field in security.fields}
+    ) == raw
+
+    classification = security.get(1)
+    country_method = security.get(2)
+    object_method = security.get(12)
+    assert classification is not None and classification.raw == b"UNCLASSIFIED//"
+    assert country_method is not None and country_method.raw == b"GENC Three Letter"
+    assert object_method is not None and object_method.raw == b"GENC Three Letter"
+
+
+@pytest.mark.parametrize(
+    ("classification", "symbol"),
+    [
+        (SecurityClassification.UNCLASSIFIED, "UNCLASSIFIED//"),
+        (SecurityClassification.RESTRICTED, "RESTRICTED//"),
+        (SecurityClassification.CONFIDENTIAL, "CONFIDENTIAL//"),
+        (SecurityClassification.SECRET, "SECRET//"),
+        (SecurityClassification.TOP_SECRET, "TOP SECRET//"),
+    ],
+)
+def test_security_universal_classification_symbols(
+    classification: SecurityClassification, symbol: str
+) -> None:
+    security = decode_security_universal_set(
+        encode_security_universal_set({**MINIMUM, 1: classification})
+    )
+
+    field = security.get(1)
+    assert field is not None
+    assert field.value is classification
+    assert field.raw.decode("ascii") == symbol
+
+
+def test_security_universal_set_covers_every_table_one_element() -> None:
+    values = {
+        **MINIMUM,
+        4: "SI/TK//",
+        5: "FOUO",
+        6: "USA CAN",
+        7: "Original Classification Authority",
+        8: "Source Guidance",
+        9: "Mission reason",
+        10: date(2030, 12, 31),
+        11: "CAPCO",
+        14: "Non-essential security note",
+        23: date(2024, 1, 2),
+        24: date(2025, 3, 4),
+    }
+    security = decode_security_universal_set(encode_security_universal_set(values))
+
+    assert {field.tag for field in security.fields} == {
+        *range(1, 15),
+        22,
+        23,
+        24,
+    }
+    assert len(security.items) == 17
+    assert len({item.key for item in security.items}) == 17
+
+
+def test_security_local_and_universal_sets_have_equivalent_typed_values() -> None:
+    values = {
+        **MINIMUM,
+        4: "SI/TK//",
+        5: "FOUO",
+        6: "USA CAN",
+        10: date(2030, 12, 31),
+        23: date(2024, 1, 2),
+        24: date(2025, 3, 4),
+    }
+    local = decode_security_local_set(
+        encode_security_local_set(values, standalone=False), standalone=False
+    )
+    universal = decode_security_universal_set(encode_security_universal_set(values))
+
+    assert {field.tag: field.value for field in universal.fields} == {
+        field.tag: field.value for field in local.fields
+    }
+
+
+@pytest.mark.parametrize(
+    ("method", "code", "symbol"),
+    [
+        (CountryCodingMethod.ISO_3166_TWO_LETTER, "US", "ISO-3166 Two Letter"),
+        (CountryCodingMethod.ISO_3166_THREE_LETTER, "USA", "ISO-3166 Three Letter"),
+        (CountryCodingMethod.FIPS_10_4_TWO_LETTER, "US", "FIPS 10-4 Two Letter"),
+        (CountryCodingMethod.FIPS_10_4_FOUR_LETTER, "USAA", "FIPS 10-4 Four Letter"),
+        (CountryCodingMethod.ISO_3166_NUMERIC, "840", "ISO-3166 Numeric"),
+        (CountryCodingMethod.STANAG_1059_TWO_LETTER, "US", "1059 Two Letter"),
+        (CountryCodingMethod.STANAG_1059_THREE_LETTER, "USA", "1059 Three Letter"),
+        (CountryCodingMethod.FIPS_10_4_MIXED, "NATO", "FIPS 10-4 Mixed"),
+        (CountryCodingMethod.ISO_3166_MIXED, "NATO", "ISO 3166 Mixed"),
+        (CountryCodingMethod.STANAG_1059_MIXED, "NATO", "STANAG 1059 Mixed"),
+        (CountryCodingMethod.GENC_TWO_LETTER, "US", "GENC Two Letter"),
+        (CountryCodingMethod.GENC_THREE_LETTER, "USA", "GENC Three Letter"),
+        (CountryCodingMethod.GENC_NUMERIC, "840", "GENC Numeric"),
+        (CountryCodingMethod.GENC_MIXED, "NATO", "GENC Mixed"),
+    ],
+)
+def test_security_universal_country_method_symbols(
+    method: CountryCodingMethod, code: str, symbol: str
+) -> None:
+    security = decode_security_universal_set(
+        encode_security_universal_set({**MINIMUM, 2: method, 3: f"//{code}"})
+    )
+
+    field = security.get(2)
+    assert field is not None
+    assert field.value is method
+    assert field.raw.decode("ascii") == symbol
+
+
+@pytest.mark.parametrize(
+    ("method", "code", "symbol"),
+    [
+        (ObjectCountryCodingMethod.ISO_3166_TWO_LETTER, "US", "ISO-3166 Two Letter"),
+        (ObjectCountryCodingMethod.ISO_3166_THREE_LETTER, "USA", "ISO-3166 Three Letter"),
+        (ObjectCountryCodingMethod.ISO_3166_NUMERIC, "840", "ISO-3166 Numeric"),
+        (ObjectCountryCodingMethod.FIPS_10_4_TWO_LETTER, "US", "FIPS 10-4 Two Letter"),
+        (ObjectCountryCodingMethod.FIPS_10_4_FOUR_LETTER, "USAA", "FIPS 10-4 Four Letter"),
+        (ObjectCountryCodingMethod.STANAG_1059_TWO_LETTER, "US", "1059 Two Letter"),
+        (ObjectCountryCodingMethod.STANAG_1059_THREE_LETTER, "USA", "1059 Three Letter"),
+        (ObjectCountryCodingMethod.GENC_TWO_LETTER, "US", "GENC Two Letter"),
+        (ObjectCountryCodingMethod.GENC_THREE_LETTER, "USA", "GENC Three Letter"),
+        (ObjectCountryCodingMethod.GENC_NUMERIC, "840", "GENC Numeric"),
+        (
+            ObjectCountryCodingMethod.GENC_ADMINISTRATIVE_SUBDIVISION,
+            "US-CA",
+            "GENC AdminSub",
+        ),
+    ],
+)
+def test_security_universal_object_country_method_symbols(
+    method: ObjectCountryCodingMethod, code: str, symbol: str
+) -> None:
+    security = decode_security_universal_set(
+        encode_security_universal_set({**MINIMUM, 12: method, 13: code})
+    )
+
+    field = security.get(12)
+    assert field is not None
+    assert field.value is method
+    assert field.raw.decode("ascii") == symbol
+
+
+def test_security_universal_set_preserves_unknown_items() -> None:
+    known = encode_security_universal_set(MINIMUM)
+    decoded = decode_security_universal_set(known)
+    unknown = bytes.fromhex("060E2B34010101010E0101017F00000001AA")
+    value = b"".join(bytes(item) for item in decoded.items) + unknown
+    raw = SECURITY_UNIVERSAL_SET_KEY + encode_ber_length(len(value)) + value
+
+    reparsed = decode_security_universal_set(raw)
+
+    assert len(reparsed.fields) == len(decoded.fields)
+    assert reparsed.items[-1].key == unknown[:16]
+    assert reparsed.items[-1].value == b"\xaa"
+
+
+@pytest.mark.parametrize(
+    ("raw_value", "message"),
+    [
+        (b"unclassified//", "Security Classification"),
+        (b"Omitted Value", "Country Coding Method"),
+    ],
+)
+def test_security_universal_set_rejects_unknown_symbolic_values(
+    raw_value: bytes, message: str
+) -> None:
+    encoded = encode_security_universal_set(MINIMUM)
+    security = decode_security_universal_set(encoded)
+    item = security.get(1 if message.startswith("Security") else 2)
+    assert item is not None
+    assert isinstance(item.item, KLVPacket)
+    replacement = item.item.key + encode_ber_length(len(raw_value)) + raw_value
+    body = b"".join(
+        replacement if packet is item.item else bytes(packet)
+        for packet in security.items
+    )
+    replaced = SECURITY_UNIVERSAL_SET_KEY + encode_ber_length(len(body)) + body
+
+    with pytest.raises(DecodeError, match=message):
+        decode_security_universal_set(replaced)
+
+
+def test_security_universal_set_rejects_duplicates_and_missing_context() -> None:
+    security = decode_security_universal_set(encode_security_universal_set(MINIMUM))
+    duplicated_body = b"".join(bytes(item) for item in security.items) + bytes(
+        security.items[0]
+    )
+    duplicated = (
+        SECURITY_UNIVERSAL_SET_KEY
+        + encode_ber_length(len(duplicated_body))
+        + duplicated_body
+    )
+
+    with pytest.raises(DecodeError, match="occurs twice"):
+        decode_security_universal_set(duplicated)
+    with pytest.raises(DecodeError, match="context-required tag 5"):
+        decode_security_universal_set(
+            bytes(security.packet), context=SecurityMarkingContext(caveats=True)
+        )
+
+
+def test_security_universal_set_partial_and_option_contracts() -> None:
+    security = decode_security_universal_set(encode_security_universal_set(MINIMUM))
+    classification = security.get(1)
+    assert classification is not None
+    assert isinstance(classification.item, KLVPacket)
+    body = bytes(classification.item)
+    partial = SECURITY_UNIVERSAL_SET_KEY + encode_ber_length(len(body)) + body
+
+    decoded = decode_security_universal_set(partial, require_required=False)
+    assert decoded.value(1) is SecurityClassification.UNCLASSIFIED
+    with pytest.raises(DecodeError, match="required tag 2"):
+        decode_security_universal_set(partial)
+    with pytest.raises(TypeError, match="require_required"):
+        decode_security_universal_set(partial, require_required=1)  # type: ignore[arg-type]
+    with pytest.raises(DecodeError, match="unexpected Universal Key"):
+        decode_security_universal_set(KLVPacket(bytes(16), b"", b"\x00"))
+
+
+def test_security_universal_set_rejects_omitted_local_method_values() -> None:
+    with pytest.raises(ValueError, match="no Universal Set symbolic form"):
+        encode_security_universal_set(
+            {
+                **MINIMUM,
+                2: CountryCodingMethod.OMITTED_8,
+            }
+        )
 
 
 def test_security_classification_and_coding_domains_are_strict() -> None:

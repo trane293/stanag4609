@@ -63,6 +63,10 @@ and send the same timed metadata to independent GIS or analytics consumers.
   accounting, binary and standalone Universal KLV, checked human-readable text,
   bounded XML, UUID generation, multi-sensor combination, window derivation,
   and the ST 0601 Item 94 bridge.
+- ST 0102.12 Security Metadata Universal and Local Sets with source-bound
+  complete requirement accounting, exact symbolic/integer conversion, strict
+  marking and country-code structure, caller-owned policy contexts, lossless
+  extensions, cadence validation, and the ST 0601 Item 48 bridge.
 - ST 0903.6 standalone/embedded VMTI, VTarget packs, frame-bounded pixel
   centroids and bounding boxes,
   lifecycle status, and packet-scoped Algorithm/Ontology/VObject/VFeature

@@ -16,6 +16,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 - Bind all 40 active and five deprecated ST 1204.3 requirements to the
   checksum-pinned publication; add standalone KLV, checked text, bounded XML,
   lowest-quality multi-sensor combination, and window-derivation support.
+- Bind all 38 active and 28 deprecated ST 0102.12 requirements to the
+  checksum-pinned publication; add the Security Metadata Universal Set with
+  all Table 1 ULs and exact Universal/Local representation conversion.
 - Bind the complete ST 1206.1 active/deprecated requirement population to its
   checksum-pinned source and add validated effective-PRF and target-RCS
   exploitation helpers for ST 0601 Item 95 SAR metadata.
