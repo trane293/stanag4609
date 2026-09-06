@@ -10,6 +10,7 @@ from stanag4609.sidecar import (
     InferenceOutput,
     OnnxRuntimeAdapter,
     TritonAsyncAdapter,
+    UltralyticsYOLODetector,
 )
 
 
@@ -64,6 +65,47 @@ def test_onnx_runtime_adapter_executes_a_real_inference_session() -> None:
     result = adapter(context)
 
     numpy.testing.assert_array_equal(result.data, pixels)
+
+
+@pytest.mark.integration
+def test_ultralytics_runtime_executes_prediction_and_bytetrack() -> None:
+    numpy = pytest.importorskip("numpy")
+    ultralytics = pytest.importorskip("ultralytics")
+
+    model = ultralytics.YOLO("yolo11n.yaml")
+    pixels = numpy.zeros((64, 64, 3), dtype=numpy.uint8)
+    context = InferenceContext(
+        FrameEnvelope(
+            sequence_number=1,
+            pts=90_000,
+            width=64,
+            height=64,
+            pixels=pixels,
+        )
+    )
+    common = {"imgsz": 64, "device": "cpu", "conf": 0.99}
+
+    prediction = UltralyticsYOLODetector(
+        model,
+        mode="predict",
+        predict_kwargs=common,
+    )(context)
+    first_track = UltralyticsYOLODetector(
+        model,
+        mode="track",
+        predict_kwargs={**common, "tracker": "bytetrack.yaml"},
+    )(context)
+    second_track = UltralyticsYOLODetector(
+        model,
+        mode="track",
+        predict_kwargs={**common, "tracker": "bytetrack.yaml"},
+    )(context)
+
+    assert prediction.data.__class__.__module__.startswith("ultralytics.")
+    assert first_track.data.__class__.__module__.startswith("ultralytics.")
+    assert second_track.data.__class__.__module__.startswith("ultralytics.")
+    assert hasattr(model.predictor, "trackers")
+    assert len(model.predictor.trackers) == 1
 
 
 @pytest.mark.integration

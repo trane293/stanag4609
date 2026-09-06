@@ -8,6 +8,8 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 - Add a module-level architecture guide with end-to-end transport, live
   transformation, AI sidecar, player, verification, timing, and backpressure
   diagrams plus entry-point guidance.
+- Add a dependency-installed Ultralytics/PyTorch CI gate that executes real CPU
+  YOLO prediction and persistent ByteTrack through the first-party adapter.
 
 ## 0.3.0 - 2026-09-05
 

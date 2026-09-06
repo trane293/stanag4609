@@ -601,9 +601,9 @@ producer's lifecycle boundary; otherwise a first observation of `Inactive` or
 The graph API already provides bounded branch concurrency, timeouts, immutable
 inputs, deterministic results, a bounded synchronous PTS correlator, an
 explicit-overflow decoded-frame queue, optional PyAV video decoding, and
-cross-frame VMTI lifecycle checks. The optional Ultralytics adapter currently
-covers object-detection boxes but not segmentation masks,
-pose, oriented boxes, or an integrated tracking invocation. The reference
+cross-frame VMTI lifecycle checks. The optional Ultralytics adapter invokes
+prediction or persistent ByteTrack/BoT-SORT tracking and covers object-detection
+boxes and IDs, but not segmentation masks, pose, or oriented boxes. The reference
 player renders synchronized pixel bounding boxes and centroids in both
 recorded and bounded low-latency MSE modes. Sub-second WebRTC delivery,
 adaptive bitrate, and inference scheduling remain deployment concerns;

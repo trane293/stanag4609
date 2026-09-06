@@ -61,7 +61,8 @@ stanag4609-verify = "stanag4609.verifier:main"
 
 [project.optional-dependencies]
 ai-ultralytics = [
-  "ultralytics>=8.3",
+  "lap>=0.5.12,<1",
+  "ultralytics>=8.3,<9",
 ]
 ai-onnx = [
   "onnxruntime>=1.20",
