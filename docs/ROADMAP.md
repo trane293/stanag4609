@@ -1,6 +1,6 @@
 # Remaining work and continuation guide
 
-This page records the work that remains after the `0.2.0` release.
+This page records the work that remains after the `0.3.0` release.
 It separates verified capability from future scope so another developer or agent
 can resume without reconstructing project history.
 

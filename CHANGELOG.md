@@ -5,6 +5,8 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+## 0.3.0 - 2026-09-05
+
 - Add recorded, simulated-live, and synthetic day/thermal player demos;
   VMTI class/confidence/overlay controls and persistent-ID trails; and native
   Ultralytics `track` mode with ByteTrack or BoT-SORT configuration.

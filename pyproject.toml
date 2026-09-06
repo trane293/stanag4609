@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "stanag4609"
-version = "0.2.0"
+version = "0.3.0"
 description = "Pure-Python STANAG 4609 transport and MISB KLV toolkit"
 readme = "README.md"
 requires-python = ">=3.10"
