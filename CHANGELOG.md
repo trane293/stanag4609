@@ -6,8 +6,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 ## Unreleased
 
 - Recover live metadata immediately when an SSE reconnect presents an event ID
-  from a prior server epoch, and reject future media-fragment cursors without a
-  pointless long poll.
+  from a prior server epoch, reject future media-fragment cursors without a
+  pointless long poll, and make the browser automatically build a fresh
+  MediaSource and rejoin with capped exponential backoff.
 - Extend ST 0601 producer-ground-truth validation to all occurrences of
   multi-use root tags with immutable, order-independent, tolerance-aware
   matching and occurrence-accurate verifier assurance counts.

@@ -254,45 +254,96 @@
       sourceBuffer.appendBuffer(bytes);
       await waitForEvent(sourceBuffer, 'updateend');
     }
-    async function startLiveMedia() {
-      if (!('MediaSource' in window)) throw new Error('Media Source Extensions are unavailable');
+    class LiveMediaFatalError extends Error {}
+    class LiveMediaRejoinError extends Error {}
+    const LIVE_MEDIA_RETRY_MIN_MS = 250;
+    const LIVE_MEDIA_RETRY_MAX_MS = 5000;
+    let liveMediaEpoch = 0;
+    const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+    async function runLiveMediaEpoch(onReady) {
       const mediaSource = new MediaSource();
-      video.src = URL.createObjectURL(mediaSource);
-      await waitForEvent(mediaSource, 'sourceopen');
-      let initialization;
-      while (true) {
-        initialization = await fetch('media/init.mp4?wait=10', {cache: 'no-store'});
-        if (initialization.status !== 503) break;
-        await new Promise(resolve => setTimeout(resolve, 250));
-      }
-      if (!initialization.ok) throw new Error(`media initialization returned HTTP ${initialization.status}`);
-      const mimeType = initialization.headers.get('Content-Type');
-      if (!mimeType || !MediaSource.isTypeSupported(mimeType)) throw new Error(`unsupported live media type: ${mimeType || 'missing'}`);
-      const sourceBuffer = mediaSource.addSourceBuffer(mimeType);
-      await appendMedia(sourceBuffer, await initialization.arrayBuffer());
-      let after = Number(initialization.headers.get('X-First-Fragment-ID')) - 1;
-      while (mediaSource.readyState === 'open') {
-        const response = await fetch(`media/fragment?after=${encodeURIComponent(after)}&wait=10`, {cache: 'no-store'});
-        if (response.status === 409) throw new Error('live media history was exceeded; reload to join the current keyframe');
-        if (response.status === 204) {
-          if (response.headers.get('X-Stream-Error') === 'true') throw new Error('live media transcoder stopped with an error');
-          if (response.headers.get('X-Stream-End') === 'true') {
-            if (sourceBuffer.updating) await waitForEvent(sourceBuffer, 'updateend');
-            mediaSource.endOfStream();
-            break;
+      const objectUrl = URL.createObjectURL(mediaSource);
+      let sourceBuffer = null;
+      video.dataset.liveMediaEpoch = String(++liveMediaEpoch);
+      video.src = objectUrl;
+      try {
+        await waitForEvent(mediaSource, 'sourceopen');
+        let initialization;
+        while (true) {
+          initialization = await fetch('media/init.mp4?wait=10', {cache: 'no-store'});
+          if (initialization.status !== 503) break;
+          await wait(LIVE_MEDIA_RETRY_MIN_MS);
+        }
+        if (!initialization.ok) {
+          const ErrorType = initialization.status >= 500 ? LiveMediaRejoinError : LiveMediaFatalError;
+          throw new ErrorType(`media initialization returned HTTP ${initialization.status}`);
+        }
+        const mimeType = initialization.headers.get('Content-Type');
+        if (!mimeType || !MediaSource.isTypeSupported(mimeType)) {
+          throw new LiveMediaFatalError(`unsupported live media type: ${mimeType || 'missing'}`);
+        }
+        sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+        await appendMedia(sourceBuffer, await initialization.arrayBuffer());
+        onReady();
+        let after = Number(initialization.headers.get('X-First-Fragment-ID')) - 1;
+        while (mediaSource.readyState === 'open') {
+          const response = await fetch(`media/fragment?after=${encodeURIComponent(after)}&wait=10`, {cache: 'no-store'});
+          if (response.status === 409) throw new LiveMediaRejoinError('live media epoch changed');
+          if (response.status === 204) {
+            if (response.headers.get('X-Stream-Error') === 'true') throw new LiveMediaFatalError('live media transcoder stopped with an error');
+            if (response.headers.get('X-Stream-End') === 'true') {
+              if (sourceBuffer.updating) await waitForEvent(sourceBuffer, 'updateend');
+              mediaSource.endOfStream();
+              return;
+            }
+            continue;
           }
-          continue;
+          if (!response.ok) {
+            const ErrorType = response.status >= 500 ? LiveMediaRejoinError : LiveMediaFatalError;
+            throw new ErrorType(`media fragment returned HTTP ${response.status}`);
+          }
+          await appendMedia(sourceBuffer, await response.arrayBuffer());
+          after = Number(response.headers.get('X-Fragment-ID'));
+          if (sourceBuffer.buffered.length) {
+            const beginning = sourceBuffer.buffered.start(0);
+            const end = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
+            if (video.currentTime < beginning) video.currentTime = beginning;
+            if (end - beginning > 30 && !sourceBuffer.updating) sourceBuffer.remove(beginning, end - 30);
+          }
+          if (video.paused) video.play().catch(() => {});
         }
-        if (!response.ok) throw new Error(`media fragment returned HTTP ${response.status}`);
-        await appendMedia(sourceBuffer, await response.arrayBuffer());
-        after = Number(response.headers.get('X-Fragment-ID'));
-        if (sourceBuffer.buffered.length) {
-          const beginning = sourceBuffer.buffered.start(0);
-          const end = sourceBuffer.buffered.end(sourceBuffer.buffered.length - 1);
-          if (video.currentTime < beginning) video.currentTime = beginning;
-          if (end - beginning > 30 && !sourceBuffer.updating) sourceBuffer.remove(beginning, end - 30);
+        throw new LiveMediaRejoinError('Media Source closed unexpectedly');
+      } catch (error) {
+        if (sourceBuffer && sourceBuffer.updating) {
+          try { sourceBuffer.abort(); } catch (_) {}
         }
-        if (video.paused) video.play().catch(() => {});
+        if (mediaSource.readyState === 'open') {
+          try { mediaSource.endOfStream(); } catch (_) {}
+        }
+        video.removeAttribute('src');
+        video.load();
+        URL.revokeObjectURL(objectUrl);
+        throw error;
+      }
+    }
+    async function startLiveMedia() {
+      if (!('MediaSource' in window)) throw new LiveMediaFatalError('Media Source Extensions are unavailable');
+      let retryMilliseconds = LIVE_MEDIA_RETRY_MIN_MS;
+      while (true) {
+        try {
+          await runLiveMediaEpoch(() => {
+            retryMilliseconds = LIVE_MEDIA_RETRY_MIN_MS;
+            delete video.dataset.liveMediaRetryMs;
+          });
+          return;
+        } catch (error) {
+          if (error instanceof LiveMediaFatalError) throw error;
+          status.classList.remove('error');
+          status.textContent = `Live media interrupted; rejoining in ${retryMilliseconds} ms…`;
+          video.dataset.liveMediaRetryMs = String(retryMilliseconds);
+          await wait(retryMilliseconds);
+          retryMilliseconds = Math.min(LIVE_MEDIA_RETRY_MAX_MS, retryMilliseconds * 2);
+        }
       }
     }
     if (liveMode) {

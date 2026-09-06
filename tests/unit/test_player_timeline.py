@@ -826,7 +826,10 @@ def test_prepare_player_assets_writes_timeline_ui_and_transcode(
     assert "media/init.mp4?wait=10" in html
     assert "media/fragment?after=" in html
     assert "metadata/live?after=" in html
-    assert "live media history was exceeded" in html
+    assert "live media epoch changed" in html
+    assert "Live media interrupted; rejoining" in html
+    assert "LIVE_MEDIA_RETRY_MAX_MS = 5000" in html
+    assert "video.dataset.liveMediaEpoch" in html
     assert "render(0);" not in html
     prepared = json.loads(assets.timeline.read_text())
     assert prepared["samples"][0]["time_seconds"] == 0.5

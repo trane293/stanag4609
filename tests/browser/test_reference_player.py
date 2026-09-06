@@ -402,6 +402,31 @@ def test_live_reference_player_plays_incremental_fragmented_media(
         with playwright.sync_playwright() as runtime:
             browser = runtime.chromium.launch()
             page = browser.new_page(viewport={"width": 1280, "height": 800})
+            initialization_requests: list[str] = []
+            fragment_requests = 0
+
+            page.on(
+                "request",
+                lambda request: (
+                    initialization_requests.append(request.url)
+                    if "/media/init.mp4?" in request.url
+                    else None
+                ),
+            )
+
+            def interrupt_first_fragment(route: object) -> None:
+                nonlocal fragment_requests
+                fragment_requests += 1
+                if fragment_requests == 1:
+                    route.fulfill(  # type: ignore[attr-defined]
+                        status=409,
+                        content_type="application/json",
+                        body='{"error":"simulated prior epoch"}',
+                    )
+                    return
+                route.continue_()  # type: ignore[attr-defined]
+
+            page.route("**/media/fragment?**", interrupt_first_fragment)
             page.goto(
                 f"http://127.0.0.1:{server.server_port}/?live=1&basemap=off",
                 wait_until="domcontentloaded",
@@ -435,6 +460,10 @@ def test_live_reference_player_plays_incremental_fragmented_media(
                 "Sensor Latitude50degrees",
                 timeout=5_000,
             )
+            assert fragment_requests >= 2
+            assert len(initialization_requests) >= 2
+            assert int(video.get_attribute("data-live-media-epoch") or "0") >= 2
+            assert video.get_attribute("data-live-media-retry-ms") is None
             assert video.evaluate("video => video.error") is None
             browser.close()
     finally:
