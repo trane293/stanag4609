@@ -34,7 +34,8 @@ metadata. It needs neither private recordings nor network access at test time.
 ## Planned increments
 
 - Core KLV and lossless binary model.
-- Complete ST 1201 integer mapping and ST 0601.19 item registry.
+- Maintain the source-bound complete ST 1201.5 mapping and ST 0601.19 active
+  item registry as their invoking profiles evolve.
 - ST 0102 and other nested/structured sets referenced by ST 0601.
 - ST 0902.8 packet and stream-cadence validation.
 - MPEG-2 TS, PSI, PES, video/audio/KLV elementary-stream discovery,

@@ -5,6 +5,10 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Bind all seven active and eleven deprecated ST 1201.5 requirements to the
+  checksum-pinned publication; cover every official Appendix A vector, signed
+  quiet NaNs, strict byte-length inputs, and parent-unspecified overflow
+  resolution while retaining lossless special-value decoding.
 - Add an attributed OpenStreetMap/offline-grid mission map, ST 0601
   footprint-projected VMTI boxes, exact-versus-interpolated activity locations,
   a bounded grouped activity feed, and a pixel-binned interactive detection

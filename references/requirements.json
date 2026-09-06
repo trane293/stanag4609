@@ -481,6 +481,33 @@
       ]
     },
     {
+      "id": "MISB-ST-1201.5",
+      "source_sha256": "5d9226ca9f065baadaad173ed8c036fe0611c9bef21cf608cfcba3986495e5f3",
+      "trace": "docs/requirements/ST1201.5.md",
+      "active_requirements": [
+        "ST 1201.1-12",
+        "ST 1201.1-13",
+        "ST 1201.1-14",
+        "ST 1201.1-15",
+        "ST 1201.2-16",
+        "ST 1201.2-17",
+        "ST 1201.5-18"
+      ],
+      "inactive_requirements": [
+        {"id": "ST 1201.1-01", "status": "deprecated"},
+        {"id": "ST 1201.1-02", "status": "deprecated"},
+        {"id": "ST 1201.1-03", "status": "deprecated"},
+        {"id": "ST 1201.1-04", "status": "deprecated"},
+        {"id": "ST 1201.1-05", "status": "deprecated"},
+        {"id": "ST 1201.1-06", "status": "deprecated"},
+        {"id": "ST 1201.1-07", "status": "deprecated"},
+        {"id": "ST 1201.1-08", "status": "deprecated"},
+        {"id": "ST 1201.1-09", "status": "deprecated"},
+        {"id": "ST 1201.1-10", "status": "deprecated"},
+        {"id": "ST 1201.1-11", "status": "deprecated"}
+      ]
+    },
+    {
       "id": "MISB-ST-1206.1",
       "source_sha256": "77aa085b264afd55da1e90d7060e5eca69bc3513ba1e64daffef8a802f851ee6",
       "trace": "docs/requirements/ST1206.1.md",

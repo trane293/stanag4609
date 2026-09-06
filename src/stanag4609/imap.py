@@ -31,6 +31,18 @@ class IMAPSpecialKind(Enum):
     RESERVED = "reserved"
 
 
+class IMAPOverflowPolicy(Enum):
+    """How reverse mapping handles the two MISB range-overflow signals.
+
+    ``PRESERVE`` keeps the wire signal available to an invoking standard.
+    ``CLAMP`` applies the ST 1201 default for a parent document that does not
+    define item-specific behavior.
+    """
+
+    PRESERVE = "preserve"
+    CLAMP = "clamp"
+
+
 @dataclass(frozen=True, slots=True)
 class IMAPSpecialValue:
     """A non-numeric IMAP code word, including its original representation."""
@@ -108,6 +120,8 @@ class IMAPB:
         upper = _as_fraction(maximum, name="maximum")
         if upper <= lower:
             raise ValueError("maximum must be greater than minimum")
+        if isinstance(length, bool) or not isinstance(length, int):
+            raise TypeError("length must be an integer")
         if length <= 0:
             raise ValueError("length must be positive")
 
@@ -161,7 +175,9 @@ class IMAPB:
 
         if isinstance(value, float) and not math.isfinite(value):
             if math.isnan(value):
-                return self._special_bytes(0xD0)
+                return self._special_bytes(
+                    0xD0 if math.copysign(1.0, value) > 0 else 0xF0
+                )
             return self._special_bytes(0xC8 if value > 0 else 0xE8)
 
         inverse_candidate: bytes | None = None
@@ -195,17 +211,37 @@ class IMAPB:
         )
         return code_word.to_bytes(self.length, "big")
 
-    def decode(self, data: bytes) -> float | IMAPSpecialValue:
-        """Decode a fixed-length IMAP value, preserving all special bit patterns."""
+    def decode(
+        self,
+        data: bytes,
+        *,
+        overflow_policy: IMAPOverflowPolicy = IMAPOverflowPolicy.PRESERVE,
+    ) -> float | IMAPSpecialValue:
+        """Decode a fixed-length IMAP value.
+
+        Special values retain their exact wire representation by default so
+        the invoking standard can apply item-specific semantics. Use
+        :attr:`IMAPOverflowPolicy.CLAMP` when the parent document does not
+        define alternate behavior for the below-minimum and above-maximum
+        signals; ST 1201 then resolves them to the corresponding range bound.
+        """
 
         if len(data) != self.length:
             raise ValueError("encoded value length does not match the mapping length")
+        if not isinstance(overflow_policy, IMAPOverflowPolicy):
+            raise TypeError("overflow_policy must be an IMAPOverflowPolicy")
 
         code_word = int.from_bytes(data, "big")
         total_bits = self.length * 8
         prefix = code_word >> (total_bits - 2)
         if prefix == 0b11:
-            return IMAPSpecialValue(self._classify_special(data), data)
+            kind = self._classify_special(data)
+            if overflow_policy is IMAPOverflowPolicy.CLAMP:
+                if kind is IMAPSpecialKind.BELOW_MINIMUM:
+                    return float(self._minimum)
+                if kind is IMAPSpecialKind.ABOVE_MAXIMUM:
+                    return float(self._maximum)
+            return IMAPSpecialValue(kind, data)
         if prefix == 0b10:
             normal_maximum = 1 << (total_bits - 1)
             if code_word != normal_maximum or not self._interval_is_power_of_two:

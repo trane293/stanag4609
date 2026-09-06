@@ -31,7 +31,9 @@ and send the same timed metadata to independent GIS or analytics consumers.
 
 - BER length and BER-OID codecs, streaming Universal KLV framing, lossless Local
   Sets, and ST 0601 running-sum checksums.
-- Exact ST 1201 IMAPA/IMAPB mapping, including special and reserved code words.
+- Source-bound complete ST 1201.5 IMAPA/IMAPB mapping, including exact
+  requirement accounting, every official vector, and lossless special and
+  reserved code words.
 - A growing audited ST 0601 codec with typed common fields, mandatory-structure
   validation, canonical encoding, and lossless field updates.
 - ST 1010.3 uncertainty matrices and ST 0601 Item 102, including Mode 2

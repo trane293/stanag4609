@@ -80,7 +80,9 @@ important negative-conformance expectations.
    Every active root item is typed, and
    verifier summaries quantify which packets received birth-time,
    IMAP-precision, VMTI frame, and exact/tolerance-aware field ground-truth
-   context; retain lossless unknown-item behavior for future extensions.
+   context; retain lossless unknown-item behavior for future extensions. The
+   shared ST 1201.5 IMAP dependency now has checksum-bound exact requirement
+   accounting and complete official-vector coverage.
 3. Expand ST 0903.6 beyond the implemented VMTI/VTarget/VTracker/VMask/VChip,
    ontology, algorithm, and geospatial slices with independent real-stream
    vectors. All 65 active and 78 deprecated identifiers now have

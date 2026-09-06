@@ -22,7 +22,13 @@ from stanag4609.geojson import (
     iter_geojson_feature_collections,
     snapshot_geojson_features,
 )
-from stanag4609.imap import IMAPB, IMAPSpecialKind, IMAPSpecialValue, imapa_length
+from stanag4609.imap import (
+    IMAPB,
+    IMAPOverflowPolicy,
+    IMAPSpecialKind,
+    IMAPSpecialValue,
+    imapa_length,
+)
 from stanag4609.klv.key import (
     SMPTE_UL_LENGTH,
     SMPTE_UL_PREFIX,
@@ -713,6 +719,7 @@ __all__ = [
     "HTTPJSONResponseDecoder",
     "HeterogeneousIMAPArray",
     "IMAPFieldValue",
+    "IMAPOverflowPolicy",
     "IMAPSpecialKind",
     "IMAPSpecialValue",
     "IcingDetected",
