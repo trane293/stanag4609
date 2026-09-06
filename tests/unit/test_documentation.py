@@ -55,6 +55,31 @@ def test_docs_extra_installs_the_api_generator() -> None:
     assert '"mkdocstrings[python]>=1.0,<2"' in project
 
 
+def test_architecture_guide_maps_real_modules_and_renderable_diagrams() -> None:
+    guide = (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    navigation = (ROOT / "mkdocs.yml").read_text(encoding="utf-8")
+
+    assert "System architecture: ARCHITECTURE.md" in navigation
+    assert guide.count("```mermaid") == 5
+    for module in (
+        "transport.demux",
+        "transport.mux",
+        "transport.transformer",
+        "transport.udp",
+        "sidecar.pipeline",
+        "sidecar.vmti",
+        "player.live",
+        "player.udp_output",
+    ):
+        assert module in guide
+    initializer = (ROOT / "docs" / "javascripts" / "mermaid.mjs").read_text(
+        encoding="utf-8"
+    )
+    assert "mermaid@11.4.1/+esm" in initializer
+    assert "initialize({ startOnLoad: false })" in initializer
+    assert "await mermaid.render(" in initializer
+
+
 def test_landing_pages_publish_the_same_three_state_standards_matrix() -> None:
     def support_rows(path: Path) -> tuple[str, ...]:
         contents = path.read_text(encoding="utf-8")

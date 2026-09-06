@@ -5,6 +5,10 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Add a module-level architecture guide with end-to-end transport, live
+  transformation, AI sidecar, player, verification, timing, and backpressure
+  diagrams plus entry-point guidance.
+
 ## 0.3.0 - 2026-09-05
 
 - Add recorded, simulated-live, and synthetic day/thermal player demos;

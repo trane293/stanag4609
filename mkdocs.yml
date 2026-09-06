@@ -6,6 +6,10 @@ repo_url: https://github.com/trane293/stanag4609
 edit_uri: edit/main/docs/
 copyright: Copyright &copy; stanag4609 contributors — MIT licensed
 
+extra_javascript:
+  - path: javascripts/mermaid.mjs
+    type: module
+
 theme:
   name: material
   features:
@@ -67,7 +71,11 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
 
@@ -149,6 +157,7 @@ nav:
           - ST 1602.2 Composite Imaging: requirements/ST1602.2.md
           - ST 1607.2 Metadata Substreams: requirements/ST1607.2.md
   - Architecture:
+      - System architecture: ARCHITECTURE.md
       - Core boundary: adr/0001-core-boundary.md
       - Live transform pipeline: adr/0002-live-transform-pipeline.md
   - Contribute:

@@ -7,10 +7,11 @@ Accepted.
 The timed-KLV event, bounded processor-decision layer, and program-selecting
 pull-driven demux/process/remux orchestrator are implemented. Multi-program
 inputs are deterministically reduced to a selected single-program output, with
-safe PMT-PID reassociation. PCR/bitrate scheduling, PCR-to-UTC mapping,
-durable output sinks, and optional frame/inference adapters remain incremental
-work under this decision. Per-program PTS rollover handling and bounded
-synchronous frame/KLV relevance correlation are implemented.
+safe PMT-PID reassociation. PCR/bitrate scheduling and restamping, PCR-to-UTC
+mapping, optional frame/inference adapters, per-program PTS rollover handling,
+and bounded synchronous frame/KLV relevance correlation are implemented.
+Durable output sinks and deployment-specific session protocols remain
+application boundaries under this decision.
 
 ## Context
 
