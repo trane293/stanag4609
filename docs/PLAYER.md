@@ -56,6 +56,13 @@ Transient network and server failures use exponential retries capped at five
 seconds. Unsupported media types and explicit transcoder failures remain
 terminal and visible rather than creating an endless retry loop.
 
+Media and metadata histories are broadcast rather than consumed queues. The CI
+contract publishes both streams while eight HTTP viewers read concurrently and
+requires every viewer to receive identical ordered IDs and payloads through
+clean end-of-stream. This proves bounded functional fan-out, not a capacity
+claim for the standard-library reference server. Measure and provision the
+authenticated front end separately for a production viewer count.
+
 Single-program TS is selected automatically. For MPTS, pass
 `--program-number N`; the same program selector is applied to FFmpeg video/audio
 mapping and the Python metadata demuxer. Ambiguous MPTS is rejected rather than

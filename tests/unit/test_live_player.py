@@ -5,7 +5,7 @@ from functools import partial
 from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
 from pathlib import Path
-from threading import Event, Thread
+from threading import Barrier, BrokenBarrierError, Event, Lock, Thread
 from types import SimpleNamespace
 
 import pytest
@@ -461,3 +461,112 @@ def test_live_player_http_reports_fragment_history_gap_and_bad_queries(
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_live_player_http_fans_out_identical_media_and_metadata_concurrently(
+    tmp_path: Path,
+) -> None:
+    viewer_count = 8
+    item_count = 16
+    initialization = _box(b"ftyp", b"isom") + _box(b"moov", b"avc1")
+    media = FragmentedMP4Buffer(max_fragments=item_count)
+    media.feed(initialization)
+    metadata = BoundedBroadcast[MetadataSample](max_items=item_count)
+    handler = partial(
+        PlayerHTTPRequestHandler,
+        directory=str(tmp_path),
+        live_media=media,
+        live_metadata=metadata,
+    )
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server_thread = Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    ready = Barrier(viewer_count + 1)
+    error_lock = Lock()
+    errors: list[BaseException] = []
+    results: list[tuple[tuple[bytes, ...], bytes] | None] = [None] * viewer_count
+    publication_finished = False
+
+    def request(path: str) -> tuple[int, dict[str, str], bytes]:
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+        connection.request("GET", path)
+        response = connection.getresponse()
+        body = response.read()
+        headers = {name: value for name, value in response.getheaders()}
+        status = response.status
+        connection.close()
+        return status, headers, body
+
+    def consume(viewer: int) -> None:
+        try:
+            status, _headers, body = request("/media/init.mp4?wait=2")
+            assert status == 200
+            assert body == initialization
+            ready.wait(timeout=5)
+
+            fragments: list[bytes] = []
+            after = -1
+            while True:
+                status, headers, body = request(
+                    f"/media/fragment?after={after}&wait=2"
+                )
+                if status == 204:
+                    assert headers.get("X-Stream-End") == "true"
+                    break
+                assert status == 200
+                after = int(headers["X-Fragment-ID"])
+                fragments.append(body)
+
+            status, _headers, events = request("/metadata/live?after=-1")
+            assert status == 200
+            results[viewer] = (tuple(fragments), events)
+        except BaseException as error:
+            with error_lock:
+                errors.append(error)
+            ready.abort()
+
+    viewers = [
+        Thread(target=consume, args=(viewer,), name=f"viewer-{viewer}")
+        for viewer in range(viewer_count)
+    ]
+    for viewer in viewers:
+        viewer.start()
+    try:
+        ready.wait(timeout=5)
+        expected_fragments = tuple(
+            _box(b"moof", index.to_bytes(4, "big"))
+            + _box(b"mdat", f"frame-{index}".encode("ascii"))
+            for index in range(item_count)
+        )
+        for index, fragment in enumerate(expected_fragments):
+            media.feed(fragment)
+            metadata.publish(MetadataSample(float(index), index * 90_000, 1, 258, {}))
+        media.finish()
+        metadata.close()
+        publication_finished = True
+        for viewer in viewers:
+            viewer.join(timeout=10)
+
+        assert not errors
+        assert all(not viewer.is_alive() for viewer in viewers)
+        for result in results:
+            assert result is not None
+            fragments, events = result
+            assert fragments == expected_fragments
+            assert events.count(b"event: sample\n") == item_count
+            assert events.count(b"event: reset\n") == 0
+            assert b"event: sample\nid: 0\n" in events
+            assert f"event: sample\nid: {item_count - 1}\n".encode() in events
+            assert events.endswith(b'event: end\ndata: {"live":true}\n\n')
+    except BrokenBarrierError:
+        pytest.fail(f"a viewer failed before publication: {errors!r}")
+    finally:
+        if not media.closed:
+            media.close(error="test ended")
+        if not publication_finished:
+            metadata.close(error="test ended")
+        server.shutdown()
+        server.server_close()
+        server_thread.join(timeout=2)
+        for viewer in viewers:
+            viewer.join(timeout=2)

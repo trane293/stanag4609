@@ -404,6 +404,7 @@ def test_live_reference_player_plays_incremental_fragmented_media(
             page = browser.new_page(viewport={"width": 1280, "height": 800})
             initialization_requests: list[str] = []
             fragment_requests = 0
+            forced_rejoins = 3
 
             page.on(
                 "request",
@@ -417,7 +418,7 @@ def test_live_reference_player_plays_incremental_fragmented_media(
             def interrupt_first_fragment(route: object) -> None:
                 nonlocal fragment_requests
                 fragment_requests += 1
-                if fragment_requests == 1:
+                if fragment_requests <= forced_rejoins:
                     route.fulfill(  # type: ignore[attr-defined]
                         status=409,
                         content_type="application/json",
@@ -460,9 +461,11 @@ def test_live_reference_player_plays_incremental_fragmented_media(
                 "Sensor Latitude50degrees",
                 timeout=5_000,
             )
-            assert fragment_requests >= 2
-            assert len(initialization_requests) >= 2
-            assert int(video.get_attribute("data-live-media-epoch") or "0") >= 2
+            assert fragment_requests >= forced_rejoins + 1
+            assert len(initialization_requests) >= forced_rejoins + 1
+            assert int(video.get_attribute("data-live-media-epoch") or "0") >= (
+                forced_rejoins + 1
+            )
             assert video.get_attribute("data-live-media-retry-ms") is None
             assert video.evaluate("video => video.error") is None
             browser.close()

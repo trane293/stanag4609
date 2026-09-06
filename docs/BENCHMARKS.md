@@ -61,6 +61,13 @@ results establish bounded finite-file headroom on this machine. They do not yet
 establish multi-day stability, network-loss behavior, viewer concurrency, or a
 universal hardware performance guarantee.
 
+CI separately exercises eight simultaneous HTTP viewers while 16 media
+fragments and 16 metadata samples are published. Every viewer must receive the
+same ordered stream and clean closure. Chromium also survives three consecutive
+forced media-epoch conflicts by disposing and recreating its MediaSource. These
+are deterministic correctness checks; they are not throughput or maximum-client
+benchmarks.
+
 ## Interpreting a deployment run
 
 A useful acceptance run should record:

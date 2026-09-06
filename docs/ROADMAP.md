@@ -124,11 +124,14 @@ important negative-conformance expectations.
   programs to remain in the same output transport.
 - Extend the measured low-latency fragmented-MP4/MSE reference gateway from
   complete 148–371-second real-FMV runs to multi-hour paced input, repeated
-  reconnect epochs, and concurrent viewers. The first-party JSON benchmark now
+  full-process reconnect epochs, and production-scale concurrent viewers. The
+  first-party JSON benchmark now
   proves bounded late-join histories and 8.44–17.68× finite-file headroom on
   three pinned fixtures; prior-epoch SSE cursors reset into retained metadata
   immediately, while the Chromium-proven client rebuilds its MediaSource after
-  prior-epoch media cursors fail without long-polling.
+  prior-epoch media cursors fail without long-polling. Eight simultaneous HTTP
+  viewers and three consecutive browser media rejoins are deterministic CI
+  gates; larger and sustained fan-out remains deployment evidence.
   Sub-second targets, multi-viewer fan-out, adaptive
   bitrate, and WebRTC/HLS remain production deployment profiles.
 - Extend the published live-player performance and memory method to sustained

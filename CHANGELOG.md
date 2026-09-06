@@ -9,6 +9,9 @@ the pre-1.0 minor version and package classifier communicate API maturity.
   from a prior server epoch, reject future media-fragment cursors without a
   pointless long poll, and make the browser automatically build a fresh
   MediaSource and rejoin with capped exponential backoff.
+- Prove live broadcast isolation with eight concurrent HTTP viewers consuming
+  identical numbered media and metadata during publication, plus three
+  consecutive Chromium media-epoch rejoins.
 - Extend ST 0601 producer-ground-truth validation to all occurrences of
   multi-use root tags with immutable, order-independent, tolerance-aware
   matching and occurrence-accurate verifier assurance counts.
