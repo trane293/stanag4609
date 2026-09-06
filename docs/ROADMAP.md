@@ -163,9 +163,11 @@ important negative-conformance expectations.
 - Seek authoritative profile evidence before assigning any failure to the sole
   unasserted ImpleoTV PCR/PTS-drift member. Its observed H.264 timing remains
   within ST 1402 §7.4, so a corpus filename is not a conformance requirement.
-- Test optional Ultralytics, ONNX Runtime, Triton, and GStreamer examples in
-  dedicated dependency jobs. PyAV now has a dedicated audio/video adapter job,
-  all-ST-1001-codec decode coverage, and real AAC FMV acceptance coverage.
+- Test optional Ultralytics, Triton, and GStreamer examples in dedicated
+  dependency jobs. PyAV already has a dedicated audio/video adapter job,
+  all-ST-1001-codec decode coverage, and real AAC FMV acceptance coverage. ONNX
+  Runtime now has a dependency-installed job that builds a real graph, creates
+  a CPU `InferenceSession`, and executes it through the first-party adapter.
 - Add verified, version-specific interoperability results for Esri and other FMV
   consumers instead of predicting compatibility.
 - Expand the first real UI/CLI tutorial captures with upgrade guides, benchmark
