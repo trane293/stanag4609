@@ -4,6 +4,36 @@ This page records the work that remains after the `0.3.0` release.
 It separates verified capability from future scope so another developer or agent
 can resume without reconstructing project history.
 
+## Paused handoff
+
+Development was intentionally paused after commit `bc3f722` while the project
+seeks user traction and representative integration partners. That commit adds
+bounded RFC 4566 SDP descriptions for the implemented ST 0804 MPEG-2
+Transport Stream over RTP profile. The worktree and `origin/main` were clean and
+synchronized at the pause point.
+
+The next standards investigation was MISB ST 2101, *Core Identifier for Class 1
+and Class 2 Motion Imagery*. Current MISP requirements use it to correlate an
+identifier embedded in compressed imagery with the corresponding metadata Core
+Identifier already represented by the library's ST 1204 support. Before writing
+implementation code:
+
+1. Obtain and record an authoritative ST 2101 edition in the standards manifest.
+2. Confirm its applicability to contemporary Class 1 H.262, AVC, and HEVC
+   workflows and distinguish it from the STANAG 4609 Edition 5 / MISP-2019.1
+   baseline where necessary.
+3. Extract a checksum-bound requirement inventory and official vectors or build
+   independently reviewable vectors directly from the normative text.
+4. Start with failing tests for exact read/write, placement, malformed input,
+   bounded incremental parsing, and video-to-ST 1204 metadata correlation.
+5. Implement only the evidence-backed profile and label it as a current-MISP
+   extension until the conformance evidence supports a stronger claim.
+
+ST 2101 is a candidate, not a commitment. Apply the practical stopping rule in
+the repository `AGENTS.md`: if authoritative text, credible demand, or adequate
+test evidence is unavailable, leave the boundary documented and select the next
+traced contemporary interoperability gap instead.
+
 The [objective completion audit](COMPLETION_AUDIT.md) maps the original release
 goal to current evidence. The narrowed library-readiness scope is complete; the
 [production-readiness audit](PRODUCTION_READINESS.md) states the exact verdict
