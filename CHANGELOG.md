@@ -5,6 +5,10 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Bind all 15 active and 11 deprecated ST 0604.6 requirements to the
+  checksum-pinned publication, retaining timestamp-source truth and the
+  optional Commercial Time Stamp profile as explicit non-claims.
+
 - Refresh real-fixture verifier and player tutorial output, replace stale UI
   captures with the current map/activity/timeline interface, and remove former
   alpha-era wording from active documentation.

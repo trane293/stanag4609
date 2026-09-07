@@ -162,6 +162,41 @@
       "inactive_requirements": []
     },
     {
+      "id": "MISB-ST-0604.6",
+      "source_sha256": "429e49facb7a65fcb7c1ba550a570162e5c485850d62dfc0defeca5fd85b5e40",
+      "trace": "docs/requirements/ST0604.6.md",
+      "active_requirements": [
+        "ST 0604.5-16",
+        "ST 0604.6-20",
+        "ST 0604.6-21",
+        "ST 0604.5-17",
+        "ST 0604.5-18",
+        "ST 0604.5-19",
+        "ST 0604.3-09",
+        "ST 0604.4-10",
+        "ST 0604.4-12",
+        "ST 0604.3-11",
+        "ST 0604.6-22",
+        "ST 0604.6-23",
+        "ST 0604.6-24",
+        "ST 0604.6-25",
+        "ST 0604.4-15"
+      ],
+      "inactive_requirements": [
+        {"id": "ST 0604.3-01", "status": "deprecated"},
+        {"id": "ST 0604.3-02", "status": "deprecated"},
+        {"id": "ST 0604.3-03", "status": "deprecated"},
+        {"id": "ST 0604.3-04", "status": "deprecated"},
+        {"id": "ST 0604.3-05", "status": "deprecated"},
+        {"id": "ST 0604.3-06", "status": "deprecated"},
+        {"id": "ST 0604.3-07", "status": "deprecated"},
+        {"id": "ST 0604.3-08", "status": "deprecated"},
+        {"id": "ST 0604.3-10", "status": "deprecated"},
+        {"id": "ST 0604.4-13", "status": "deprecated"},
+        {"id": "ST 0604.4-14", "status": "deprecated"}
+      ]
+    },
+    {
       "id": "MISB-ST-0806.4",
       "source_sha256": "58de4265d377d88b922df111aab49e52209fe4a4d54870aba53b310ad6e01037",
       "trace": "docs/requirements/ST0806.4.md",

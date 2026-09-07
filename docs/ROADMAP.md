@@ -30,7 +30,9 @@ important negative-conformance expectations.
 ## Highest-priority protocol work
 
 1. Complete MISP-2019.1 software-verifiable image-profile checks. Embedded
-   ST 0604 timestamps are now parsed and count-audited for H.262/AVC/HEVC;
+   ST 0604 timestamps are now parsed and count-audited for H.262/AVC/HEVC,
+   with checksum-bound exact accounting for all 15 active and 11 deprecated
+   ST 0604.6 requirements;
    every declared video stream is checked against the three approved Class 1
    codec families while non-profile stream types remain losslessly preservable;
    H.262/AVC/HEVC dimensions, display/timing fields, scan signalling, and codec
