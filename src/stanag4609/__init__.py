@@ -201,6 +201,10 @@ from stanag4609.st0601_state import (
     WeaponsStoresSnapshot,
     WeaponsStoresState,
 )
+from stanag4609.st0603 import (
+    nano_precision_to_precision_timestamp,
+    precision_to_nano_precision_timestamp,
+)
 from stanag4609.st0604 import (
     MISP_HEVC_MICROSECOND_UUID,
     MISP_HEVC_NANOSECOND_UUID,
@@ -1084,6 +1088,7 @@ __all__ = [
     "miis_text_check_value",
     "misp_timestamp_to_utc",
     "multiplex_esri_fmv",
+    "nano_precision_to_precision_timestamp",
     "packetize_pes_with_layout",
     "parse_aac_adts_header",
     "parse_miis_core_identifier",
@@ -1096,6 +1101,7 @@ __all__ = [
     "parse_transport_packet",
     "parse_universal_label",
     "pcr_from_ticks",
+    "precision_to_nano_precision_timestamp",
     "rebuild_transport_packet",
     "resolve_preferred_uas_field",
     "resolve_target_elevation",

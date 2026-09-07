@@ -26,7 +26,7 @@ or geospatial truth, and it is not third-party certification.
 | Status | Standards and profiles |
 | --- | --- |
 | **Complete software-verifiable profile** | MISB ST 0102.12 Security; ST 0107.5 KLV baseline; ST 0806.4 RVT; ST 0902.8 Minimum Metadata; ST 1002.3 Range Imagery; ST 1010.3 SDCC-FLP; ST 1201.5 IMAP; ST 1204.3 MIIS Core IDs; ST 1206.1 SAR; ST 1303.2 MDAP; ST 1402.2 MPEG-TS metadata carriage; ST 1601.2 Geo-Registration; ST 1602.2 Composite Imaging; ST 1607.2 Segment/Amend |
-| **Substantial, intentionally partial** | NATO STANAG 4609 Ed. 5 / MISP-2019.1 overall profile; MISB ST 0601.19 (every active root item is typed, but remaining producer-truth semantics prevent a whole-standard claim); ST 0604.6 embedded timestamps; ST 0804.4 RTP/RTCP transport; ST 0903.6 VMTI, tracks, masks, chips, and AI vocabulary; ST 1001.1 common audio; ST 1202.3 image transformations; SMPTE ST 336:2017 KLV subset; SMPTE RP 217:2001 TS branch; common H.222.0/H.262/AVC/HEVC profiles |
+| **Substantial, intentionally partial** | NATO STANAG 4609 Ed. 5 / MISP-2019.1 overall profile; MISB ST 0601.19 (every active root item is typed, but remaining producer-truth semantics prevent a whole-standard claim); ST 0603.5 MISP time; ST 0604.6 embedded timestamps; ST 0804.4 RTP/RTCP transport; ST 0903.6 VMTI, tracks, masks, chips, and AI vocabulary; ST 1001.1 common audio; ST 1202.3 image transformations; SMPTE ST 336:2017 KLV subset; SMPTE RP 217:2001 TS branch; common H.222.0/H.262/AVC/HEVC profiles |
 | **Future or separate profiles** | MISB ST 0801 / ST 1107 photogrammetry; native elementary-stream RTP and RTSP; complete MXF/SDI profiles; native GStreamer element; whole-MPTS rewriting; additional uncommon codecs |
 
 See the [requirement-level conformance matrix](https://stanag4609.readthedocs.io/en/latest/CONFORMANCE/),
@@ -122,9 +122,10 @@ for the exact boundary behind each label.
 - Exact 27 MHz PCR/OPCR decoding and program-aware clock events. Unchanged
   media PES retain their source adaptation-field and PCR layout during remux;
   a per-program validator audits the ST 1402 100 ms PCR interval and rollover.
-- ST 0604 embedded Absolute Time read/write for H.262 user data and AVC/HEVC
-  unregistered SEI, including microsecond/nanosecond identifiers, ST 0603 clock
-  status, bounded incremental extraction, and verifier frame-count deficits.
+- ST 0603 exact integer conversion between microsecond and nanosecond MISP
+  timestamp representations, plus ST 0604 embedded Absolute Time read/write
+  for H.262 user data and AVC/HEVC unregistered SEI, including timestamp
+  identifiers, clock status, bounded extraction, and verifier frame deficits.
 - Dependency-free H.262, AVC, and HEVC sequence inspection for dimensions,
   display ratio/frame rate, progressive/interlaced signalling, chroma/bit
   depth, and MISP codec profile/level diagnostics, including HEVC VUI.

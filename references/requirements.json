@@ -162,6 +162,24 @@
       "inactive_requirements": []
     },
     {
+      "id": "MISB-ST-0603.5",
+      "source_sha256": "e83fa525c2ae7f7e93f63d730da522a1d51b052bd73a338a3148a14011ed53d0",
+      "trace": "docs/requirements/ST0603.5.md",
+      "active_requirements": [
+        "ST 0603.4-08",
+        "ST 0603.5-09",
+        "ST 0603.2-07"
+      ],
+      "inactive_requirements": [
+        {"id": "ST 0603.2-01", "status": "deprecated"},
+        {"id": "ST 0603.2-02", "status": "deprecated"},
+        {"id": "ST 0603.2-03", "status": "deprecated"},
+        {"id": "ST 0603.2-04", "status": "deprecated"},
+        {"id": "ST 0603.2-05", "status": "deprecated"},
+        {"id": "ST 0603.2-06", "status": "deprecated"}
+      ]
+    },
+    {
       "id": "MISB-ST-0604.6",
       "source_sha256": "429e49facb7a65fcb7c1ba550a570162e5c485850d62dfc0defeca5fd85b5e40",
       "trace": "docs/requirements/ST0604.6.md",

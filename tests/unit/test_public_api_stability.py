@@ -8,7 +8,7 @@ import importlib
 import pytest
 
 PUBLIC_API_BASELINE = {
-    "stanag4609": (521, "b9434e5795e9f8dbdc6705c525137505f0e79131395572d4df9c192ecb757096"),
+    "stanag4609": (523, "88116375a5cdd55cd2fcb2fff0d2d0e035cfb676da7a910c258ae1597afbf71a"),
     "stanag4609.audio": (
         3,
         "ced310ee79e54be8083985e96966cc082836ddf133725b164a9ded05f69212fd",
@@ -44,4 +44,3 @@ def test_public_api_matches_reviewed_baseline(module_name: str) -> None:
     payload = ("\n".join(sorted(names)) + "\n").encode()
     actual = (len(names), hashlib.sha256(payload).hexdigest())
     assert actual == PUBLIC_API_BASELINE[module_name]
-

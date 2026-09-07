@@ -142,6 +142,7 @@ nav:
           - ST 0102.12 Security: requirements/ST0102.12.md
           - ST 0107.5 Report-on-Change: requirements/ST0107.5.md
           - ST 0601.19 UAS Local Set: requirements/ST0601.19.md
+          - ST 0603.5 MISP Time: requirements/ST0603.5.md
           - ST 0604.6 Video Timestamps: requirements/ST0604.6.md
           - ST 0804.4 RTP: requirements/ST0804.4.md
           - ST 0806.4 RVT Local Set: requirements/ST0806.4.md

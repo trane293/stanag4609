@@ -5,6 +5,10 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Add exact ST 0603.5 integer conversion between Nano Precision and Precision
+  Time Stamp representations, including official vectors, half-up rounding,
+  unsigned bounds, and checksum-bound requirement accounting.
+
 - Bind all 15 active and 11 deprecated ST 0604.6 requirements to the
   checksum-pinned publication, retaining timestamp-source truth and the
   optional Commercial Time Stamp profile as explicit non-claims.
