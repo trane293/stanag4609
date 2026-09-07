@@ -24,10 +24,13 @@ SEI message framing, and emulation prevention. Inserting the returned unit at
 the codec-correct point for a particular frame remains the encoder/muxer's
 responsibility.
 
-`stanag4609-verify` inventories embedded timestamp resolution and lock status.
-It reports an error when valid ST 0604 messages are fewer than recognized
-video access units. PES PTS and ST 0601 Item 2 do not satisfy this separate
-video requirement.
+`stanag4609-verify` inventories embedded timestamp resolution, lock status,
+and declared clock discontinuities. It reports an error when valid ST 0604
+messages are fewer than recognized video access units, or when consecutive
+Absolute Time values repeat or move backwards without a reverse discontinuity
+in the ST 0603 Time Status. An MPEG-TS discontinuity starts a new comparison
+epoch. PES PTS and ST 0601 Item 2 do not satisfy this separate video
+requirement.
 
 ST 0601 Item 2 is a sampled, microsecond-resolution coordinate on the
 continuous MISP Time System. It is not a POSIX or UTC timestamp. Treating its

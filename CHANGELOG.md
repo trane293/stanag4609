@@ -5,6 +5,11 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Validate embedded ST 0603 Absolute Time chronology across ST 0604 video
+  access units, report declared forward/reverse clock discontinuities, reject
+  repeated or unannounced reverse values, and reset comparison at MPEG-TS
+  discontinuity boundaries.
+
 - Correct the ST 0607.5 provenance record: the acquired publication governs
   the MISB KLV Metadata Registry and its processes, not transport-stream
   compliance, and is intentionally outside the runtime support matrix.

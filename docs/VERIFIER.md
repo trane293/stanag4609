@@ -21,7 +21,8 @@ The text report contains:
 
 - an overall pass/fail result and input statistics;
 - program and elementary-stream inventory with PID, type, carriage, codec,
-  PES counts, payload sizes, and timestamp coverage;
+  PES counts, payload sizes, timestamp coverage, embedded Absolute Time order,
+  and declared clock discontinuities;
 - per-service ST 0601 tag inventory with names, packet/occurrence counts,
   zero-length items, decode issues, versions, the exact MISP Item 2 coordinate
   span, derived UTC span when Items 136/137 make conversion possible, maximum

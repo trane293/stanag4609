@@ -57,7 +57,12 @@ from stanag4609.st0601 import (
     encode_uas_local_set,
     update_uas_local_set,
 )
-from stanag4609.st0604 import encode_avc_timestamp_sei
+from stanag4609.st0604 import (
+    TimestampResolution,
+    encode_avc_timestamp_sei,
+    encode_hevc_timestamp_sei,
+    encode_time_status,
+)
 from stanag4609.st0903 import (
     DetectionStatus,
     OntologyEntityResolution,
@@ -648,6 +653,133 @@ def test_verifier_reports_embedded_st0604_timestamp_coverage() -> None:
         and finding.status is VerificationStatus.PASS
         for finding in report.findings
     )
+
+
+@pytest.mark.parametrize("second", [1_699_999_999_999_999, 1_700_000_000_000_000])
+def test_verifier_rejects_unannounced_nonincreasing_video_absolute_time(
+    second: int,
+) -> None:
+    first = 1_700_000_000_000_000
+    payload = b"".join(
+        (
+            encode_avc_timestamp_sei(first),
+            b"\x00\x00\x01\x65\x80frame-1",
+            encode_avc_timestamp_sei(second),
+            b"\x00\x00\x01\x41\x80frame-2",
+            b"\x00\x00\x01\x0b",
+        )
+    )
+
+    report = _verify(_transport(video_payload=payload))
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_timestamps is not None
+    assert video.video_timestamps.timestamp_order_violations == 1
+    finding = next(
+        item for item in report.errors if item.code == "st0603.timestamp.order"
+    )
+    assert finding.requirement == "MISB ST 0603.5 §6"
+
+
+def test_verifier_accepts_and_reports_signalled_reverse_time_discontinuity() -> None:
+    first = 1_700_000_000_000_000
+    reverse_status = encode_time_status(discontinuity=True, reverse=True)
+    payload = b"".join(
+        (
+            encode_avc_timestamp_sei(first),
+            b"\x00\x00\x01\x65\x80frame-1",
+            encode_avc_timestamp_sei(first - 1, time_status=reverse_status),
+            b"\x00\x00\x01\x41\x80frame-2",
+            b"\x00\x00\x01\x0b",
+        )
+    )
+
+    report = _verify(_transport(video_payload=payload))
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_timestamps is not None
+    assert video.video_timestamps.timestamp_order_violations == 0
+    assert not [item for item in report.errors if item.code == "st0603.timestamp.order"]
+    finding = next(
+        item
+        for item in report.warnings
+        if item.code == "st0603.timestamp.discontinuity"
+    )
+    assert "reverse" in finding.message
+
+
+def test_verifier_compares_mixed_microsecond_and_nanosecond_timestamps() -> None:
+    first_microseconds = 1_700_000_000_000_000
+    payload = b"".join(
+        (
+            encode_hevc_timestamp_sei(first_microseconds),
+            b"\x00\x00\x01\x02\x01\x80frame-1",
+            encode_hevc_timestamp_sei(
+                first_microseconds * 1_000 + 1,
+                resolution=TimestampResolution.NANOSECONDS,
+            ),
+            b"\x00\x00\x01\x02\x01\x80frame-2",
+            b"\x00\x00\x01\x46\x01",
+        )
+    )
+
+    report = _verify(_transport(video_stream_type=0x24, video_payload=payload))
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_timestamps is not None
+    assert video.video_timestamps.microsecond_timestamps == 1
+    assert video.video_timestamps.nanosecond_timestamps == 1
+    assert video.video_timestamps.timestamp_order_violations == 0
+
+
+def test_transport_discontinuity_starts_a_new_video_timestamp_order_epoch() -> None:
+    first = 1_700_000_000_000_000
+    muxer = TransportMuxer(
+        transport_stream_id=1,
+        program_number=1,
+        program_map_pid=0x100,
+        pcr_pid=0x101,
+        streams=(
+            ElementaryStreamInfo(0x1B, 0x101, ()),
+            synchronous_klv_stream(
+                0x102,
+                metadata_input_leak_rate=1_000,
+                metadata_buffer_size=200_000,
+            ),
+        ),
+    )
+    output = bytearray(b"".join(muxer.program_tables()))
+    output.extend(muxer.mux_pcr(ProgramClockReference(0, 0)))
+    for index, timestamp in enumerate((first, first - 1)):
+        payload = (
+            encode_avc_timestamp_sei(timestamp)
+            + b"\x00\x00\x01\x65\x80frame"
+            + b"\x00\x00\x01\x09"
+        )
+        output.extend(
+            b"".join(
+                muxer.mux_pes(
+                    0x101,
+                    encode_pes_packet(payload, stream_id=0xE0, pts=index * 9_000),
+                )
+            )
+        )
+        if index == 0:
+            output.extend(
+                muxer.mux_pcr(
+                    ProgramClockReference(4_500, 0),
+                    discontinuity=True,
+                )
+            )
+    output.extend(b"".join(muxer.mux_sync_klv(0x102, _complete_uas(), pts=9_000)))
+    output.extend(muxer.mux_pcr(ProgramClockReference(9_000, 0)))
+
+    report = _verify(bytes(output))
+    video = next(stream for stream in report.streams if stream.kind == "video")
+
+    assert video.video_timestamps is not None
+    assert video.video_timestamps.timestamp_order_violations == 0
+    assert not [item for item in report.errors if item.code == "st0603.timestamp.order"]
 
 
 def test_verifier_validates_caller_supplied_misp_image_source_context() -> None:

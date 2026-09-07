@@ -198,6 +198,8 @@ class VideoTimestampVerificationSummary:
     missing_access_units: int = 0
     duplicate_timestamp_access_units: int = 0
     unassociated_timestamps: int = 0
+    reverse_discontinuities: int = 0
+    timestamp_order_violations: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -215,6 +217,8 @@ class VideoTimestampVerificationSummary:
             "last_nanoseconds": self.last_nanoseconds,
             "unlocked_timestamps": self.unlocked_timestamps,
             "discontinuities": self.discontinuities,
+            "reverse_discontinuities": self.reverse_discontinuities,
+            "timestamp_order_violations": self.timestamp_order_violations,
             "parsing_errors": self.parsing_errors,
         }
 
@@ -714,7 +718,10 @@ class _VideoTimestampStats:
     last_nanoseconds: int | None = None
     unlocked_timestamps: int = 0
     discontinuities: int = 0
+    reverse_discontinuities: int = 0
+    timestamp_order_violations: int = 0
     parsing_errors: int = 0
+    previous_timestamp_nanoseconds: int | None = None
 
     def __post_init__(self) -> None:
         self.parser = VideoTimestampedAccessUnitParser(self.stream_type)
@@ -740,6 +747,24 @@ class _VideoTimestampStats:
                 self.unlocked_timestamps += 1
             if timestamp.time_status.discontinuity:
                 self.discontinuities += 1
+                if timestamp.time_status.reverse:
+                    self.reverse_discontinuities += 1
+            normalized = (
+                timestamp.value * 1_000
+                if timestamp.resolution is TimestampResolution.MICROSECONDS
+                else timestamp.value
+            )
+            if (
+                self.previous_timestamp_nanoseconds is not None
+                and normalized <= self.previous_timestamp_nanoseconds
+                and not (
+                    normalized < self.previous_timestamp_nanoseconds
+                    and timestamp.time_status.discontinuity
+                    and timestamp.time_status.reverse
+                )
+            ):
+                self.timestamp_order_violations += 1
+            self.previous_timestamp_nanoseconds = normalized
 
     def observe(self, access_units: Sequence[TimestampedVideoAccessUnit]) -> None:
         for access_unit in access_units:
@@ -762,6 +787,7 @@ class _VideoTimestampStats:
             self.parsing_errors += 1
         self.closed_access_units += self.parser.access_units
         self.parser = VideoTimestampedAccessUnitParser(self.stream_type)
+        self.previous_timestamp_nanoseconds = None
 
     def summary(self) -> VideoTimestampVerificationSummary:
         return VideoTimestampVerificationSummary(
@@ -775,6 +801,8 @@ class _VideoTimestampStats:
             last_nanoseconds=self.last_nanoseconds,
             unlocked_timestamps=self.unlocked_timestamps,
             discontinuities=self.discontinuities,
+            reverse_discontinuities=self.reverse_discontinuities,
+            timestamp_order_violations=self.timestamp_order_violations,
             parsing_errors=self.parsing_errors,
             timestamped_access_units=self.timestamped_access_units,
             missing_access_units=self.access_units - self.timestamped_access_units,
@@ -1590,6 +1618,12 @@ class FMVVerifier:
                 if event.discontinuity:
                     self._pts.reset(program_number=event.program_number)
                     self._first_video_pts.reset(program_number=event.program_number)
+                    for key, video in self._video_timestamps.items():
+                        if key[0] == event.program_number:
+                            video.reset_parser()
+                    for key, properties in self._video_properties.items():
+                        if key[0] == event.program_number:
+                            properties.reset_parser()
                 for metadata_delay_issue in self._metadata_delay.observe_clock(event):
                     self._add_metadata_delay(metadata_delay_issue)
                 for metadata_std_issue in self._metadata_std.observe_clock(event):
@@ -2642,6 +2676,30 @@ class FMVVerifier:
                     "st0604.timestamp.lock_unknown",
                     f"{video.unlocked_timestamps} embedded timestamp(s) report that "
                     "clock lock is unknown",
+                    requirement="MISB ST 0603.5 §7.4 Time Status",
+                    program_number=key[0],
+                    pid=key[1],
+                )
+            if video.timestamp_order_violations:
+                self._add(
+                    VerificationStatus.ERROR,
+                    "st0603.timestamp.order",
+                    f"{video.timestamp_order_violations} embedded timestamp transition(s) "
+                    "failed to increase and were not declared as reverse discontinuities",
+                    requirement="MISB ST 0603.5 §6",
+                    program_number=key[0],
+                    pid=key[1],
+                )
+            if video.discontinuities:
+                direction = (
+                    f"{video.reverse_discontinuities} reverse and "
+                    f"{video.discontinuities - video.reverse_discontinuities} forward"
+                )
+                self._add(
+                    VerificationStatus.WARNING,
+                    "st0603.timestamp.discontinuity",
+                    f"{video.discontinuities} embedded timestamp(s) signal a clock "
+                    f"discontinuity ({direction})",
                     requirement="MISB ST 0603.5 §7.4 Time Status",
                     program_number=key[0],
                     pid=key[1],
