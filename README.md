@@ -116,7 +116,8 @@ for the exact boundary behind each label.
   SSRC session locking, late/duplicate protection, and bounded packet
   reordering for live receivers; plus RFC 3550 RTCP Sender Reports and exact
   cross-stream RTP/NTP synchronization with SR/RR-first compound validation,
-  SDES CNAME, and sender counters/emission.
+  SDES CNAME, sender counters/emission, and bounded ST 0804/RFC 4566 SDP
+  description read/write for VLC and other MP2T receivers.
 - ST 1001.1 audio profile validation for MPEG-1 Layer II, MPEG-2 Layer II, and
   MPEG-2 AAC-LC, with Layer II/ADTS header inspection and channel configuration.
 - Exact 27 MHz PCR/OPCR decoding and program-aware clock events. Unchanged
@@ -496,7 +497,9 @@ for chunk in remuxed_chunks:
 ```
 
 The application supplies the PCR-synchronized 90 kHz transmission clock. RTCP
-Sender Reports can align separately transported video and metadata streams.
+Sender Reports can align separately transported video and metadata streams;
+`MPEG2TransportSessionDescription` can generate the SDP file used to configure
+a compatible receiver.
 See [RTP transport](https://stanag4609.readthedocs.io/en/latest/RTP_TRANSPORT/) for receiver, reordering, and clock
 synchronization behavior.
 

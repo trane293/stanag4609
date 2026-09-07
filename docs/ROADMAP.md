@@ -124,9 +124,10 @@ important negative-conformance expectations.
   Count-bounded sequence reordering plus strict RTCP Sender Report read/write
   and exact RTP/NTP synchronization are implemented. SR/RR-first compound
   validation, typed SDES CNAME, and packetizer sender counters/emission are
-  implemented too. Adaptive cadence, participant/collision/BYE state, native
-  elementary-stream RTP, and RTSP remain separate profiles, not implied by
-  multiplexed-TS support.
+  implemented too. Bounded RFC 4566 SDP read/write now describes the supported
+  RTP/AVP MP2T destination for VLC and similar receivers. Adaptive cadence,
+  participant/collision/BYE state, native elementary-stream RTP, and RTSP
+  remain separate profiles, not implied by multiplexed-TS support.
 - Extend the implemented bounded MPTS-to-selected-SPTS transform with a
   separate whole-multiplex rewriting API if deployments require unrelated
   programs to remain in the same output transport.

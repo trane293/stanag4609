@@ -8,7 +8,7 @@ Their exact provenance and SHA-256 digests are recorded in
 their redistribution terms have been reviewed.
 
 The exact active and inactive normative-requirement populations for ST 0102.12, ST 0107.5,
-ST 0601.19, ST 0603.5, ST 0604.6, ST 0806.4, ST 0902.8, ST 0903.6, ST 1002.3, ST 1010.3, ST 1201.5, ST 1204.3, ST 1206.1, ST 1303.2, ST 1402.2,
+ST 0601.19, ST 0603.5, ST 0604.6, ST 0804.4, ST 0806.4, ST 0902.8, ST 0903.6, ST 1002.3, ST 1010.3, ST 1201.5, ST 1204.3, ST 1206.1, ST 1303.2, ST 1402.2,
 ST 1601.2, ST 1602.2, ST 1607.2, and MISP-2019.1 are also recorded in the machine-readable
 `references/requirements.json`. Tests bind that inventory to the acquired
 source digests, require every active identifier to appear in its human-readable
@@ -28,6 +28,7 @@ omitting a requirement or minimum metadata group.
 | MISB ST 0801 | 0801.6, 22 February 2018 | Photogrammetry metadata conditionally referenced by MISP-2019.1 | Downloaded from the official historical registry record; implementation depends on the ST 1107 profile and remains pending |
 | MISB ST 0804 | 0804.4, 27 February 2014 | RTP carriage of motion imagery and metadata | Downloaded from official registry |
 | IETF RFC 3550 | July 2003 | RTP/RTCP framing, Sender Reports, and inter-media clock synchronization | Downloaded from official RFC Editor |
+| IETF RFC 768 / 2250 / 3551 / 4566 | Adopted editions cited by ST 0804.4 | UDP, MP2T payload, RTP/AVP static payload assignments, and SDP session description | Downloaded from official RFC Editor |
 | MISB ST 1001 | 1001.1, 27 February 2014 | MISP audio codec profile | Downloaded from official registry |
 | MISB ST 0107 | 0107.5, 21 October 2021 | KLV rules and byte order | Downloaded from official registry |
 | MISB ST 1201 | 1201.5, 24 June 2021 | IMAP integer mapping | Downloaded from official registry |

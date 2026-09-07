@@ -133,6 +133,7 @@ ST0604_DEPRECATED = {
     "ST 0604.4-13",
     "ST 0604.4-14",
 }
+ST0804_ACTIVE = {f"ST 0804.4-{index:02d}" for index in range(1, 29)}
 ST0806_ACTIVE = {f"ST 0806.4-{index:02d}" for index in range(1, 26)}
 ST1002_ACTIVE = {
     "ST 1002.1-02",
@@ -389,6 +390,7 @@ def test_requirement_inventory_names_the_exact_normative_populations() -> None:
         "MISB-ST-0107.5",
         "MISB-ST-0603.5",
         "MISB-ST-0604.6",
+        "MISB-ST-0804.4",
         "MISB-ST-0806.4",
         "MISB-ST-0902.8",
         "MISB-ST-0903.6",
@@ -452,6 +454,11 @@ def test_requirement_inventory_names_the_exact_normative_populations() -> None:
     assert {
         entry["status"] for entry in st0604["inactive_requirements"]
     } == {"deprecated"}
+
+    st0804 = documents["MISB-ST-0804.4"]
+    assert set(st0804["active_requirements"]) == ST0804_ACTIVE
+    assert len(st0804["active_requirements"]) == len(ST0804_ACTIVE) == 28
+    assert st0804["inactive_requirements"] == []
 
     st0806 = documents["MISB-ST-0806.4"]
     assert set(st0806["active_requirements"]) == ST0806_ACTIVE

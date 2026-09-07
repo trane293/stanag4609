@@ -16,6 +16,50 @@
       "redistribution": "distribution-unlimited-per-document"
     },
     {
+      "id": "RFC-2250",
+      "title": "RTP Payload Format for MPEG1/MPEG2 Video",
+      "edition": "RFC 2250",
+      "publication_date": "1998-01",
+      "authoritative_url": "https://www.rfc-editor.org/rfc/rfc2250.txt",
+      "local_file": "RFC2250.txt",
+      "sha256": "8d6cafb0a9f6ab81f968d1d243ed6c73bd606275bd6558fd8f03e9c1c3ae332d",
+      "access": "downloaded-and-validated-official-rfc-editor",
+      "redistribution": "distribution-unlimited-per-document"
+    },
+    {
+      "id": "RFC-3551",
+      "title": "RTP Profile for Audio and Video Conferences with Minimal Control",
+      "edition": "RFC 3551",
+      "publication_date": "2003-07",
+      "authoritative_url": "https://www.rfc-editor.org/rfc/rfc3551.txt",
+      "local_file": "RFC3551.txt",
+      "sha256": "0b1a7fb6582f0e7ab6493f16d897009f0898600e7a9bcc1ee0d155a1c8157e56",
+      "access": "downloaded-and-validated-official-rfc-editor",
+      "redistribution": "distribution-unlimited-per-document"
+    },
+    {
+      "id": "RFC-4566",
+      "title": "SDP: Session Description Protocol",
+      "edition": "RFC 4566",
+      "publication_date": "2006-07",
+      "authoritative_url": "https://www.rfc-editor.org/rfc/rfc4566.txt",
+      "local_file": "RFC4566.txt",
+      "sha256": "3934e9a7476f37489285947e475ef472959391efab7fa4247dcb3233899c1c29",
+      "access": "downloaded-and-validated-official-rfc-editor",
+      "redistribution": "distribution-unlimited-per-document"
+    },
+    {
+      "id": "RFC-768",
+      "title": "User Datagram Protocol",
+      "edition": "RFC 768",
+      "publication_date": "1980-08",
+      "authoritative_url": "https://www.rfc-editor.org/rfc/rfc768.txt",
+      "local_file": "RFC768.txt",
+      "sha256": "7dc8880e1ecef9c3f9da0db4b876a16e96bfa4f0953cc9d977d414f8f680c2f0",
+      "access": "downloaded-and-validated-official-rfc-editor",
+      "redistribution": "distribution-unlimited-per-document"
+    },
+    {
       "id": "STANAG-4609-ED5",
       "title": "NATO Digital Motion Imagery Standard",
       "edition": "5",

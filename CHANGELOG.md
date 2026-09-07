@@ -5,6 +5,13 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Add bounded, dependency-free ST 0804/RFC 4566 SDP read/write for the
+  implemented RTP/AVP MPEG-2 transport-stream profile, including exact source
+  retention, IPv4/IPv6 destinations, multicast TTL validation, public API and
+  VLC-oriented documentation; bind all 28 active ST 0804.4 requirements to
+  the official publication digest and acquire its four missing public RFC
+  dependencies.
+
 - Validate embedded ST 0603 Absolute Time chronology across ST 0604 video
   access units, report declared forward/reverse clock discontinuities, reject
   repeated or unannounced reverse values, and reset comparison at MPEG-TS

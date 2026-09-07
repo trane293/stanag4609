@@ -565,6 +565,11 @@ from stanag4609.transport.rtp import (
     parse_rtp_mpeg2_transport,
     parse_rtp_packet,
 )
+from stanag4609.transport.sdp import (
+    DEFAULT_MAX_SDP_SIZE,
+    MPEG2TransportSessionDescription,
+    parse_mpeg2_transport_sdp,
+)
 from stanag4609.transport.std import (
     ST1402_MAX_METADATA_DELAY,
     MetadataDelayIssue,
@@ -608,6 +613,7 @@ from stanag4609.video import (
 __all__ = [
     "AOI_LOCAL_SET_KEY",
     "COMPOSITE_IMAGING_LOCAL_SET_KEY",
+    "DEFAULT_MAX_SDP_SIZE",
     "DEFAULT_PCR_SCHEDULER_INTERVAL",
     "DEFAULT_TS_PACKETS_PER_DATAGRAM",
     "DELETE",
@@ -757,6 +763,7 @@ __all__ = [
     "MISMMSValidator",
     "MISMMSecurityContext",
     "MISPImageContext",
+    "MPEG2TransportSessionDescription",
     "MPEGAudioChannelMode",
     "MPEGLayerIIHeader",
     "MetadataAction",
@@ -1092,6 +1099,7 @@ __all__ = [
     "packetize_pes_with_layout",
     "parse_aac_adts_header",
     "parse_miis_core_identifier",
+    "parse_mpeg2_transport_sdp",
     "parse_mpeg_layer_ii_header",
     "parse_rtcp_packets",
     "parse_rtcp_sdes_packets",

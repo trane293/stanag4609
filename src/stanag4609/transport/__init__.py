@@ -157,6 +157,11 @@ from stanag4609.transport.rtp import (
     parse_rtp_mpeg2_transport,
     parse_rtp_packet,
 )
+from stanag4609.transport.sdp import (
+    DEFAULT_MAX_SDP_SIZE,
+    MPEG2TransportSessionDescription,
+    parse_mpeg2_transport_sdp,
+)
 from stanag4609.transport.std import (
     H222_TRANSPORT_BUFFER_SIZE,
     ST1402_MAX_METADATA_DELAY,
@@ -195,6 +200,7 @@ from stanag4609.transport.udp import (
 )
 
 __all__ = [
+    "DEFAULT_MAX_SDP_SIZE",
     "DEFAULT_PCR_SCHEDULER_INTERVAL",
     "DEFAULT_TS_PACKETS_PER_DATAGRAM",
     "H222_TRANSPORT_BUFFER_SIZE",
@@ -242,6 +248,7 @@ __all__ = [
     "KLVCarriage",
     "KLVMetadataEvent",
     "LiveTransportTransformer",
+    "MPEG2TransportSessionDescription",
     "MetadataAUCell",
     "MetadataAction",
     "MetadataDecision",
@@ -338,6 +345,7 @@ __all__ = [
     "packetize_pes",
     "packetize_pes_with_layout",
     "parse_metadata_au_cells",
+    "parse_mpeg2_transport_sdp",
     "parse_pat",
     "parse_pes_packet",
     "parse_pmt",

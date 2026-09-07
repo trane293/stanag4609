@@ -8,7 +8,7 @@ import importlib
 import pytest
 
 PUBLIC_API_BASELINE = {
-    "stanag4609": (523, "88116375a5cdd55cd2fcb2fff0d2d0e035cfb676da7a910c258ae1597afbf71a"),
+    "stanag4609": (526, "f2e59102cb949faf1b757e7d1a020431c3c943da6823e61ec55b70bcdb0e68ca"),
     "stanag4609.audio": (
         3,
         "ced310ee79e54be8083985e96966cc082836ddf133725b164a9ded05f69212fd",
@@ -26,8 +26,8 @@ PUBLIC_API_BASELINE = {
         "3de4ed0fabf9d4b0fa5521bc9d1a705cdf4aeba5b52b8734d16d55b1138079d9",
     ),
     "stanag4609.transport": (
-        162,
-        "042b2b54d1408127369cdc86e7b84c5137b98c688f9bc47816fb0e8ddf4d113f",
+        165,
+        "2a25f297e9195679b5a83dea2cc5d8cb54dc1d0d26146c3960200ab295420787",
     ),
 }
 

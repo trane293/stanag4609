@@ -39,6 +39,50 @@ rtp_datagram = packetizer.packetize(
 )
 ```
 
+## Describe the RTP destination with SDP
+
+Many RTP receivers accept an SDP file or an `application/sdp` response instead
+of a hand-entered address, port, payload type, and clock rate. ST 0804.4-28
+selects SDP for this purpose. Generate the implemented multiplexed MPEG-2 TS
+profile directly:
+
+```python
+from pathlib import Path
+
+from stanag4609 import MPEG2TransportSessionDescription
+
+description = MPEG2TransportSessionDescription(
+    destination_address="239.10.20.30",
+    port=5004,
+    origin_address="192.0.2.10",
+    session_id=3978739200,
+    session_version=3978739200,
+    session_name="STANAG 4609 mission",
+    ttl=16,
+)
+Path("mission.sdp").write_bytes(description.encode())
+```
+
+Open `mission.sdp` in VLC or provide the same bytes as an
+`application/sdp` response. The generated media description uses
+`RTP/AVP`, RFC 3551 static payload type 33, and `MP2T/90000`.
+
+Use the bounded parser when discovering a destination supplied by another
+system:
+
+```python
+from stanag4609 import parse_mpeg2_transport_sdp
+
+description = parse_mpeg2_transport_sdp(received_sdp)
+destination = (description.destination_address, description.port)
+```
+
+The parser accepts IPv4 and IPv6, session- or media-level connection data, and
+unknown extension attributes. An unmodified parsed description encodes back to
+its exact source bytes. It intentionally extracts only the already-supported
+multiplexed-TS media profile; native elementary-stream RTP and RTSP session
+control remain separate, unimplemented profiles.
+
 ## Receive safely into the live demuxer
 
 The receiver validates RTP, payload type, TS boundaries, and TS sync. It reports
