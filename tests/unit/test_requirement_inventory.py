@@ -617,6 +617,18 @@ def test_all_locally_acquired_standards_match_unique_manifest_entries() -> None:
             ), document["id"]
 
 
+def test_st0607_manifest_records_registry_governance_not_transport() -> None:
+    standards = {
+        entry["id"]: entry
+        for entry in _load(STANDARDS_MANIFEST)["documents"]
+    }
+
+    st0607 = standards["MISB-ST-0607.5"]
+    assert st0607["title"] == "MISB KLV Metadata Registry and Processes"
+    assert st0607["publication_date"] == "2019-02-28"
+    assert st0607["scope"] == "registry-governance"
+
+
 def test_requirement_manifests_are_included_in_source_distributions() -> None:
     project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 

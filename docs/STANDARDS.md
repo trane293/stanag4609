@@ -38,7 +38,8 @@ omitting a requirement or minimum metadata group.
 | ITU-T H.264 / ISO/IEC 14496-10 | 04/2017 (MISP-adopted); 02/2014 retained | AVC sequence syntax and exact level signalling | Downloaded from ITU |
 | ITU-T H.265 / ISO/IEC 23008-2 | 02/2018 | HEVC sequence syntax | Downloaded from ITU |
 | ITU-T H.222.0 / ISO/IEC 13818-1 | 10/2014 | MPEG-2 Systems and metadata AU syntax | Downloaded from ITU |
-| MISB ST 0603 / 0604 / 0607 | Current registry versions | Time and transport compliance | Downloaded from official registry |
+| MISB ST 0603 / 0604 | Current registry versions | MISP time and embedded video timestamps | Downloaded from official registry |
+| MISB ST 0607 | 0607.5, 28 February 2019 | Governance and administration of the MISB KLV Metadata Registry; not a transport runtime profile | Downloaded from official registry |
 | MISB ST 0102 / 1204 | ST 0102.12 / ST 1204.3 | Nested Security metadata and MIIS identity | Downloaded from official registry |
 | MISB ST 1607 | 1607.2, 11 June 2025 | Segment/Amend metadata hierarchy and security/MISP rules | Downloaded from official registry |
 | MISB ST 0807 | 0807.27 | KLV registry | Downloaded from official registry |
@@ -61,6 +62,13 @@ also cached: ST 298:2009 defines the Universal Label and X.690:2008 defines the
 BER Length and Object Identifier encodings referenced by ST 336:2017. The
 broader MISP image-format, ancillary-data, and MXF SMPTE references are cached
 too, including the historical editions named by retired requirements.
+
+ST 0607.5 is intentionally not presented as implemented transport behavior. It
+governs the MISB registry's Universal Label assignments, symbols, measurement
+units, documentation fields, and key-request process. Runtime key parsing is
+traced to SMPTE ST 336/ST 298, while concrete MISB keys come from ST 0807 and
+the defining metadata standards. Implementing registry administration inside
+this FMV library would add no stream interoperability.
 
 SMPTE EG 28 is an informative glossary and SMPTE RP 210 is a superseded
 metadata-dictionary publication whose role is covered by the cached MISB ST

@@ -5,6 +5,10 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Correct the ST 0607.5 provenance record: the acquired publication governs
+  the MISB KLV Metadata Registry and its processes, not transport-stream
+  compliance, and is intentionally outside the runtime support matrix.
+
 - Add exact ST 0603.5 integer conversion between Nano Precision and Precision
   Time Stamp representations, including official vectors, half-up rounding,
   unsigned bounds, and checksum-bound requirement accounting.

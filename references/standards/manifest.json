@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_on": "2026-09-04",
+  "generated_on": "2026-09-06",
   "registry": "https://nsgreg.nga.mil/misb.jsp",
   "notes": "Local standards files are gitignored pending redistribution review.",
   "documents": [
@@ -118,14 +118,15 @@
     },
     {
       "id": "MISB-ST-0607.5",
-      "title": "KLV Metadata Transport Stream Compliance",
+      "title": "MISB KLV Metadata Registry and Processes",
       "edition": "5",
-      "publication_date": null,
+      "publication_date": "2019-02-28",
       "authoritative_url": "https://nsgreg.nga.mil/misb.jsp",
       "local_file": "ST0607.5.pdf",
       "sha256": "898c6a10d19cae63a3b88a25b79fc8b585337504a60715cc8af23f0329be02c3",
       "access": "downloaded-and-validated",
-      "redistribution": "unknown-do-not-redistribute"
+      "redistribution": "unknown-do-not-redistribute",
+      "scope": "registry-governance"
     },
     {
       "id": "MISB-ST-0801.6",
