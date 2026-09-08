@@ -178,5 +178,9 @@ jobs:
         run: python -m playwright install --with-deps chromium
       - name: Ensure FFmpeg fixture generator is available
         run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Exercise the installed quickstart workflow
+        run: >-
+          pytest -q
+          tests/unit/test_tutorial_examples.py::test_quickstart_generated_stream_matches_documented_timeline
       - name: Exercise playback, seeking, metadata, overlays, map, and SSE
         run: pytest -q -m browser tests/browser
