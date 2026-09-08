@@ -63,7 +63,7 @@ stream on stdin and begins browser playback before end-of-input. See
 With `--udp-output`, the UI can start and stop a paced TS replay to the single
 operator-approved destination. Receive the example in VLC with
 `vlc udp://@:5000`. Live mode tees current input rather than replaying history.
-See [relay the transport stream](PLAYER.md#relay-the-transport-stream-to-another-application)
+See [relay MPEG-TS over UDP](PLAYER.md#relay-mpeg-ts-over-udp)
 for the security boundary and third-party compatibility limits.
 
 Generate both redistributable synthetic demo streams without launching a

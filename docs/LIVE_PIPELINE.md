@@ -170,7 +170,7 @@ with `FrameMetadataCorrelator`. The correlator keeps independent rollover-safe
 PTS epochs per program and supports exact, latest-relevant, or nearest-within-
 tolerance policies. It deliberately does not attach asynchronous KLV because
 ST 1402 does not guarantee its display synchronization. See
-[AI sidecars](AI_SIDECARS.md#correlate-klv-with-decoded-frames) for a complete
+[AI sidecars](AI_SIDECARS.md#decode-frames-and-correlate-metadata) for a complete
 example and offset semantics.
 
 Passing monotonic `at` values to `feed()` and `emit_metadata()` enables the

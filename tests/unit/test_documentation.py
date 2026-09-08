@@ -142,6 +142,26 @@ def test_each_tutorial_points_to_a_runnable_entry_path() -> None:
         assert expected_entries[path.name] in path.read_text(encoding="utf-8")
 
 
+def test_task_guides_keep_assurance_detail_in_reference_pages() -> None:
+    navigation = (ROOT / "mkdocs.yml").read_text(encoding="utf-8")
+    expected_reference_pages = {
+        "Verifier checks": "VERIFIER_CHECKS.md",
+        "Player runtime": "PLAYER_RUNTIME.md",
+    }
+    for title, page in expected_reference_pages.items():
+        assert (ROOT / "docs" / page).is_file(), page
+        assert f"{title}: {page}" in navigation
+
+    limits = {
+        "VERIFIER.md": 1_800,
+        "PLAYER.md": 1_600,
+        "AI_SIDECARS.md": 2_000,
+        "LIVE_PIPELINE.md": 1_800,
+    }
+    for page, maximum in limits.items():
+        assert _prose_word_count(ROOT / "docs" / page) <= maximum, page
+
+
 def test_public_getting_started_pages_install_the_pypi_release() -> None:
     pages = (
         ROOT / "README.md",
@@ -163,7 +183,9 @@ def test_public_getting_started_pages_install_the_pypi_release() -> None:
 def test_every_python_documentation_snippet_compiles_and_imports_public_symbols() -> None:
     blocks = _fenced_blocks("python|py")
 
-    assert len(blocks) >= 75
+    # Guard the fence-discovery regex while allowing the guides to replace
+    # duplicated fragments with links to one canonical example.
+    assert len(blocks) >= 60
     for path, line, snippet in blocks:
         filename = f"{path.relative_to(ROOT)}:{line}"
         tree = compile(
