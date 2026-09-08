@@ -53,7 +53,6 @@ contain focused examples for:
 - PyAV video and audio decoding;
 - Ultralytics, ONNX Runtime, Triton, and JSON/HTTP inference;
 - frame-to-KLV correlation and VMTI emission;
-- GStreamer `appsink` and `appsrc` integration; and
 - the standalone HTML dashboard.
 
 Clone the repository only when you want to run or modify those source examples.

@@ -253,6 +253,6 @@ classification isolation, ingress/session protocols, durable storage, process
 supervision, observability, GPU/model scheduling, multicast interfaces,
 receiver discovery, and production viewer fan-out such as WebRTC/HLS/DASH.
 
-Those concerns should wrap the core rather than fork its parsers. The same tested
-KLV, timing, mutation, and mux behavior can then serve an edge process, cloud
+Those concerns should wrap the core rather than fork its parsers. The same KLV,
+timing, mutation, and mux behavior can then serve an edge process, cloud
 gateway, CLI, or desktop application.

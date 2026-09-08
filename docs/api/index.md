@@ -1,8 +1,7 @@
 # Python API reference
 
 These pages are generated from the type-annotated public docstrings in the
-installed `stanag4609` source tree. They are rebuilt by strict documentation CI
-for every commit and by Read the Docs for each published version.
+installed `stanag4609` source tree.
 
 ## Import policy
 

@@ -95,6 +95,7 @@ nav:
       - Build a video/map dashboard: tutorials/web_dashboard.md
       - Transform and fan out live KLV: tutorials/live_fanout.md
   - User guide:
+      - User guide overview: USER_GUIDE.md
       - Glossary: GLOSSARY.md
       - Reference player: PLAYER.md
       - Live transform pipeline: LIVE_PIPELINE.md
@@ -126,20 +127,20 @@ nav:
       - Audio and geospatial exports: api/media.md
       - Reference player: api/player.md
   - Standards and assurance:
-      - Production readiness: PRODUCTION_READINESS.md
+      - Conformance: CONFORMANCE.md
+      - Standards provenance: STANDARDS.md
+      - Known limitations: LIMITATIONS.md
       - Verify and debug FMV: VERIFIER.md
       - Verifier checks: VERIFIER_CHECKS.md
-      - Security policy: https://github.com/trane293/stanag4609/security/policy
-      - Standards provenance: STANDARDS.md
-      - Conformance: CONFORMANCE.md
-      - Objective completion audit: COMPLETION_AUDIT.md
-      - Known limitations: LIMITATIONS.md
       - Public fixtures: PUBLIC_FIXTURES.md
       - PAT and PMT cadence: PSI_CADENCE.md
       - PCR cadence: PCR_CADENCE.md
       - Metadata STD: METADATA_STD.md
       - Transport rate and PCR restamping: TRANSPORT_RATE.md
       - PTS cadence: PTS_CADENCE.md
+      - Production readiness: PRODUCTION_READINESS.md
+      - Objective completion audit: COMPLETION_AUDIT.md
+      - Security policy: https://github.com/trane293/stanag4609/security/policy
       - Requirement traces:
           - MPEG-2 Systems (H.222.0): requirements/H222.0-2014.md
           - MISP-2019.1 applicability: requirements/MISP-2019.1.md
@@ -172,8 +173,8 @@ nav:
       - Core boundary: adr/0001-core-boundary.md
       - Live transform pipeline: adr/0002-live-transform-pipeline.md
   - Contribute:
-      - Contribution guide: https://github.com/trane293/stanag4609/blob/main/CONTRIBUTING.md
       - Development method: DEVELOPMENT.md
+      - Contribution guide: https://github.com/trane293/stanag4609/blob/main/CONTRIBUTING.md
       - Writing style: STYLE_GUIDE.md
       - Documentation roadmap: DOCUMENTATION.md
       - User-story audit: USER_STORY_AUDIT.md

@@ -61,8 +61,8 @@ arrival time is not a safe substitute for media time.
 
 ## Custom dashboard example
 
-Run the repository's complete plain-HTML dashboard against any readable FMV
-file:
+From a source checkout, run the repository's plain-HTML dashboard against any
+readable FMV file:
 
 ```console
 python examples/web_dashboard/server.py mission.ts

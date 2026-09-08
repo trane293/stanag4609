@@ -73,6 +73,7 @@ def test_documentation_separates_learning_reference_and_project_material() -> No
         "Examples": "EXAMPLES.md",
         "Common pitfalls": "COMMON_PITFALLS.md",
         "Glossary": "GLOSSARY.md",
+        "User guide overview": "USER_GUIDE.md",
         "Writing style": "STYLE_GUIDE.md",
         "User-story audit": "USER_STORY_AUDIT.md",
     }
@@ -253,6 +254,23 @@ def test_every_documented_cli_is_an_installed_entry_point() -> None:
         )
         assert result.returncode == 0, f"{name}: {result.stderr}"
         assert "usage:" in result.stdout.lower(), name
+
+
+def test_every_documented_package_extra_exists() -> None:
+    project = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    optional_dependencies = project.split("[project.optional-dependencies]", 1)[1].split(
+        "\n[", 1
+    )[0]
+    available = set(re.findall(r"(?m)^([a-z0-9-]+)\s*=\s*\[", optional_dependencies))
+    documented = {
+        extra.strip()
+        for path in MARKDOWN_PATHS
+        for group in re.findall(r"stanag4609\[([^]]+)\]", path.read_text(encoding="utf-8"))
+        for extra in group.split(",")
+    }
+
+    assert documented
+    assert documented <= available
 
 
 def test_every_documented_repository_python_script_exists() -> None:
