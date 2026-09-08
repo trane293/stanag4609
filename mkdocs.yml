@@ -176,6 +176,7 @@ nav:
       - Development method: DEVELOPMENT.md
       - Writing style: STYLE_GUIDE.md
       - Documentation roadmap: DOCUMENTATION.md
+      - User-story audit: USER_STORY_AUDIT.md
       - Remaining work: ROADMAP.md
       - Release process: RELEASING.md
 

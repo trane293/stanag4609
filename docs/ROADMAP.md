@@ -4,13 +4,14 @@ This page records the work that remains after the `0.3.0` release.
 It separates verified capability from future scope so another developer or agent
 can resume without reconstructing project history.
 
-## Paused handoff
+## Paused protocol handoff
 
-Development was intentionally paused after commit `bc3f722` while the project
-seeks user traction and representative integration partners. That commit adds
-bounded RFC 4566 SDP descriptions for the implemented ST 0804 MPEG-2
-Transport Stream over RTP profile. The worktree and `origin/main` were clean and
-synchronized at the pause point.
+Protocol feature development was intentionally paused after the RFC 4566 SDP
+increment while the project seeks user traction and representative integration
+partners. Later work reorganized and validated the documentation without
+changing library behavior. The
+[user-story audit](USER_STORY_AUDIT.md) records developer-experience ideas that
+should remain recommendations until implementation resumes.
 
 The next standards investigation was MISB ST 2101, *Core Identifier for Class 1
 and Class 2 Motion Imagery*. Current MISP requirements use it to correlate an
@@ -39,7 +40,7 @@ goal to current evidence. The narrowed library-readiness scope is complete; the
 [production-readiness audit](PRODUCTION_READINESS.md) states the exact verdict
 and the items below are extensions or deployment-specific evidence.
 
-## Proven release baseline
+## Release baseline
 
 - The full unit suite exceeds the configured 90% branch-coverage gate.
 - Public integration tests cover H.264 with asynchronous KLVA, H.264/AAC with
@@ -195,11 +196,12 @@ important negative-conformance expectations.
 
 ## Developer experience and assurance
 
-- Add external-link checking and broader executable documentation snippets to
-  CI. Generated API targets, the shipped player JavaScript syntax, strict site
-  build, and a deterministic Chromium interaction job for playback, seeking,
-  synchronized static/SSE metadata, reconnects, diagnostics, overlays, and map
-  rendering are already gated.
+- Maintain the developer-first documentation structure and its checks for code
+  fences, public imports, shell syntax, installed commands, runnable tutorial
+  programs, screenshots, navigation, API targets, links, and strict site
+  generation. The quickstart's generated-stream workflow now runs through the
+  installed entry point. Add network-dependent external-link checking to CI
+  only if it can distinguish transient failures from broken documentation.
 - Seek authoritative profile evidence before assigning any failure to the sole
   unasserted ImpleoTV PCR/PTS-drift member. Its observed H.264 timing remains
   within ST 1402 §7.4, so a corpus filename is not a conformance requirement.

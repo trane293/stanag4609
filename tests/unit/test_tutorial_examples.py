@@ -7,6 +7,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 from stanag4609.player import scan_transport_file
@@ -45,9 +46,7 @@ def test_ai_to_vmti_tutorial_runs_end_to_end(capsys: Any) -> None:
     asyncio.run(cast(Any, namespace["main"])())
 
     output = capsys.readouterr().out
-    assert "PID=0x0120 PTS=900000" in output
-    assert "targets=[101, 202]" in output
-    assert "KLV_bytes=" in output
+    assert output == "PID=0x0120 PTS=900000 targets=[101, 202] KLV_bytes=429\n"
 
 
 def test_ai_sidecar_ui_exposes_reproducible_player_command(
@@ -132,3 +131,35 @@ def test_web_dashboard_uses_player_asset_contract() -> None:
     assert 'id="map"' in page
     assert 'id="telemetry"' in page
     assert 'id="feed"' in page
+
+
+def test_web_dashboard_prints_the_documented_url(
+    capsys: Any, monkeypatch: Any, tmp_path: Path
+) -> None:
+    namespace = runpy.run_path(str(ROOT / "examples/web_dashboard/server.py"))
+
+    class TestServer:
+        server_port = 8766
+
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args: Any) -> None:
+            pass
+
+        def serve_forever(self) -> None:
+            pass
+
+    assets = SimpleNamespace(root=tmp_path)
+    monkeypatch.setitem(
+        namespace["main"].__globals__,
+        "prepare_player_assets",
+        lambda _source, _temporary: assets,
+    )
+    monkeypatch.setitem(namespace["main"].__globals__, "ThreadingHTTPServer", TestServer)
+
+    assert namespace["main"](["fixture.ts", "--no-open"]) == 0
+    assert capsys.readouterr().out == "FMV dashboard: http://127.0.0.1:8766/\n"

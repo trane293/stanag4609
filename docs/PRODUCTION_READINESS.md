@@ -30,7 +30,7 @@ minor-release evolution follows the guarded policy in
 | AI runtime | a real dependency-installed Ultralytics YOLO CPU prediction and two persistent ByteTrack calls without downloading weights | Pass |
 | UI detections | Chromium tests for video overlays, attributed map and projected geometry, track trails, grouped activity feed, binned interactive timeline, filters, seeking, and live reconnect | Pass |
 | Optional adapters | real PyAV, ONNX Runtime, Ultralytics, and official Triton HTTP/gRPC client gates | Pass |
-| Supply chain | exact-SHA GitHub Actions, read-only default workflow permissions, non-persistent checkout credentials, owner-approved PyPI environment | Pass with the credential migration below |
+| Supply chain | exact-SHA GitHub Actions, read-only default workflow permissions, non-persistent checkout credentials, owner-approved PyPI environment | Pass; Trusted Publishing is the recommended follow-up below |
 | Repository security | secret scanning, push protection, Dependabot alerts/security updates, weekly dependency updates, and pinned CodeQL analysis | Pass |
 | Dependency audit | clean installed Ultralytics/ByteTrack runtime after updating the disposable environment's package installer | Pass |
 | Reference server boundary | loopback default, explicit remote opt-in and trusted hosts, security headers, fixed IP-literal UDP destination, per-process control token | Pass for a localhost reference; hosted deployment remains application-owned |
@@ -39,7 +39,7 @@ The audit deliberately excludes multi-hour soak campaigns because there is not
 yet a suitable representative deployment dataset. That is future deployment
 evidence, not a blocker for the bounded library APIs above.
 
-## One release-operation follow-up
+## Publishing follow-up
 
 The PyPI workflow still uses a long-lived, environment-scoped API token. The
 protected `pypi` environment requires approval by `trane293`, so a pull request
@@ -53,4 +53,3 @@ unreported library-runtime limitation.
 Repeat this audit before a stable `1.0`, after a public-surface change, after a
 new parser accepts attacker-controlled structure, after changing the player
 network boundary, or before claiming a new standard/profile as complete.
-

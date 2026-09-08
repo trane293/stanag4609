@@ -6,6 +6,7 @@ import importlib.metadata
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -73,6 +74,7 @@ def test_documentation_separates_learning_reference_and_project_material() -> No
         "Common pitfalls": "COMMON_PITFALLS.md",
         "Glossary": "GLOSSARY.md",
         "Writing style": "STYLE_GUIDE.md",
+        "User-story audit": "USER_STORY_AUDIT.md",
     }
 
     for title, page in expected_pages.items():
@@ -241,6 +243,16 @@ def test_every_documented_cli_is_an_installed_entry_point() -> None:
     assert documented <= installed.keys()
     for name in documented:
         assert callable(installed[name].load()), name
+        command = Path(sys.executable).with_name(name)
+        assert command.is_file(), name
+        result = subprocess.run(
+            (str(command), "--help"),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"{name}: {result.stderr}"
+        assert "usage:" in result.stdout.lower(), name
 
 
 def test_every_documented_repository_python_script_exists() -> None:

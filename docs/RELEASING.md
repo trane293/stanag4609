@@ -6,22 +6,20 @@ future implementations. `OpenSTANAG` is a suitable umbrella identity for the
 open-source ecosystem, but it is not the Python import name and should not be
 conflated with a future commercial product brand.
 
-## One-time maintainer setup
+## Current publisher configuration
 
-The bootstrap release uses the `PYPI_API_TOKEN` secret scoped to the protected
-`pypi` GitHub environment, as requested by the maintainer. Because it is a
-long-lived credential, replace it with PyPI
-Trusted Publishing after the first release, delete the GitHub secret, and
-revoke the original token. Never put a token in a commit, issue, workflow file,
-or documentation.
+The release workflow currently reads `PYPI_API_TOKEN` from the protected
+`pypi` GitHub environment. Keep that environment restricted to version tags and
+maintainer approval. Never put the token in a commit, issue, workflow file, or
+documentation.
 
-1. Verify the maintainer email and enable two-factor authentication on PyPI.
-2. In the GitHub repository, create an environment named `pypi`.
-   The production environment must name `trane293` as its sole required
-   reviewer and allow deployments only from `v*` version tags. Keep default
-   workflow permissions read-only.
-3. After the bootstrap release, on the PyPI project's **Publishing** page, add
-   this GitHub Trusted Publisher:
+PyPI Trusted Publishing removes the long-lived upload credential. When making
+that migration:
+
+1. Verify the maintainer email and keep two-factor authentication enabled on
+   PyPI.
+2. On the PyPI project's **Publishing** page, add this GitHub Trusted
+   Publisher:
 
    | Field | Value |
    | --- | --- |
@@ -31,15 +29,13 @@ or documentation.
    | Workflow | `publish-to-pypi.yml` |
    | Environment | `pypi` |
 
-4. Remove the `user` and `password` inputs from the PyPI publish action, restore
+3. Remove the `user` and `password` inputs from the PyPI publish action, add
    its `id-token: write` permission, delete the GitHub secret, and revoke the
-   bootstrap token on PyPI.
-5. Import the GitHub repository into Read the Docs as project slug
-   `stanag4609`. The committed `.readthedocs.yaml` installs the `docs` extra and
-   builds the existing Material for MkDocs site.
+   API token on PyPI.
 
-The `stanag4609` PyPI project was created by the `0.1.0a1` bootstrap release.
-Future releases must retain the protected environment gate.
+Read the Docs publishes project slug `stanag4609` from the committed
+`.readthedocs.yaml`, which installs the `docs` extra and builds the Material for
+MkDocs site.
 
 ## Release gates
 
