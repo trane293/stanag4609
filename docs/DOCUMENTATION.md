@@ -1,100 +1,102 @@
-# Documentation roadmap
+# Work on the documentation
 
-Documentation is a release artifact. The hosted site must make the protocol
-library usable by a KLV specialist, a Python application developer, a media
-engineer, and an AI/GIS integrator without requiring them to reverse-engineer
-the tests.
+The documentation is part of the release. A Python developer should be able to
+install the package, complete a workflow, and find the relevant protocol limits
+without reading the source or test suite.
 
-## Information architecture
+Read the [writing style](STYLE_GUIDE.md) before editing a user-facing page.
+
+## Put information in the right place
 
 The site is organized by reader intent:
 
-- **Get started:** installation, a first decode, CLI recipes, and the player.
-- **Work with FMV:** live processing, AI, adapters, audio, web clients, media
-  runtimes, and GIS/OSINT interoperability.
-- **Standards and assurance:** source provenance, requirement traces,
-  conformance scope, fixtures, timing cadence, and limitations.
-- **Architecture:** decisions that explain stable boundaries and tradeoffs.
-- **Contribute:** TDD workflow, review expectations, and documentation work.
+- **Get started** covers installation, the first working stream, workflow
+  selection, common pitfalls, and command discovery.
+- **Tutorials** teach complete tasks with runnable examples.
+- **User guide** explains concepts, choices, and operational behavior.
+- **API reference** documents the public Python surface from docstrings.
+- **Standards and assurance** records editions, requirement traces, evidence,
+  conformance scope, and limitations.
+- **Architecture** explains stable boundaries and runtime design.
+- **Contribute** covers repository development, documentation, and releases.
 
-## Tutorial coverage
+A page should serve one of these purposes. When a tutorial needs conformance
+detail, link to the assurance page instead of embedding the requirement ledger.
+When a user guide needs a signature, link to the API reference.
 
-Tutorials are completed alongside the capability they exercise so every
-copy-paste example stays truthful and testable. The first five end-to-end guides
-cover inspection, FMV creation, AI-to-VMTI, a recorded web dashboard, and live
-transform/fan-out. Remaining gaps are tracked below.
+## Add or change an example
 
-| Tutorial | Required outcome | Status |
-| --- | --- | --- |
-| Inspect recorded FMV | Discover streams, decode KLV, show current state | Complete; public-fixture integration |
-| Read, change, and re-encode ST 0601 | Preserve unknowns and checksum behavior | Guide remains; codec tests exist |
-| Demux, process, and remux live video | Replace/inject KLV while preserving media/audio | Complete; timed integration fixture |
-| Bring your own AI model | Convert model output to VMTI | Complete; executable generic example |
-| Compose AI pipelines | Parallel detectors, sequential fusion/tracking | Complete; graph and overload tests |
-| Deploy PyAV, ONNX, Ultralytics, and Triton | Video decode plus local and remote inference choices | Complete; PyAV codecs, a real ONNX session, real Ultralytics CPU prediction/ByteTrack, and official Triton HTTP/gRPC client objects are dependency-gated |
-| Build a recorded web viewer | Timeline, overlays, metadata panel, map, seeking | Complete; real-FMV browser smoke test |
-| Build a low-latency web viewer | Media gateway plus synchronized side channel | Measured deployment remains |
-| Integrate FFmpeg and GStreamer | Pipes, appsink/appsrc, clocks, EOS, failure | Versioned runtime integration tests remain |
-| Export to GIS/OSINT/FMV tools | GeoJSON, CSV, native transport, adapter patterns | APIs/tutorial complete; product verification remains |
-| Operate and troubleshoot | Metrics, latency, continuity, malformed streams | Observable failure examples remain |
+Small examples may live directly in a page. Include enough setup and imports to
+make the boundary clear. Put multi-step programs under `examples/` and keep the
+documentation focused on how to run them and interpret the result.
 
-## Quality bar
+When an example needs a source checkout, say so before the command. Otherwise,
+show installation from PyPI. The first-run path should use generated or
+redistributable data whenever possible.
 
-Before the first stable release, the documentation must provide:
+Output excerpts should help readers recognize success or diagnose a likely
+failure. Omit temporary paths, incidental byte counts, and long inventories
+unless the workflow depends on them.
 
-- a versioned API reference generated from public docstrings (complete);
-- tested snippets or runnable examples for every primary workflow;
-- architecture and sequence diagrams where timing or fan-out is otherwise hard
-  to understand;
-- screenshots or short captures of the player and overlay states;
-- support matrices for standards, Python, FFmpeg, GStreamer, model runtimes, and
-  verified downstream applications;
-- security and deployment guidance for non-local web services;
-- performance/backpressure recipes and benchmark methodology;
-- glossary, troubleshooting, upgrade, and release notes;
-- accessible light/dark presentation, searchable navigation, stable anchors,
-  link checking, and a strict site build without documentation-validation
-  warnings.
+## Update screenshots
 
-No example may contain a fabricated API, and no interoperability page may
-present “should work” as verified support.
+Screenshots live in `docs/assets/screenshots/` and supplement the surrounding
+text. Use descriptive alt text, capture the current UI from a named fixture,
+and inspect the image at full resolution before committing it.
 
-## Tutorial evidence policy
+The current captures are produced by these workflows:
 
-Tutorials show evidence produced by the repository wherever a visible result
-helps a reader confirm success:
+- the verifier HTML report from `stanag4609-verify --format html`;
+- the reference player from `stanag4609-player`;
+- the custom dashboard from `examples/web_dashboard/server.py`; and
+- the Ultralytics sidecar from `examples/tutorials/ai_sidecar_ui.py`.
 
-- CLI excerpts are copied from the exact documented command and kept compact;
-- UI screenshots come from a runnable repository example using a named,
-  checksum-pinned fixture, never from a mockup;
-- captions identify the fixture and explain any intentionally visible warning
-  or failure;
-- volatile paths may be shortened, but counts, PIDs, timestamps, stream types,
-  and findings are not rewritten; and
-- a behavior change that alters captured output must update its tutorial in the
-  same pull request.
+Fixture identities and download instructions belong in
+[public fixtures](PUBLIC_FIXTURES.md), not in image captions.
 
-The current JPEG captures live in `docs/assets/screenshots/`. Recreate the
-verifier capture by generating its self-contained HTML report; recreate the
-reference-player, custom-dashboard, and AI-sidecar captures by running their
-tutorials against the pinned Esri `Truck.ts` fixture. Before committing, rerun
-the tutorial commands, inspect each image at full size, and run
-`mkdocs build --strict`. Screenshots should supplement accessible text and alt
-text; they must not be the only place a result is documented.
+## Build the site locally
 
-## Build and host
-
-The site is a static MkDocs Material project and can be hosted by any static
-file service.
+From a source checkout:
 
 ```console
 python -m pip install -e '.[docs]'
 mkdocs serve
+```
+
+The development server prints a local URL and reloads changed Markdown. Before
+committing, build with the same strict setting used by CI:
+
+```console
 mkdocs build --strict
 ```
 
-The generated site is written to `site/`, which is intentionally excluded from
-version control. CI builds it strictly on every change, including resolution of
-every API-reference module. Read the Docs publishes the versioned site from the
-committed configuration; remaining external-link checking work is listed in
-[the roadmap](ROADMAP.md).
+The generated site is written to `site/` and is not committed. Read the Docs
+uses `.readthedocs.yaml` to install the documentation extra and publish the
+same MkDocs site.
+
+## Run documentation checks
+
+```console
+pytest -q tests/unit/test_documentation.py tests/unit/test_tutorial_examples.py
+```
+
+These checks compile Python fences, resolve package imports, parse shell fences,
+load documented console entry points, exercise tutorial programs, inspect
+assets, and keep navigation and support summaries consistent. `mkdocs build
+--strict` checks internal links and anchors while resolving every API target.
+
+Run the real-fixture integration tests when a page changes a claim about a
+downloaded recording. Run browser tests when a screenshot or description
+depends on player interaction.
+
+## Review the rendered result
+
+Automated checks cannot judge whether a page flows naturally. Read the rendered
+page from top to bottom and confirm that:
+
+1. the first paragraph tells the reader what the page is for;
+2. the shortest useful path appears before advanced options;
+3. commands can be copied in the environment the page describes;
+4. limitations sit beside the decision they affect;
+5. links lead to deeper detail instead of repeating it; and
+6. headings, tables, screenshots, and code are easy to scan on a narrow window.

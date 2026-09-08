@@ -43,9 +43,8 @@ Prefer an affirmative contract:
 > Supply PCR values from the output clock. Callback time is not the
 > decoder-arrival timestamp.
 
-Avoid arguing with an imagined reader:
-
-> The library does not pretend callback time is the real timestamp.
+Avoid framing the contract as a rebuttal to an imagined reader. State the
+required input or observable behavior directly.
 
 Keep broad certification scope on the conformance pages instead of repeating it
 throughout the learning path.

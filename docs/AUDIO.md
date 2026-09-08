@@ -58,7 +58,7 @@ channel counts, sample counts, and exact durations.
 Install the optional backend with:
 
 ```console
-pip install 'stanag4609[audio-pyav]'
+python -m pip install 'stanag4609[audio-pyav]'
 ```
 
 `PyAVAudioDecoder` creates a direct FFmpeg codec context (`mp2` or `aac`) and
@@ -74,14 +74,7 @@ latest compatible major line for each supported Python: PyAV 16–17 on Python
 bundled for major platforms; see the [official PyAV package](https://pypi.org/project/av/)
 and [codec-context documentation](https://pyav.org/docs/develop/api/codec.html).
 
-The dedicated optional-backend CI job uses actual codec contexts for all three
-ST 1001 formats. The Esri Truck FMV acceptance test carries 6,946 timestamped
-AAC access units through transport demux, PES timing, frame reconstruction, and
-PCM decode, producing 7,112,704 stereo samples at 48 kHz. The supplied
-`Raw_Video.mpeg` additionally provided a 6,215-frame, 149.16-second MPEG-1
-Layer II reconstruction acceptance run.
-
-The adapter intentionally does not mix channels, select an output device, or
-resample. Those are application policies. It also does not parse MPEG-2 Layer
-II multilingual/multichannel extensions, which ST 1001 discourages for
-interoperability.
+The adapter returns decoded frames without choosing an output device, mixing
+channels, or resampling. Apply those policies with PyAV's audio-resampling and
+layout APIs. MPEG-2 Layer II multilingual and multichannel extensions are
+outside the supported ST 1001 profile.

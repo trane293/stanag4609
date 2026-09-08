@@ -17,7 +17,6 @@ Generate a short stream so you can learn the tools without finding test data:
 
 ```console
 stanag4609-demo-samples demo --duration 4
-stanag4609-verify demo/stanag4609-day-demo.ts
 stanag4609-player demo/stanag4609-day-demo.ts
 ```
 

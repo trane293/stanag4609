@@ -38,10 +38,9 @@ integer as `datetime.fromtimestamp(...)` without a leap-second adjustment can
 produce a plausible-looking but incorrect civil time.
 
 The library keeps Item 2's exact wire count available as
-`uas.misp_timestamp_microseconds`. For compatibility, `uas.value(2)` remains an
-aware `datetime` coordinate representing that same unadjusted count. The UTC
-marker on that coordinate is a Python representation detail, not a claim that
-the MISP value is already civil UTC.
+`uas.misp_timestamp_microseconds`. For compatibility, `uas.value(2)` also
+returns an aware `datetime` coordinate for that unadjusted count. Use
+`uas.utc_timestamp()` when you need civil UTC.
 
 ## Decode MISP time as UTC
 

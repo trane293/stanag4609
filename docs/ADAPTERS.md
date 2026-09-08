@@ -33,14 +33,9 @@ API.
 | FFmpeg media remux/player preparation | Implemented | External `ffmpeg` executable |
 | GStreamer element/plugin | Planned | Application bridge today |
 
-“Implemented” means the repository has a public adapter and tests. PyAV, ONNX
-Runtime, and both Triton AsyncIO transports also have dependency-installed CI
-jobs. The ONNX job constructs a real graph and executes it through
-`InferenceSession`; the Triton jobs construct the official HTTP/gRPC input and
-output objects and exercise the complete adapter request against subclassed
-official clients without contacting a server. This does not claim that every
-model architecture, execution provider, server configuration, or downstream
-application has been certified.
+The ONNX and Triton adapters own the stable runtime call boundary. Image
+preprocessing, tensor names and shapes, output decoding, credentials, and
+server configuration remain part of the deployed model contract.
 
 ## Bring any Python model
 
@@ -55,23 +50,24 @@ from stanag4609.sidecar import (
     PixelBoundingBox,
 )
 
-def detect_trucks(context):
-    model_rows = truck_model(context.frame.pixels)
-    return InferenceOutput(
-        detections=tuple(
-            Detection(
-                target_id=row.track_id,
-                bounding_box=PixelBoundingBox(
-                    row.left, row.top, row.right, row.bottom
-                ),
-                confidence=row.confidence,
-                label="truck",
+def truck_stage(truck_model):
+    def detect_trucks(context):
+        model_rows = truck_model(context.frame.pixels)
+        return InferenceOutput(
+            detections=tuple(
+                Detection(
+                    target_id=row.track_id,
+                    bounding_box=PixelBoundingBox(
+                        row.left, row.top, row.right, row.bottom
+                    ),
+                    confidence=row.confidence,
+                    label="truck",
+                )
+                for row in model_rows
             )
-            for row in model_rows
         )
-    )
 
-truck_stage = InferenceStage("trucks", detect_trucks, threaded=True)
+    return InferenceStage("trucks", detect_trucks, threaded=True)
 ```
 
 ## Decode video for any model
@@ -79,7 +75,7 @@ truck_stage = InferenceStage("trucks", detect_trucks, threaded=True)
 Install the optional backend and iterate a file, URL, or file-like object:
 
 ```console
-pip install 'stanag4609[video-pyav]'
+python -m pip install 'stanag4609[video-pyav]'
 ```
 
 ```python
@@ -87,7 +83,7 @@ from stanag4609.sidecar import PyAVFrameSource
 
 for frame in PyAVFrameSource("flight.ts", video_pid=0x101):
     # frame.pixels is a BGR NumPy array; frame.pts uses the 90 kHz TS clock.
-    submit_to_model(frame)
+    print(frame.sequence_number, frame.pts, frame.pixels.shape)
 ```
 
 Set `pixel_format=None` to retain native PyAV `VideoFrame` objects, or select a

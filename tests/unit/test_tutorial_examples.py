@@ -2,13 +2,41 @@ from __future__ import annotations
 
 import asyncio
 import runpy
+import shutil
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
+from stanag4609.player import scan_transport_file
 from stanag4609.sidecar import FrameEnvelope
 
 ROOT = Path(__file__).parents[2]
+
+
+def test_quickstart_generated_stream_matches_documented_timeline(tmp_path: Path) -> None:
+    command = Path(sys.executable).with_name("stanag4609-demo-samples")
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError("documentation checks require FFmpeg")
+    if not command.is_file():
+        raise RuntimeError("documentation checks require installed console entry points")
+
+    result = subprocess.run(
+        (str(command), str(tmp_path / "demo"), "--duration", "4"),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "stanag4609-day-demo.ts: 8 synchronized ST 0601 packets" in result.stdout
+    assert "stanag4609-thermal-demo.ts: 8 synchronized ST 0601 packets" in result.stdout
+
+    timeline = scan_transport_file(tmp_path / "demo" / "stanag4609-day-demo.ts")
+    assert len(timeline.samples) == 8
+    sample = timeline.samples[0]
+    assert f"{sample.time_seconds:.3f}" == "0.010"
+    assert f"{sample.fields['Sensor Latitude']['value']:.5f}" == "49.28270"
+    assert f"{sample.fields['Sensor Longitude']['value']:.5f}" == "-123.12070"
 
 
 def test_ai_to_vmti_tutorial_runs_end_to_end(capsys: Any) -> None:
