@@ -42,6 +42,7 @@ NEWCOMER_PAGES = (
     ROOT / "docs" / "QUICKSTART.md",
     ROOT / "docs" / "WORKFLOWS.md",
 )
+TUTORIAL_PAGES = tuple(sorted((ROOT / "docs" / "tutorials").glob("*.md")))
 
 
 def _fenced_blocks(language_pattern: str) -> list[tuple[Path, int, str]]:
@@ -110,6 +111,35 @@ def test_quickstart_has_a_complete_testable_transport_workflow() -> None:
         "demultiplexed_metadata",
     ):
         assert placeholder not in quickstart
+
+
+def test_tutorials_read_as_tasks_instead_of_release_evidence() -> None:
+    avoided_phrases = (
+        "actual output",
+        "not a broken tutorial",
+        "prove the generated",
+        "regression guarantee",
+        "regression observation",
+    )
+
+    for path in TUTORIAL_PAGES:
+        contents = path.read_text(encoding="utf-8").lower()
+        for phrase in avoided_phrases:
+            assert phrase not in contents, f"{path.name}: {phrase}"
+
+
+def test_each_tutorial_points_to_a_runnable_entry_path() -> None:
+    expected_entries = {
+        "inspect_fmv.md": "stanag4609-verify",
+        "create_fmv.md": "stanag4609-mux-esri",
+        "ai_to_vmti.md": "python examples/tutorials/ai_to_vmti.py",
+        "web_dashboard.md": "python examples/web_dashboard/server.py",
+        "live_fanout.md": "LiveTransportTransformer",
+    }
+
+    assert {path.name for path in TUTORIAL_PAGES} == expected_entries.keys()
+    for path in TUTORIAL_PAGES:
+        assert expected_entries[path.name] in path.read_text(encoding="utf-8")
 
 
 def test_public_getting_started_pages_install_the_pypi_release() -> None:

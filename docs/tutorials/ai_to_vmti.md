@@ -1,31 +1,37 @@
 # Add AI detections as VMTI
 
-This tutorial runs two model-neutral detector branches concurrently, fuses their
-results, and encodes the detections as a timed ST 0601 packet containing ST 0903
-VMTI. It needs no model framework or optional dependency.
+ST 0903 VMTI gives detections a standards-native place in an FMV stream. This
+tutorial starts with a deterministic model-neutral pipeline, then shows how to
+run Ultralytics detection and tracking against a real recording.
+
+The runnable examples live in the project repository. From a source checkout,
+install the development environment and run the dependency-free example:
 
 ```console
+python -m pip install -e '.[dev]'
 python examples/tutorials/ai_to_vmti.py
 ```
 
-The deterministic example prints this actual result:
+It executes two detector branches concurrently, fuses their results, and emits
+a timed ST 0601 packet containing VMTI:
 
 ```text
 PID=0x0120 PTS=900000 targets=[101, 202] KLV_bytes=429
 ```
 
-The target IDs prove that both detector branches reached the ordered fusion
-stage. The final byte count is a regression observation for this example, not a
-fixed ST 0903 packet size.
+The two target IDs come from the vehicle and person branches. Packet length
+depends on the fields and detections that you encode.
 
-## See it in the FMV player
+## Run a real detector in the player
 
-Install the optional local-model runtime, then run YOLO11 against every
-synchronized metadata sample in the checksum-pinned Esri `Truck.ts` fixture:
+Install the local-model and video-decoding extras:
 
 ```console
-pip install 'stanag4609[ai-ultralytics,video-pyav]'
+python -m pip install -e '.[ai-ultralytics,video-pyav]'
 ```
+
+Then run YOLO11 against the Esri `Truck.ts` fixture from the
+[inspection tutorial](inspect_fmv.md):
 
 ```console
 python examples/tutorials/ai_sidecar_ui.py \
@@ -35,101 +41,78 @@ python examples/tutorials/ai_sidecar_ui.py \
   --tracker bytetrack.yaml
 ```
 
-The first run downloads the small YOLO11n weights. The server starts after
-inference and prints the browser URL with an observed result summary:
+Ultralytics downloads the small YOLO11n weights on first use. Inference runs
+before the local server starts; the command then prints its URL and a summary:
 
 ```text
 AI sidecar UI: http://127.0.0.1:8767/ model=yolo11n.pt mode=track detected_frames=488 detections=1155
 ```
 
-Counts can change with model-runtime versions and inference hardware.
-The tutorial decodes the prepared player media through the first-party
-`PyAVFrameSource`, which emits 90 kHz `FrameEnvelope` values directly into the
-same model-neutral interface used by custom, ONNX, HTTP, and Triton stages.
+Detection counts can vary with model and runtime versions. Open the URL, start
+playback, and seek through the recording. Telemetry, map geometry, detection
+boxes, the activity feed, and the class-stacked timeline all follow the same
+media playhead.
 
-Open that URL, start playback, and seek through the video. The player keeps the
-FMV telemetry, map, grouped activity feed, class-stacked detection timeline, and VMTI
-overlays synchronized. Pixel boxes are encoded into ST 0903 and projected into
-the current ST 0601 frame footprint for the map. That ground polygon is a
-bilinear footprint visualization, while a target carrying absolute or
-parent-offset VTarget coordinates is plotted as a separately resolved point.
+![Reference player showing YOLO11 detections encoded as ST 0903](../assets/screenshots/ai-sidecar-player.jpg)
 
-![Reference player showing real YOLO11 detections encoded as ST 0903](../assets/screenshots/ai-sidecar-player.jpg)
+The demo filters COCO car, motorcycle, bus, and truck classes at confidence
+`0.35`. Tracking is enabled by default. Ultralytics ByteTrack IDs become
+positive ST 0903 target IDs, so the same object can retain its identity across
+frames. Use `--inference-mode predict` for independent frames or
+`--tracker botsort.yaml` for BoT-SORT. The `--confidence`, `--image-size`, and
+`--device` options tune inference without changing the VMTI boundary.
 
-*Actual browser capture using the pinned Esri `Truck.ts` fixture and the current
-player. The green boxes are YOLO11n road-vehicle predictions encoded as ST 0903
-VMTI and decoded again by the player; the same observations populate the real
-map, grouped activity feed, class filters, and bounded detection timeline. The
-demo uses COCO car, motorcycle, bus, and truck classes with a `0.35` confidence
-threshold. It is an integration demonstration, not a claim about model
-accuracy.*
+Pixel-space boxes are encoded in VMTI and projected into the current ST 0601
+frame footprint for the map. A target carrying absolute or parent-offset
+coordinates is instead plotted at its resolved ground position.
 
-Tracking is the default and uses Ultralytics ByteTrack with persistent IDs,
-which become positive ST 0903 target IDs. Use `--inference-mode predict` for
-independent batched frames, or `--tracker botsort.yaml` to select Ultralytics'
-BoT-SORT configuration. `--confidence`, `--image-size`, and `--device` tune the
-demo. Replace the weights or adapter for an application model; the VMTI
-encoding and player boundary remain unchanged.
+## Compose a model-neutral pipeline
 
-The earlier dependency-free example deliberately uses small deterministic
-functions so the complete data contract is visible. Replace those functions
-with an Ultralytics, ONNX
-Runtime, Triton, HTTP, or application-specific adapter without changing the
-pipeline or VMTI boundary.
-
-## The processing graph
+The example builds a graph from ordinary sync or async Python callables:
 
 ```python
-graph = Sequential(
-    Parallel(
-        InferenceStage("vehicles", vehicle_detector, threaded=True),
-        InferenceStage("people", person_service, timeout_seconds=0.2),
-        max_concurrency=2,
-    ),
-    InferenceStage("fused", fuse),
-)
-completed = await graph.run(InferenceContext(frame))
+from stanag4609.sidecar import InferenceStage, Parallel, Sequential
+
+
+def build_pipeline(vehicle_detector, person_detector, fuse):
+    return Sequential(
+        Parallel(
+            InferenceStage("vehicles", vehicle_detector, threaded=True),
+            InferenceStage("people", person_detector, timeout_seconds=0.2),
+            max_concurrency=2,
+        ),
+        InferenceStage("fused", fuse),
+    )
 ```
 
-Parallel results merge in declaration order, not completion order. Put dependent
-fusion, tracking, or classification stages after the parallel group. In a live
-system, place decoded frames in `AsyncFrameQueue` with an explicit overload
-policy so slow inference cannot grow memory without bound.
+Parallel results merge in declaration order. Put stages that depend on those
+results, such as fusion or classification, after the parallel group. For live
+input, place frames in `AsyncFrameQueue` and choose an overload policy so slow
+inference cannot grow memory without bound.
 
-## Preserve meaning in VMTI
+`VMTIMetadataEmitter` converts the final detections into `TimedKLVPacket`
+objects. Each detection may carry a stable target ID, half-open pixel box,
+confidence, algorithm ID, and label. Algorithm and ontology local sets let
+downstream consumers understand which model produced a target and what its
+label means.
 
-Each emitted detection has a stable positive target ID, half-open pixel bounding
-box, confidence, algorithm ID, and label. The example declares the algorithms
-and maps `truck` and `person` to packet-scoped ST 0903 ontologies before calling
-`VMTIMetadataEmitter`. This is preferable to shipping only an application label:
-downstream FMV consumers receive standards-native provenance and meaning.
+If the frame was correlated with a source ST 0601 packet, unrelated and unknown
+wire fields are preserved. Otherwise, the emitter can create a minimal
+timestamped parent on an explicitly selected metadata PID.
 
-The emitter produces a `TimedKLVPacket` at the frame PTS. If the frame was
-correlated with a source ST 0601 packet, unrelated and unknown wire fields are
-preserved. Otherwise, as in this example, it creates a minimal timestamped
-parent on the explicitly selected metadata PID.
+## Choose an inference adapter
 
-## Insert the result in transit
+The protocol pipeline is independent of the model runtime:
 
-```python
-timed_klv = emitter(completed)
-batch = transformer.emit_metadata(timed_klv, at=monotonic())
-transport_sink.write(batch.transport)
-```
+- use the built-in Ultralytics adapter for local YOLO prediction or tracking;
+- use ONNX Runtime for a portable local model;
+- use Triton HTTP or gRPC for managed inference; or
+- adapt an application service to the JSON/HTTP boundary.
 
-The output PID must already exist or be declared with
-`additional_metadata_stream` when constructing `LiveTransportTransformer`.
-Use the same `batch.metadata` event for the operator UI or analytics feed; do
-not parse the transformed bytes a second time merely to recover your own result.
+[AI sidecars](../AI_SIDECARS.md) covers queues, frame correlation, adapters,
+metrics, and VMTI emission. The
+[`examples/ai_sidecar`](https://github.com/trane293/stanag4609/tree/main/examples/ai_sidecar)
+directory contains focused examples for each supported runtime.
 
-## Bring a real model
-
-- [AI sidecars](../AI_SIDECARS.md) documents queues, correlation, metrics, and
-  the built-in Ultralytics, ONNX Runtime, Triton, and JSON/HTTP adapters.
-- [`examples/ai_sidecar`](https://github.com/trane293/stanag4609/tree/main/examples/ai_sidecar)
-  contains one executable example per adapter and concern.
-- Keep preprocessing and model-output decoding in the adapter. Keep PTS,
-  correlation, overload policy, and VMTI encoding in the stable library layer.
-
-Model weights, service credentials, retries, and deployment policy are
-intentionally not bundled with the protocol package.
+Keep preprocessing and model-output decoding in the adapter. Keep PTS
+correlation, overload policy, and VMTI encoding in the library pipeline.
