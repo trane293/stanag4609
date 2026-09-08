@@ -35,6 +35,13 @@ BENCHMARK_ASSETS = {
 }
 SOAK_ASSETS = {"live-player-soak-esri-truck.json"}
 MARKDOWN_PATHS = (ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md")))
+NEWCOMER_PAGES = (
+    ROOT / "README.md",
+    ROOT / "docs" / "index.md",
+    ROOT / "docs" / "INSTALLATION.md",
+    ROOT / "docs" / "QUICKSTART.md",
+    ROOT / "docs" / "WORKFLOWS.md",
+)
 
 
 def _fenced_blocks(language_pattern: str) -> list[tuple[Path, int, str]]:
@@ -48,6 +55,61 @@ def _fenced_blocks(language_pattern: str) -> list[tuple[Path, int, str]]:
         for match in pattern.finditer(contents):
             blocks.append((path, contents.count("\n", 0, match.start()) + 1, match.group(1)))
     return blocks
+
+
+def _prose_word_count(path: Path) -> int:
+    contents = path.read_text(encoding="utf-8")
+    without_fences = re.sub(r"```.*?```", "", contents, flags=re.DOTALL)
+    return len(re.findall(r"\b[\w'-]+\b", without_fences))
+
+
+def test_documentation_separates_learning_reference_and_project_material() -> None:
+    navigation = (ROOT / "mkdocs.yml").read_text(encoding="utf-8")
+    expected_pages = {
+        "Installation": "INSTALLATION.md",
+        "Choose a workflow": "WORKFLOWS.md",
+        "Examples": "EXAMPLES.md",
+        "Common pitfalls": "COMMON_PITFALLS.md",
+        "Glossary": "GLOSSARY.md",
+        "Writing style": "STYLE_GUIDE.md",
+    }
+
+    for title, page in expected_pages.items():
+        assert (ROOT / "docs" / page).is_file(), page
+        assert f"{title}: {page}" in navigation
+
+
+def test_newcomer_pages_are_concise_and_avoid_audit_voice() -> None:
+    assert _prose_word_count(ROOT / "README.md") <= 1_600
+    assert _prose_word_count(ROOT / "docs" / "index.md") <= 900
+    assert _prose_word_count(ROOT / "docs" / "QUICKSTART.md") <= 900
+
+    avoided_phrases = (
+        "actual output",
+        "not a claim",
+        "does not pretend",
+        "proof of",
+        "proven release",
+    )
+    for path in NEWCOMER_PAGES:
+        contents = path.read_text(encoding="utf-8").lower()
+        for phrase in avoided_phrases:
+            assert phrase not in contents, f"{path.name}: {phrase}"
+
+
+def test_quickstart_has_a_complete_testable_transport_workflow() -> None:
+    quickstart = (ROOT / "docs" / "QUICKSTART.md").read_text(encoding="utf-8")
+
+    assert "stanag4609-demo-samples demo --duration 4" in quickstart
+    assert 'scan_transport_file("demo/stanag4609-day-demo.ts")' in quickstart
+    assert "stanag4609-player demo/stanag4609-day-demo.ts" in quickstart
+    for placeholder in (
+        "for network_chunk in source",
+        "frame_misp_microseconds",
+        "deployment_facts",
+        "demultiplexed_metadata",
+    ):
+        assert placeholder not in quickstart
 
 
 def test_public_getting_started_pages_install_the_pypi_release() -> None:
@@ -71,7 +133,7 @@ def test_public_getting_started_pages_install_the_pypi_release() -> None:
 def test_every_python_documentation_snippet_compiles_and_imports_public_symbols() -> None:
     blocks = _fenced_blocks("python|py")
 
-    assert len(blocks) >= 100
+    assert len(blocks) >= 75
     for path, line, snippet in blocks:
         filename = f"{path.relative_to(ROOT)}:{line}"
         tree = compile(

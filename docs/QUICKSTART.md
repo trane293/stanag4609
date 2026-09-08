@@ -1,193 +1,112 @@
 # Quickstart
 
-This tour parses a live byte stream, reconstructs sparse ST 0601 state, and
-shows the two ready-to-run ways to inspect a complete transport file.
+In a few minutes you will generate an FMV stream, open it in the reference
+player, and read its synchronized metadata from Python.
 
-## Install
+## 1. Install the package
+
+`stanag4609` requires Python 3.10 or newer. The demo and player also require
+[FFmpeg](https://ffmpeg.org/download.html) on your `PATH`.
 
 ```console
+python -m venv .venv
+source .venv/bin/activate
 python -m pip install stanag4609
 ```
 
-Install only the optional integrations an application needs:
+On Windows PowerShell, activate the environment with
+`.venv\Scripts\Activate.ps1`.
+
+## 2. Generate a sample stream
 
 ```console
-python -m pip install 'stanag4609[audio-pyav,ai-onnx]'
+stanag4609-demo-samples demo --duration 4
 ```
 
-## Parse arbitrarily chunked KLV
+This creates day and thermal MPEG transport streams in `demo/`. Each file has
+H.264 video, a Layer II audio channel, and synchronized ST 0601 metadata.
 
-`KLVStreamParser` retains incomplete keys and values between calls. Call
-`finish()` when a finite stream ends so truncation cannot pass silently.
+Expected output:
+
+```text
+.../demo/stanag4609-day-demo.ts: 8 synchronized ST 0601 packets
+.../demo/stanag4609-thermal-demo.ts: 8 synchronized ST 0601 packets
+```
+
+## 3. Open the player
+
+```console
+stanag4609-player demo/stanag4609-day-demo.ts
+```
+
+The command opens a local page with video, current metadata, and a map. Stop the
+server with Ctrl-C.
+
+You can also generate and open a temporary demo in one command:
+
+```console
+stanag4609-player --demo thermal
+```
+
+## 4. Read the synchronized timeline
+
+Create `read_timeline.py` next to the `demo/` directory:
 
 ```python
-from stanag4609 import KLVStreamParser, ST0601_KEY, decode_uas_local_set
+from stanag4609.player import scan_transport_file
 
-parser = KLVStreamParser(key_prefix=ST0601_KEY)
+timeline = scan_transport_file("demo/stanag4609-day-demo.ts")
+sample = timeline.samples[0]
 
-for network_chunk in source:
-    for packet in parser.feed(network_chunk):
-        uas = decode_uas_local_set(packet)
-        print(uas.value(2), uas.value(13), uas.value(14))
-
-parser.finish()
+print(f"metadata samples: {len(timeline.samples)}")
+print(f"first sample: {sample.time_seconds:.3f} seconds")
+print(f"sensor latitude: {sample.fields['Sensor Latitude']['value']:.5f}")
+print(f"sensor longitude: {sample.fields['Sensor Longitude']['value']:.5f}")
 ```
 
-When producer facts are available, make otherwise-unobservable conformance
-rules executable. This checks both the shared metadata time of birth and the
-shortest IMAP length that retains the sensor's declared half-metre precision:
+Run it:
 
-```python
-from stanag4609 import (
-    ST0601ValidationContext,
-    VMTIValidationContext,
-    decode_uas_local_set,
-)
-
-validation = ST0601ValidationContext(
-    metadata_birth_timestamp=frame_misp_microseconds,
-    imap_system_precisions={104: 0.5},
-    vmti_context=VMTIValidationContext(
-        vmti_frame_timestamp=detector_frame_misp_microseconds,
-        frame_period_microseconds=1_000_000 / 30,
-        frame_width=1920,
-        frame_height=1080,
-    ),
-)
-uas = decode_uas_local_set(packet, context=validation)
+```console
+python read_timeline.py
 ```
 
-Item 2 is continuous MISP time, not UTC/POSIX time. Convert deliberately when
-an application needs civil time, using packet Item 136 or a trusted historical
-leap-second value:
+Expected output:
 
-```python
-utc = uas.utc_timestamp()  # Uses Item 136 and optional Item 137.
-raw_misp_microseconds = uas.misp_timestamp_microseconds
-
-# If Item 136 is absent, the caller must supply the value for this instant.
-utc = uas.utc_timestamp(leap_seconds=mission_leap_seconds)
+```text
+metadata samples: 8
+first sample: 0.010 seconds
+sensor latitude: 49.28270
+sensor longitude: -123.12070
 ```
 
-See [MISP and UTC timestamps](TIMESTAMPS.md) before creating Item 2 from a
-Python `datetime`; assigning a POSIX timestamp directly produces the wrong
-instant even though the wire value is structurally valid.
+`scan_transport_file()` demultiplexes the transport, decodes its KLV packets,
+reconstructs ST 0601 Report-on-Change state, and maps metadata time to the media
+timeline. Each sample also contains diagnostics, overlay geometry, and GeoJSON
+features when the stream provides the required fields.
 
-The same facts can be selected per packet in a live MPEG-TS decoder. The
-provider receives both the demultiplexed PES event and complete lossless KLV
-packet, so an application can key negotiated precision or capture metadata by
-program, PID, service, time, or packet identity without global mutable state:
+## Try your own file
 
-```python
-from stanag4609 import MetadataStreamDecoder, ST0601ValidationContext
+Inspect a finite MPEG transport stream from the command line:
 
-def st0601_context(event, packet):
-    facts = deployment_facts[(event.program_number, event.pid)]
-    return ST0601ValidationContext(
-        metadata_birth_timestamp=facts.birth_time_for(packet),
-        imap_system_precisions=facts.imap_precisions,
-    )
-
-decoder = MetadataStreamDecoder(st0601_context_provider=st0601_context)
-for pes_event in demultiplexed_metadata:
-    for metadata_event in decoder.feed(pes_event):
-        consume(metadata_event.decoded)
+```console
+stanag4609-verify mission.ts
 ```
 
-Returning `None` explicitly means no external facts are available for that
-packet. Invalid provider values fail rather than silently disabling contextual
-validation.
+Exit status `0` means the selected checks passed. Status `1` means verification
+completed and found errors. Status `2` means the input or command configuration
+could not be read.
 
-For Item 74, the enclosing Item 2 timestamp becomes the VMTI parent timestamp.
-This detects a missing embedded timestamp when the detector processed a
-different frame and rejects parent-relative target offsets that are more than
-two frame periods stale.
-
-Coded values remain integer-compatible while exposing the names and component
-fields defined by ST 0601:
-
-```python
-from stanag4609 import (
-    GenericFlagData,
-    LaserPRFCode,
-    PlatformStatus,
-    WeaponLoad,
-)
-
-assert uas.value(125) is PlatformStatus.EGRESS
-assert uas.value(47) & GenericFlagData.IMAGE_INVALID
-
-load: WeaponLoad = uas.value(60)
-print(load.station_number, load.substation_number,
-      load.weapon_type, load.weapon_variant)
-
-# Raises ValueError: every digit must be in 1..8, with three or four digits.
-LaserPRFCode(1809)
-```
-
-This typed surface covers the icing, field-of-view, operational, positioning,
-platform-status, sensor-control, legacy weapon, and Laser PRF coded items.
-Existing comparisons, JSON serializers, and integer-oriented applications
-continue to see integer-compatible values.
-
-When producing a fixed mapped field that defines the ST 0601 `Out of Range`
-sentinel, a numeric measurement beyond the representable physical domain is
-encoded as that sentinel rather than clipped or rejected:
-
-```python
-from stanag4609 import SpecialValue, encode_field_value
-
-assert encode_field_value(6, 25.0) == encode_field_value(
-    6, SpecialValue.OUT_OF_RANGE
-)
-```
-
-Other invalid values still fail. Supply `SpecialValue.OFF_EARTH` explicitly for
-an applicable geospatial item because the encoder cannot infer whether an
-invalid coordinate means an off-earth observation or bad producer data.
-
-ST 0601 uses Report-on-Change: many packets intentionally omit unchanged
-values. Reconstruct the receiver-visible view when presenting current state.
-
-```python
-from stanag4609 import ReportOnChangeState
-
-state = ReportOnChangeState()
-for packet in klv_packets:
-    snapshot = state.observe(packet)
-    print(snapshot.value(13), snapshot.value(14), snapshot.expired_tags)
-```
-
-## Inspect a transport stream
-
-For visual inspection, launch the bundled localhost-only reference player. It
-uses FFmpeg to prepare browser-compatible media while the Python demuxer builds
-the synchronized metadata timeline.
+Open the same file in the player:
 
 ```console
 stanag4609-player mission.ts
-stanag4609-player mission.ts --stream-metadata
-stanag4609-player - --live
 ```
 
-The second form replays telemetry incrementally through a bounded SSE channel
-and resynchronizes it when the browser seeks, pauses, stalls, or changes speed.
-The third form reads TS bytes from stdin, incrementally transcodes media into
-one-second fragmented MP4 units, and delivers live metadata through SSE; it
-does not wait for the source to end.
+## Next steps
 
-For data workflows, export one JSON feature collection per metadata update:
-
-```console
-stanag4609-export-geojson mission.ts metadata.geojsonl
-```
-
-The output is line-delimited GeoJSON, so consumers can process it incrementally
-without loading the entire mission into memory.
-
-## Continue
-
-- Use [the live pipeline](LIVE_PIPELINE.md) to change KLV in flight.
-- Use [AI sidecars](AI_SIDECARS.md) to correlate decoded frames and emit VMTI.
-- Use [the adapter guide](ADAPTERS.md) to keep third-party dependencies outside
-  the core.
+- [Choose a workflow](WORKFLOWS.md) for inspection, live processing, AI, web,
+  or GIS applications.
+- Follow the [examples](EXAMPLES.md) for complete programs.
+- Read [common pitfalls](COMMON_PITFALLS.md) before handling timestamps or
+  sparse metadata.
+- Browse the [Python API](api/index.md) when you know which module you need.

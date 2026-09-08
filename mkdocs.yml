@@ -82,17 +82,21 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Get started:
+      - Installation: INSTALLATION.md
       - Quickstart: QUICKSTART.md
+      - Choose a workflow: WORKFLOWS.md
+      - Examples: EXAMPLES.md
+      - Common pitfalls: COMMON_PITFALLS.md
       - Command line: CLI.md
-      - Reference player: PLAYER.md
-      - Performance benchmarks: BENCHMARKS.md
   - Tutorials:
       - Inspect and debug FMV: tutorials/inspect_fmv.md
       - Create FMV from video and CSV: tutorials/create_fmv.md
       - Add AI detections as VMTI: tutorials/ai_to_vmti.md
       - Build a video/map dashboard: tutorials/web_dashboard.md
       - Transform and fan out live KLV: tutorials/live_fanout.md
-  - Work with FMV:
+  - User guide:
+      - Glossary: GLOSSARY.md
+      - Reference player: PLAYER.md
       - Live transform pipeline: LIVE_PIPELINE.md
       - AI and VMTI sidecars: AI_SIDECARS.md
       - Adapter guide: ADAPTERS.md
@@ -105,6 +109,7 @@ nav:
       - RTP transport: RTP_TRANSPORT.md
       - GeoJSON streams: GEOJSON.md
       - Ecosystem interoperability: ECOSYSTEM.md
+      - Performance benchmarks: BENCHMARKS.md
   - API reference:
       - Overview: api/index.md
       - Stability policy: API_STABILITY.md
@@ -167,6 +172,7 @@ nav:
   - Contribute:
       - Contribution guide: https://github.com/trane293/stanag4609/blob/main/CONTRIBUTING.md
       - Development method: DEVELOPMENT.md
+      - Writing style: STYLE_GUIDE.md
       - Documentation roadmap: DOCUMENTATION.md
       - Remaining work: ROADMAP.md
       - Release process: RELEASING.md
