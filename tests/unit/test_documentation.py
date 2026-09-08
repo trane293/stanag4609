@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import ast
 import importlib
+import importlib.metadata
 import json
 import re
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,6 +34,111 @@ BENCHMARK_ASSETS = {
     "live-player-night-flight-ir.json",
 }
 SOAK_ASSETS = {"live-player-soak-esri-truck.json"}
+MARKDOWN_PATHS = (ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md")))
+
+
+def _fenced_blocks(language_pattern: str) -> list[tuple[Path, int, str]]:
+    pattern = re.compile(
+        rf"^```(?:{language_pattern})\s*\n(.*?)^```\s*$",
+        re.MULTILINE | re.DOTALL,
+    )
+    blocks: list[tuple[Path, int, str]] = []
+    for path in MARKDOWN_PATHS:
+        contents = path.read_text(encoding="utf-8")
+        for match in pattern.finditer(contents):
+            blocks.append((path, contents.count("\n", 0, match.start()) + 1, match.group(1)))
+    return blocks
+
+
+def test_public_getting_started_pages_install_the_pypi_release() -> None:
+    pages = (
+        ROOT / "README.md",
+        ROOT / "docs" / "index.md",
+        ROOT / "docs" / "QUICKSTART.md",
+        ROOT / "docs" / "tutorials" / "inspect_fmv.md",
+    )
+
+    for path in pages:
+        contents = path.read_text(encoding="utf-8")
+        assert "python -m pip install stanag4609" in contents, path
+
+    for path in pages[1:]:
+        contents = path.read_text(encoding="utf-8")
+        assert "pip install -e" not in contents, path
+        assert "git clone git@github.com:trane293/stanag4609.git" not in contents, path
+
+
+def test_every_python_documentation_snippet_compiles_and_imports_public_symbols() -> None:
+    blocks = _fenced_blocks("python|py")
+
+    assert len(blocks) >= 100
+    for path, line, snippet in blocks:
+        filename = f"{path.relative_to(ROOT)}:{line}"
+        tree = compile(
+            snippet,
+            filename,
+            "exec",
+            flags=ast.PyCF_ONLY_AST | ast.PyCF_ALLOW_TOP_LEVEL_AWAIT,
+        )
+        assert isinstance(tree, ast.Module)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "stanag4609" or alias.name.startswith("stanag4609."):
+                        importlib.import_module(alias.name)
+            elif isinstance(node, ast.ImportFrom) and node.module and (
+                node.module == "stanag4609" or node.module.startswith("stanag4609.")
+            ):
+                module = importlib.import_module(node.module)
+                for alias in node.names:
+                    if alias.name != "*":
+                        qualified_name = f"{node.module}.{alias.name}"
+                        assert hasattr(module, alias.name), f"{filename}: {qualified_name}"
+
+
+def test_every_console_documentation_snippet_has_valid_shell_syntax() -> None:
+    blocks = _fenced_blocks("console|bash|sh|shell")
+
+    assert len(blocks) >= 70
+    for path, line, snippet in blocks:
+        result = subprocess.run(
+            ("bash", "-n"),
+            input=snippet,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode == 0, f"{path.relative_to(ROOT)}:{line}: {result.stderr}"
+
+
+def test_every_documented_cli_is_an_installed_entry_point() -> None:
+    documented = {
+        match.group(1)
+        for _path, _line, snippet in _fenced_blocks("console|bash|sh|shell")
+        for match in re.finditer(r"(?m)^\s*(stanag4609-[a-z0-9-]+)\b", snippet)
+    }
+    installed = {
+        entry_point.name: entry_point
+        for entry_point in importlib.metadata.entry_points(group="console_scripts")
+        if entry_point.name.startswith("stanag4609-")
+    }
+
+    assert documented
+    assert documented <= installed.keys()
+    for name in documented:
+        assert callable(installed[name].load()), name
+
+
+def test_every_documented_repository_python_script_exists() -> None:
+    references = {
+        match.group(1)
+        for _path, _line, snippet in _fenced_blocks("console|bash|sh|shell")
+        for match in re.finditer(r"(?m)^\s*python\s+((?:examples|scripts)/[^\s\\]+\.py)\b", snippet)
+    }
+
+    assert references
+    for reference in references:
+        assert (ROOT / reference).is_file(), reference
 
 
 def test_every_api_reference_page_is_in_navigation() -> None:

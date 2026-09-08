@@ -1,24 +1,40 @@
 # Inspect and debug an FMV recording
 
-This tutorial downloads the project's checksum-pinned public fixtures, inventories
-their streams, explains conformance findings, and opens one in the reference
-player. It requires FFmpeg for browser playback.
+This tutorial installs the released package, downloads an independently authored
+public FMV recording, inventories its streams, explains conformance findings,
+and opens it in the reference player. It requires FFmpeg for browser playback.
 
-## Install the development checkout
+## Install the PyPI release
 
 ```console
-git clone git@github.com:trane293/stanag4609.git
-cd stanag4609
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[dev]'
-python scripts/fetch_public_fixtures.py
+python -m pip install stanag4609
 ```
 
-The MPEG files are written under the ignored `samples/private/` directory.
-They are not committed to Git. The fetcher validates the exact source archive or
-file before installing it; see [public fixtures](../PUBLIC_FIXTURES.md) for the
-recorded identities and expected contents.
+No repository checkout is needed. Confirm the installed command and package
+version before processing a mission:
+
+```console
+stanag4609-verify --help
+python -c 'from importlib.metadata import version; print(version("stanag4609"))'
+```
+
+The output examples below use Esri's publicly downloadable `Truck.ts`. Download
+the source archive from the [Esri item page](https://www.arcgis.com/home/item.html?id=55ec6f32d5e342fcbfba376ca2cc409a),
+extract `FMV tutorial data/Truck.ts`, and place it at
+`samples/private/esri-fmv/Truck.ts`. The expected file is 103,211,436 bytes with
+SHA-256
+`8667276b2c2fb36baa089b00e3978f55893cacf6e0d8f6e6d480bb934747cc79`.
+See [public fixtures](../PUBLIC_FIXTURES.md) for provenance, identities, and the
+source-checkout helper used by repository integration tests.
+
+To try the player immediately without downloading third-party footage, generate
+and open the project-authored CC0 demonstration stream instead:
+
+```console
+stanag4609-player --demo day
+```
 
 ## Verify structure and conformance
 

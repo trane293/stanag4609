@@ -6,13 +6,13 @@ shows the two ready-to-run ways to inspect a complete transport file.
 ## Install
 
 ```console
-python -m pip install -e .
+python -m pip install stanag4609
 ```
 
 Install only the optional integrations an application needs:
 
 ```console
-python -m pip install -e '.[audio-pyav,ai-onnx]'
+python -m pip install 'stanag4609[audio-pyav,ai-onnx]'
 ```
 
 ## Parse arbitrarily chunked KLV

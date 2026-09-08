@@ -84,19 +84,22 @@ See the [requirement-level conformance matrix](CONFORMANCE.md),
 
 </div>
 
-## Install for development
+## Install
 
 ```console
-git clone git@github.com:trane293/stanag4609.git
-cd stanag4609
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[dev,docs]'
+python -m pip install stanag4609
 ```
 
-The published core will have no required third-party Python dependencies.
-Optional extras add documentation, codec, and model-runtime integrations only
-when an application selects them.
+That installs the released dependency-free core and all eight `stanag4609-*`
+commands. Add only the optional integrations an application needs, for example:
+
+```console
+python -m pip install 'stanag4609[video-pyav,ai-ultralytics]'
+```
+
+Python 3.10 or newer is required. Developers changing the project should use
+the editable environment in the [development guide](DEVELOPMENT.md); cloning
+the repository is not required to use the released library.
 
 ## Choose a path
 
