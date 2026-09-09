@@ -109,7 +109,7 @@ def combine_miis_uuids(identifiers: Iterable[UUID]) -> UUID:
     for identifier in components:
         validate_miis_uuid(identifier)
     source = "".join(identifier.hex.upper() for identifier in components).encode("utf-8")
-    combined = bytearray(hashlib.sha1(source).digest()[:16])
+    combined = bytearray(hashlib.sha1(source, usedforsecurity=False).digest()[:16])
     combined[6] = (combined[6] & 0x0F) | 0x50
     combined[8] = (combined[8] & 0x3F) | 0x80
     identifier = UUID(bytes=bytes(combined))
@@ -447,7 +447,8 @@ def decode_miis_core_identifier_xml(data: str | bytes) -> MIISCoreIdentifier:
     if forbidden_markup:
         raise DecodeError("ST 1204 XML DTD and entity declarations are forbidden")
     try:
-        root = ElementTree.fromstring(data)
+        # Input is capped at 64 KiB above and DTD/entity markup is rejected.
+        root = ElementTree.fromstring(data)  # nosec B314
     except (ElementTree.ParseError, UnicodeError) as error:
         raise DecodeError(f"invalid ST 1204 XML document: {error}") from error
     if root.tag != _MIIS_XML_ROOT:
