@@ -5,6 +5,8 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+## 0.4.0 - 2026-09-08
+
 - Add bounded, dependency-free ST 0804/RFC 4566 SDP read/write for the
   implemented RTP/AVP MPEG-2 transport-stream profile, including exact source
   retention, IPv4/IPv6 destinations, multicast TTL validation, public API and
