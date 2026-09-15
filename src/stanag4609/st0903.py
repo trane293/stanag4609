@@ -10,7 +10,13 @@ from enum import IntEnum
 from fractions import Fraction
 from typing import Any
 
-from stanag4609.errors import ChecksumError, DecodeError, NeedMoreData, TruncatedData
+from stanag4609.errors import (
+    ChecksumError,
+    DecodeError,
+    LimitExceeded,
+    NeedMoreData,
+    TruncatedData,
+)
 from stanag4609.imap import IMAPB, IMAPSpecialValue
 from stanag4609.klv.ber import (
     decode_ber_length,
@@ -1224,7 +1230,9 @@ def _parse_target_series(data: bytes, *, max_targets: int) -> tuple[VTarget, ...
     cursor = 0
     while cursor < len(data):
         if len(targets) >= max_targets:
-            raise DecodeError(f"ST 0903 target series exceeds configured maximum {max_targets}")
+            raise LimitExceeded(
+                f"ST 0903 target series exceeds configured maximum {max_targets}"
+            )
         pack_start = cursor
         try:
             pack_length, length_used = decode_ber_length(data, cursor, max_value=len(data) - cursor)

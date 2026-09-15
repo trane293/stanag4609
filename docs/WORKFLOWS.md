@@ -23,6 +23,18 @@ Use `scan_transport_file()` when you need a presentation-ready timeline. Use
 `TransportDemuxer` and `MetadataStreamDecoder` when your application needs each
 transport event as it arrives.
 
+Set an application target ceiling when VMTI comes from an untrusted stream:
+
+```python
+from stanag4609 import MetadataStreamDecoder
+
+decoder = MetadataStreamDecoder(max_vmti_targets=256)
+```
+
+The ceiling applies to both standalone ST 0903 and VMTI embedded in ST 0601
+Item 74. A packet above the limit raises `LimitExceeded` before the decoder
+allocates more than 256 targets, even when field decoding uses `PRESERVE`.
+
 Start with the [quickstart](QUICKSTART.md), then read the [ST 0601 API](api/st0601.md)
 and [transport API](api/transport.md).
 

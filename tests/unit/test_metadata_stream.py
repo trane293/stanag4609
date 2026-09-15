@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from uuid import UUID
 
 import pytest
 
@@ -15,6 +16,13 @@ from stanag4609.st0601 import (
     UASLocalSet,
     encode_uas_local_set,
 )
+from stanag4609.st0903 import (
+    DetectionStatus,
+    VMTILocalSet,
+    VTargetData,
+    encode_vmti_local_set,
+)
+from stanag4609.st1204 import MIISCoreIdentifier
 from stanag4609.transport.demux import PESStreamEvent, StreamKind, TransportDemuxer
 from stanag4609.transport.metadata import (
     asynchronous_klv_stream,
@@ -57,6 +65,97 @@ def _muxer(
 def _demux(output: bytes, *, max_pes_length: int = 100_000) -> list[PESStreamEvent]:
     events = TransportDemuxer(max_pes_length=max_pes_length).feed(output)
     return [event for event in events if isinstance(event, PESStreamEvent)]
+
+
+def _vmti_packet(*, standalone: bool, target_count: int = 2) -> bytes:
+    targets = tuple(
+        VTargetData(identifier, {23: DetectionStatus.INACTIVE})
+        for identifier in range(1, target_count + 1)
+    )
+    values: dict[int, object] = {4: 6}
+    if standalone:
+        values.update(
+            {
+                2: 1_700_000_000_000_000,
+                11: 12.5,
+                12: 10.0,
+                13: MIISCoreIdentifier(
+                    version=1,
+                    minor_id=UUID("01020304-0506-4708-890a-0b0c10111213"),
+                ),
+            }
+        )
+    vmti = encode_vmti_local_set(values, targets=targets, standalone=standalone)
+    if standalone:
+        return vmti
+    return encode_uas_local_set(
+        {
+            2: 1_700_000_000_000_000,
+            65: 19,
+            74: vmti,
+        }
+    )
+
+
+def _transport_vmti(packet: bytes, *, synchronous: bool) -> list[PESStreamEvent]:
+    muxer = _muxer(synchronous=synchronous)
+    output = b"".join(muxer.program_tables())
+    if synchronous:
+        output += b"".join(muxer.mux_sync_klv(0x102, packet, pts=90_000))
+    else:
+        output += b"".join(
+            muxer.mux_async_klv(0x102, packet, max_pes_payload=19)
+        )
+    return _demux(output)
+
+
+@pytest.mark.parametrize("standalone", [False, True])
+@pytest.mark.parametrize("synchronous", [False, True])
+def test_metadata_decoder_rejects_vmti_above_application_target_limit(
+    standalone: bool,
+    synchronous: bool,
+) -> None:
+    events = _transport_vmti(
+        _vmti_packet(standalone=standalone),
+        synchronous=synchronous,
+    )
+    decoder = MetadataStreamDecoder(max_vmti_targets=1)
+
+    with pytest.raises(LimitExceeded, match="configured maximum 1"):
+        for event in events:
+            decoder.feed(event)
+
+
+@pytest.mark.parametrize("standalone", [False, True])
+def test_metadata_decoder_accepts_vmti_at_application_target_limit(
+    standalone: bool,
+) -> None:
+    events = _transport_vmti(
+        _vmti_packet(standalone=standalone),
+        synchronous=False,
+    )
+    decoder = MetadataStreamDecoder(max_vmti_targets=2)
+
+    decoded = [item for event in events for item in decoder.feed(event)]
+
+    vmti = decoded[0].decoded if standalone else decoded[0].decoded.value(74)
+    assert isinstance(vmti, VMTILocalSet)
+    assert [target.target_id for target in vmti.targets] == [1, 2]
+
+
+def test_metadata_decoder_target_limit_is_not_weakened_by_preserve_mode() -> None:
+    events = _transport_vmti(
+        _vmti_packet(standalone=False),
+        synchronous=False,
+    )
+    decoder = MetadataStreamDecoder(
+        max_vmti_targets=1,
+        field_decoding=FieldDecodingMode.PRESERVE,
+    )
+
+    with pytest.raises(LimitExceeded, match="configured maximum 1"):
+        for event in events:
+            decoder.feed(event)
 
 
 def test_async_klv_spanning_pes_packets_becomes_one_typed_event() -> None:
@@ -585,15 +684,18 @@ def test_complete_sync_klv_is_decoded_without_fragment_state() -> None:
 
 
 @pytest.mark.parametrize(
-    "kwargs, message",
+    "kwargs, error, message",
     [
-        ({"max_klv_value_length": -1}, "max_klv_value_length"),
-        ({"max_access_unit_length": 0}, "max_access_unit_length"),
-        ({"max_services_per_pid": 0}, "max_services_per_pid"),
+        ({"max_klv_value_length": -1}, ValueError, "max_klv_value_length"),
+        ({"max_access_unit_length": 0}, ValueError, "max_access_unit_length"),
+        ({"max_services_per_pid": 0}, ValueError, "max_services_per_pid"),
+        ({"max_vmti_targets": 0}, ValueError, "max_vmti_targets"),
+        ({"max_vmti_targets": True}, TypeError, "max_vmti_targets"),
+        ({"max_vmti_targets": 1.5}, TypeError, "max_vmti_targets"),
     ],
 )
 def test_metadata_stream_decoder_validates_bounds(
-    kwargs: dict[str, int], message: str
+    kwargs: dict[str, object], error: type[Exception], message: str
 ) -> None:
-    with pytest.raises(ValueError, match=message):
-        MetadataStreamDecoder(**kwargs)
+    with pytest.raises(error, match=message):
+        MetadataStreamDecoder(**kwargs)  # type: ignore[arg-type]

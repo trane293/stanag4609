@@ -12,7 +12,7 @@ from types import MappingProxyType
 from typing import Any, Literal
 from uuid import UUID
 
-from stanag4609.errors import ChecksumError, DecodeError, NeedMoreData
+from stanag4609.errors import ChecksumError, DecodeError, LimitExceeded, NeedMoreData
 from stanag4609.imap import IMAPB, IMAPSpecialValue, imapa_length
 from stanag4609.klv.ber import (
     decode_ber_length,
@@ -2830,6 +2830,7 @@ def _decode_field(
     definition: FieldDefinition,
     *,
     vmti_context: VMTIValidationContext | None = None,
+    max_vmti_targets: int = 100_000,
 ) -> DecodedField:
     if not item.value:
         if item.tag in {1, 2, 65, 100, 101, 102}:
@@ -2909,6 +2910,7 @@ def _decode_field(
         value = decode_vmti_local_set(
             item.value,
             standalone=False,
+            max_targets=max_vmti_targets,
             context=vmti_context,
         )
     elif definition.kind == "miis":
@@ -4225,6 +4227,7 @@ def decode_uas_local_set(
     require_version: bool = True,
     field_decoding: FieldDecodingMode = FieldDecodingMode.STRICT,
     context: ST0601ValidationContext | None = None,
+    max_vmti_targets: int = 100_000,
 ) -> UASLocalSet:
     """Decode one ST 0601 Universal KLV packet and its known fields.
 
@@ -4232,11 +4235,19 @@ def decode_uas_local_set(
     individual known field cannot be decoded. The raw item remains in
     ``local_set`` and a diagnostic is added to ``issues``; checksum, required
     tags, singleton rules, and Local Set structure remain strict.
+
+    ``max_vmti_targets`` bounds target allocation in an embedded ST 0903 Item
+    74. Exceeding it is always a hard resource-limit error, including in
+    ``PRESERVE`` mode.
     """
     if not isinstance(field_decoding, FieldDecodingMode):
         raise TypeError("field_decoding must be a FieldDecodingMode")
     if context is not None and not isinstance(context, ST0601ValidationContext):
         raise TypeError("context must be an ST0601ValidationContext or None")
+    if isinstance(max_vmti_targets, bool) or not isinstance(max_vmti_targets, int):
+        raise TypeError("max_vmti_targets must be an integer")
+    if max_vmti_targets < 1:
+        raise ValueError("max_vmti_targets must be positive")
     packet = data if isinstance(data, KLVPacket) else _parse_single_packet(data)
     if packet.key != ST0601_KEY:
         raise DecodeError(
@@ -4320,9 +4331,12 @@ def decode_uas_local_set(
                     item,
                     definition,
                     vmti_context=vmti_context if item.tag == 74 else None,
+                    max_vmti_targets=max_vmti_targets,
                 )
             )
         except DecodeError as error:
+            if item.tag == 74 and isinstance(error, LimitExceeded):
+                raise
             if field_decoding is FieldDecodingMode.STRICT:
                 raise
             issues.append(

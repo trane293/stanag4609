@@ -5,6 +5,11 @@ the pre-1.0 minor version and package classifier communicate API maturity.
 
 ## Unreleased
 
+- Add an application-configurable `max_vmti_targets` resource ceiling to the
+  public metadata stream decoder and recognized-KLV decode path. The limit
+  applies before standalone or ST 0601-embedded ST 0903 target allocation and
+  remains a hard `LimitExceeded` boundary in tolerant field-decoding mode.
+
 ## 0.4.0 - 2026-09-08
 
 - Add bounded, dependency-free ST 0804/RFC 4566 SDP read/write for the

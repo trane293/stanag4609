@@ -81,13 +81,22 @@ def decode_known_klv(
     field_decoding: FieldDecodingMode = FieldDecodingMode.STRICT,
     ontology_resolver: OntologyResolver | None = None,
     st0601_context: ST0601ValidationContext | None = None,
+    max_vmti_targets: int = 100_000,
 ) -> Any:
-    """Decode a recognized MISB Universal Set, or return ``None`` if unknown."""
+    """Decode a recognized MISB Universal Set, or return ``None`` if unknown.
+
+    ``max_vmti_targets`` bounds target allocation for standalone ST 0903 and
+    ST 0903 embedded in ST 0601 Item 74.
+    """
 
     if st0601_context is not None and not isinstance(
         st0601_context, ST0601ValidationContext
     ):
         raise TypeError("st0601_context must be an ST0601ValidationContext or None")
+    if isinstance(max_vmti_targets, bool) or not isinstance(max_vmti_targets, int):
+        raise TypeError("max_vmti_targets must be an integer")
+    if max_vmti_targets < 1:
+        raise ValueError("max_vmti_targets must be positive")
     vmti_context = (
         VMTIValidationContext(ontology_resolver=ontology_resolver)
         if ontology_resolver is not None
@@ -118,9 +127,14 @@ def decode_known_klv(
             packet,
             field_decoding=field_decoding,
             context=context,
+            max_vmti_targets=max_vmti_targets,
         )
     if packet.key == VMTI_KEY:
-        return decode_vmti_local_set(packet, context=vmti_context)
+        return decode_vmti_local_set(
+            packet,
+            max_targets=max_vmti_targets,
+            context=vmti_context,
+        )
     return None
 
 
@@ -139,6 +153,7 @@ class MetadataStreamDecoder:
         max_klv_value_length: int = 64 * 1024 * 1024,
         max_access_unit_length: int = 64 * 1024 * 1024,
         max_services_per_pid: int = 256,
+        max_vmti_targets: int = 100_000,
         field_decoding: FieldDecodingMode = FieldDecodingMode.STRICT,
         validate_sequence: bool = True,
         ontology_resolver: OntologyResolver | None = None,
@@ -150,6 +165,10 @@ class MetadataStreamDecoder:
             raise ValueError("max_access_unit_length must be positive")
         if not 1 <= max_services_per_pid <= 256:
             raise ValueError("max_services_per_pid must be between 1 and 256")
+        if isinstance(max_vmti_targets, bool) or not isinstance(max_vmti_targets, int):
+            raise TypeError("max_vmti_targets must be an integer")
+        if max_vmti_targets < 1:
+            raise ValueError("max_vmti_targets must be positive")
         if not isinstance(field_decoding, FieldDecodingMode):
             raise TypeError("field_decoding must be a FieldDecodingMode")
         if not isinstance(validate_sequence, bool):
@@ -165,6 +184,7 @@ class MetadataStreamDecoder:
         self.max_klv_value_length = max_klv_value_length
         self.max_access_unit_length = max_access_unit_length
         self.max_services_per_pid = max_services_per_pid
+        self.max_vmti_targets = max_vmti_targets
         self.field_decoding = field_decoding
         self.validate_sequence = validate_sequence
         self.ontology_resolver = ontology_resolver
@@ -495,6 +515,7 @@ class MetadataStreamDecoder:
                 field_decoding=self.field_decoding,
                 ontology_resolver=self.ontology_resolver,
                 st0601_context=st0601_context,
+                max_vmti_targets=self.max_vmti_targets,
             ),
             source=source,
             validation_context=st0601_context,
